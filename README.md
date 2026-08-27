@@ -40,6 +40,9 @@
 | [`data/ingredient-dictionary.csv`](data/ingredient-dictionary.csv) | 재료 정규화 사전 시드 (표기 47개 → 표준 40종) |
 | [`data/unit-notation.csv`](data/unit-notation.csv) | 수량·단위 표기 실측 정리 |
 | [`data/사전조사.xlsx`](data/사전조사.xlsx) | 위 두 CSV의 원본 + AI 원가 모델 (수식 포함) |
+| [`db/seed_dictionary.sql`](db/seed_dictionary.sql) | **자동 생성.** 위 CSV → `ingredient` · `ingredient_alias` 시드 |
+| [`tools/build_dictionary_seed.py`](tools/build_dictionary_seed.py) | 사전 CSV → 시드 SQL 생성 (`--check` 검증만, `--sqlite` 방언) |
+| [`tools/verify_seed.py`](tools/verify_seed.py) | 스키마 + 시드를 실제 DB에 올려보는 검증 |
 | [`tools/accuracy_test.py`](tools/accuracy_test.py) | 이미지 파싱 정확도 측정. 1패스 vs 2패스 비교 (`--compare`) |
 | [`tools/truth.example.json`](tools/truth.example.json) | 정확도 테스트 정답지 양식 |
 
@@ -108,7 +111,7 @@ BAD   별로였다                          → 숨김
 
 | # | 작업 | 완료 판단 |
 |---|---|---|
-| 1 | 사전 시드 투입 (`ingredient`, `ingredient_alias`) | CSV 47개 표기 반영 |
+| 1 | 사전 시드 투입 (`ingredient`, `ingredient_alias`) | CSV 47개 표기 반영 — `tools/verify_seed.py` 통과 |
 | 2 | 수집 → 파싱 → 저장 한 바퀴 | 캡처 1장이 레시피로 저장됨 |
 | 3 | 매핑 배치 → `unmapped_term` 확인 | **미분류 10% 안쪽이면 통과** |
 | 4 | 홈 추천 화면 | 화면 하나로 앱이 켜짐 |
@@ -118,6 +121,28 @@ BAD   별로였다                          → 숨김
 
 3번에서 미분류가 절반 넘으면 사전을 더 키우고 4번으로 넘어가지 않는다.
 로그인·결제·온보딩은 전부 나중이다.
+
+### 사전 시드 돌리는 법
+
+```bash
+python tools/build_dictionary_seed.py     # CSV -> db/seed_dictionary.sql
+python tools/verify_seed.py               # 스키마+시드를 실제로 올려보고 확인
+```
+
+`build_dictionary_seed.py` 는 CSV를 두 갈래로 나눠 넣는다.
+표기 원문이 표준명과 같으면 `ingredient`, 다르면 `ingredient_alias` 로 간다.
+
+두 가지는 **자동으로 채우지 않는다.**
+
+- `대체가능군` 중 상위어(삼겹살→돼지고기)만 `parent_id` 로 올린다.
+  설탕↔올리고당 같은 대체군은 v1 스키마에 넣을 곳이 없어 리포트로만 뽑는다.
+- `간장`·`액젓`처럼 종류가 불명한 표기는 `kind='AMBIGUOUS'` 로 남긴다.
+  매핑 코드가 이걸 보고 **확정이 아니라 '확인 필요'로 보내야 한다.**
+  말없이 진간장으로 확정하면 국간장 있는 집이 진간장을 사러 간다.
+
+`shelf_life_days` · `aisle` 은 CSV에 없어서 카테고리 단위 대략치를 깔았고,
+일부러 짧게 잡았다 — 있는데 없다고 하는 쪽이 회복 가능한 오류다(원칙 ②).
+실사용하며 `UPDATE` 로 조정한다.
 
 **4주 뒤 판정 기준: 마트에서 실제로 열었는가.** 이거 하나만 본다.
 
