@@ -1,0 +1,31 @@
+# 사전 시드가 실제로 DB 에 올라가는지 매 푸시마다 확인한다.
+# API 키가 필요 없다 — 시드 도구는 표준 라이브러리만 쓴다.
+
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  seed:
+    name: 사전 시드
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # CSV -> SQL 변환이 CSV 와 어긋나지 않는지, 별칭 충돌은 없는지
+      - name: 사전 생성 검증
+        run: python tools/build_dictionary_seed.py --check
+
+      # schema.sql + seed_dictionary.sql 을 실제 DB(SQLite)에 올려본다.
+      # 커밋된 SQL 이 CSV 보다 낡았으면 여기서 실패한다.
+      - name: 스키마 + 시드 적재
+        run: python tools/verify_seed.py
+
+      - name: 문법 검사
+        run: python -m compileall -q tools

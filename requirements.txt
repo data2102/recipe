@@ -1,0 +1,11 @@
+# 파싱 정확도 테스트(tools/accuracy_test.py) 전용.
+#
+# 사전 시드 도구는 여기 없어도 돌아간다 — build_dictionary_seed.py 와
+# verify_seed.py 는 표준 라이브러리(csv, sqlite3)만 쓴다. 일부러 그렇게 짰다.
+# 사전 투입에 API 키가 필요하면 CI 에서 돌릴 수 없다.
+#
+#   pip install -r requirements.txt
+#   export ANTHROPIC_API_KEY=sk-ant-...
+#   python tools/accuracy_test.py --compare
+
+anthropic>=1.1,<2
