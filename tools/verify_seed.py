@@ -13,9 +13,10 @@ DB 는 메모리 SQLite 다. 설치가 필요 없고, 덤으로 schema.sql 이 �
 적어둔 SQLite 치환 규칙이 실제로 맞는지도 같이 검증된다.
 운영 대상은 PostgreSQL 이므로 여기서 통과했다고 PG 검증이 끝난 건 아니다.
 
-마지막에 실측 정답지(tools/truth.example.json)의 재료를 사전에 넣어보고
-미분류율을 뽑는다. 개발 순서 3번의 통과 기준이 "미분류 10% 안쪽"이라,
-사전을 더 키워야 하는지를 여기서 미리 볼 수 있다.
+마지막에 예시 정답지(tools/truth.example.json)의 재료를 사전에 넣어보고
+얼마나 걸리는지 본다. 조회가 실제로 되는지 보려는 것이지 사전 크기를
+판정하려는 게 아니다 — 레시피 한 건짜리 예시라 표본이 못 된다.
+사전을 늘릴 근거는 개발 순서 3번에서 unmapped_term 이 준다.
 """
 
 import json
@@ -32,36 +33,6 @@ from build_dictionary_seed import (  # noqa: E402
 SCHEMA = ROOT / "db" / "schema.sql"
 TRUTH = ROOT / "tools" / "truth.example.json"
 
-
-# ---------------------------------------------------------------------
-#  문서에 "실측된 변형"으로 적혀 있는 표기들.
-#
-#  일부러 CSV 를 다시 읽지 않고 손으로 옮겨 적었다. 사전(CSV)과 문서가
-#  갈라지면 이 목록이 그걸 잡아낸다 — 같은 파일에서 읽으면 못 잡는다.
-#
-#  여기서 걸리는 표기는 둘 중 하나로 정리한다.
-#    (1) 실제로 본 표기다      -> data/ingredient-dictionary.csv 에 추가
-#    (2) 문서가 앞서 나간 것이다 -> 문서에서 뺀다
-#  자동으로 CSV 에 밀어넣지 않는다. CSV 는 실측 기록이지 추론 결과가 아니다.
-# ---------------------------------------------------------------------
-DOCUMENTED_ALIASES = {
-    # README 7장 "실측된 변형 (사전 시드)" 표
-    "고추가루": ("고춧가루", "README 7장"),
-    "고추가룻": ("고춧가루", "README 7장"),
-    "간마늘":   ("다진마늘", "README 7장"),
-    "다진 마늘": ("다진마늘", "README 7장"),
-    "조선간장": ("국간장",   "README 7장"),
-    "미림":     ("맛술",     "README 7장"),
-    "토장":     ("된장",     "README 7장"),
-    "신김치":   ("김치",     "README 7장"),
-    "묵은지":   ("김치",     "README 7장"),
-    "리챔":     ("런천미트", "README 7장"),
-    "스팸":     ("런천미트", "README 7장"),
-    # tools/accuracy_test.py 의 채점용 ALIAS
-    "맛소금":     ("소금",   "accuracy_test.py"),
-    "대패삼겹살": ("삼겹살", "accuracy_test.py"),
-    "대패삼겹":   ("삼겹살", "accuracy_test.py"),
-}
 
 
 # ---------------------------------------------------------------------
@@ -198,23 +169,7 @@ def main():
         else:
             print(f"  {pad(raw, 12)}-> (사전에 없음)")
 
-    # --- 5. 문서와 사전이 갈라졌는가 ----------------------------------
-    known = set()
-    for name, in db.execute("SELECT canonical_name FROM ingredient"):
-        known.add(name)
-    for alias, in db.execute("SELECT alias FROM ingredient_alias"):
-        known.add(alias)
-
-    gaps = [(a, c, src) for a, (c, src) in DOCUMENTED_ALIASES.items()
-            if a not in known]
-    if gaps:
-        print(f"\n[불일치] 문서에는 있는데 사전에 없는 표기 {len(gaps)}개")
-        for a, c, src in sorted(gaps, key=lambda x: x[2]):
-            print(f"  {pad(a, 12)}-> {pad(c, 10)}{src}")
-        print("  이 표기가 든 레시피는 미분류로 떨어진다.")
-        print("  CSV 에 넣든 문서에서 빼든, 한쪽으로 맞춰야 한다.")
-
-    # --- 6. 실측 정답지로 미분류율 미리보기 ---------------------------
+    # --- 5. 예시 정답지로 사전 적중률 보기 ----------------------------
     if TRUTH.exists():
         truth = json.loads(TRUTH.read_text(encoding="utf-8"))
         lookup = {}
@@ -241,13 +196,13 @@ def main():
 
         if total:
             rate = unmapped / total
-            print(f"\n실측 정답지 재료 {total}개 중 미분류 {unmapped}개"
+            print(f"\n예시 정답지 재료 {total}개 중 미분류 {unmapped}개"
                   f" = {rate:.0%}")
             if misses:
                 print(f"  미분류: {', '.join(misses)}")
-            print("  (개발 순서 3번 통과 기준은 10% 안쪽)")
-            if rate > 0.10:
-                print("  --> 사전을 더 키워야 한다. 4번으로 넘어가지 말 것.")
+            print("  참고용이다. 레시피 한 건짜리 예시 파일이라 이 수치로")
+            print("  사전을 늘릴지 판단하지 않는다 — 개발 순서 3번에서")
+            print("  실제 저장한 레시피의 unmapped_term 을 보고 정한다.")
 
     db.close()
 
