@@ -40,6 +40,8 @@
 | [`data/ingredient-dictionary.csv`](data/ingredient-dictionary.csv) | 재료 정규화 사전 시드 (표기 47개 → 표준 40종) |
 | [`data/unit-notation.csv`](data/unit-notation.csv) | 수량·단위 표기 실측 정리 |
 | [`data/사전조사.xlsx`](data/사전조사.xlsx) | 위 두 CSV의 원본 + AI 원가 모델 (수식 포함) |
+| [`pipeline/`](pipeline/) | **수집 → 파싱 → 정규화 → 저장.** 3층이 각각 모듈이다 |
+| [`tools/verify_pipeline.py`](tools/verify_pipeline.py) | 파이프라인 한 바퀴 검증 (API 키 불필요) |
 | [`db/seed_dictionary.sql`](db/seed_dictionary.sql) | **자동 생성.** 위 CSV → `ingredient` · `ingredient_alias` 시드 |
 | [`tools/build_dictionary_seed.py`](tools/build_dictionary_seed.py) | 사전 CSV → 시드 SQL 생성 (`--check` 검증만, `--sqlite` 방언) |
 | [`tools/verify_seed.py`](tools/verify_seed.py) | 스키마 + 시드를 실제 DB에 올려보는 검증 |
@@ -112,7 +114,7 @@ BAD   별로였다                          → 숨김
 | # | 작업 | 완료 판단 |
 |---|---|---|
 | 1 | 사전 시드 투입 (`ingredient`, `ingredient_alias`) | CSV 47개 표기 반영 — `tools/verify_seed.py` 통과 |
-| 2 | 수집 → 파싱 → 저장 한 바퀴 | 캡처 1장이 레시피로 저장됨 |
+| 2 | 수집 → 파싱 → 저장 한 바퀴 | 캡처 1장이 레시피로 저장됨 — `tools/verify_pipeline.py` 통과 |
 | 3 | 매핑 배치 → `unmapped_term` 확인 | **미분류 10% 안쪽이면 통과** |
 | 4 | 홈 추천 화면 | 화면 하나로 앱이 켜짐 |
 | 5 | 메뉴 고르기 → 장보기 목록 | 3단 분류가 나옴 |
@@ -143,6 +145,40 @@ python tools/verify_seed.py               # 스키마+시드를 실제로 올려
 `shelf_life_days` · `aisle` 은 CSV에 없어서 카테고리 단위 대략치를 깔았고,
 일부러 짧게 잡았다 — 있는데 없다고 하는 쪽이 회복 가능한 오류다(원칙 ②).
 실사용하며 `UPDATE` 로 조정한다.
+
+### 파이프라인 돌리는 법
+
+화면은 아직 없다. CLI 로 한 바퀴가 돈다.
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+python -m pipeline ingest 캡처.png                  # 수집 → 파싱 → 정규화 → 저장
+python -m pipeline ingest --text "$(cat 레시피.txt)"
+python -m pipeline show 1                           # 저장된 레시피
+python -m pipeline unmapped                         # 사전에 없어서 못 붙인 표기
+
+python tools/verify_pipeline.py                     # 한 바퀴 검증 (API 키 불필요)
+```
+
+로컬 DB 는 `.local/recipe.db` (SQLite), 원본 이미지는 `.local/originals/` 에
+쌓인다. 둘 다 커밋하지 않는다. 스키마는 `db/schema.sql` 하나만 관리하고
+SQLite 치환은 실행 시점에 한다 — 스키마가 두 벌이 되면 갈라진다.
+
+**3층을 한 덩어리로 만들지 마라.** 파서(`parser.py`)는 원문을 옮기기만 하고,
+표준화(`normalize.py`)는 사전을 보는 코드가 한다. 이렇게 나눠야 사전이
+좋아질 때 재파싱 없이 재매핑만 하면 된다.
+
+저장 결과는 화면 ③ 의 3분류로 나온다.
+
+```
+[확정]      양파, 고춧가루(고추가루), 다진 마늘
+[확인 필요] 간장     '간장' 은 종류가 불명하다. '진간장' 인가요?
+            무       1번 단계 - 냄비에 무 먼저 깔아주고
+[미분류]    묵은지, 고등어
+```
+
+미분류는 `unmapped_term` 에 쌓인다. **사전은 이 목록을 보고 키운다** —
+문서에 적힌 별칭을 미리 채워넣지 않는다.
 
 **4주 뒤 판정 기준: 마트에서 실제로 열었는가.** 이거 하나만 본다.
 

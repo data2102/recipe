@@ -27,5 +27,10 @@ jobs:
       - name: 스키마 + 시드 적재
         run: python tools/verify_seed.py
 
+      # 수집->파싱->정규화->저장 한 바퀴. LLM 자리에 가짜 응답을 넣으므로
+      # 여기도 API 키가 필요 없다.
+      - name: 파이프라인 한 바퀴
+        run: python tools/verify_pipeline.py
+
       - name: 문법 검사
-        run: python -m compileall -q tools
+        run: python -m compileall -q tools pipeline

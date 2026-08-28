@@ -15,13 +15,22 @@
 python tools/build_dictionary_seed.py            # CSV -> db/seed_dictionary.sql
 python tools/build_dictionary_seed.py --check    # 검증만 (파일 안 씀)
 python tools/verify_seed.py                      # 스키마+시드를 실제 DB 에 올려 확인
+python tools/verify_pipeline.py                  # 파이프라인 한 바퀴 (API 키 불필요)
+
+python -m pipeline ingest 캡처.png               # 수집 → 파싱 → 정규화 → 저장
+python -m pipeline show 1
+python -m pipeline unmapped                      # 사전에 없어서 못 붙인 표기
 
 pip install -r requirements.txt                  # accuracy_test.py 용
 python tools/accuracy_test.py --compare          # 1패스 vs 2패스 (API 키 필요)
 ```
 
-시드 도구 두 개는 표준 라이브러리만 쓴다. 의존성을 추가하지 마라 —
-API 키 없이 CI 에서 돌아가는 게 이 도구들의 조건이다.
+시드 도구와 두 검증 스크립트는 표준 라이브러리만 쓴다. 의존성을 추가하지
+마라 — API 키 없이 CI 에서 돌아가는 게 이것들의 조건이다. 파이프라인 검증은
+LLM 자리에 가짜 응답을 넣어 배관만 잰다 (파서 정확도는 accuracy_test.py 몫).
+
+`pipeline/` 의 3층을 한 덩어리로 합치지 마라. 파서는 원문을 옮기기만 하고
+표준화는 코드가 사전을 보고 한다. 합치면 사전이 좋아질 때마다 재파싱해야 한다.
 
 ---
 
@@ -40,7 +49,10 @@ API 키 없이 CI 에서 돌아가는 게 이 도구들의 조건이다.
 개발 순서(README) 기준.
 
 - **1번 사전 시드 — 완료.** 표기 47개 → 표준 40종 + 별칭 11개
-- **2번 수집→파싱→저장 — 대기.** 스택 미정. 정해야 착수 가능
+- **2번 수집→파싱→저장 — 완료.** `pipeline/` + CLI. 화면은 없다
+- **3번 매핑 배치 → unmapped_term 확인 — 진행 가능.** 실제 레시피를 넣어야 한다.
+  통과 기준은 미분류 10% 안쪽
+- **4번 홈 추천 화면 — 대기.** 스택 미정
 
 ### 이미 내린 결정 — 되돌리지 마라
 
@@ -56,4 +68,5 @@ API 키 없이 CI 에서 돌아가는 게 이 도구들의 조건이다.
 ### 열려 있는 결정
 
 **스택.** 안드로이드 우선, PC 웹은 v1 제외까지만 정해져 있다 (스펙 13장).
-개발 순서 2번(수집→파싱→저장)이 여기서 막혀 있다.
+파이프라인은 CLI 로 돌아가므로 3번까지는 스택 없이 간다. 4번(홈 추천 화면)
+부터 필요하다.
