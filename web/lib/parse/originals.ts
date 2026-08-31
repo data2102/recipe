@@ -1,0 +1,96 @@
+/**
+ * 원본 보관 — 절대 버리지 않는다 (원칙 ⑤)
+ *
+ * 파서가 좋아지면 `source_asset.parser_version` 으로 재파싱 대상을 뽑아
+ * 과거 레시피를 전부 다시 돌린다. 원본을 안 남기면 그 시점의 파싱 품질이
+ * 영구히 박제된다. 파싱이 실패해도 원본은 남긴다.
+ *
+ * 두 곳 중 하나에 둔다.
+ *   SUPABASE_URL 이 있으면  -> Supabase Storage (운영)
+ *   없으면                  -> 로컬 디스크 (개발. pipeline/ CLI 와 같은 자리)
+ *
+ * Storage 는 REST 로 직접 부른다. 파일 하나 올리는 데 SDK 를 받지 않는다.
+ */
+
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+
+/** 캡처 한 장 상한. 지나치게 크면 파싱 전에 걸러 말해준다 */
+export const MAX_BYTES = 8 * 1024 * 1024;
+
+/** 지시서 4장 — 캡처 1~3장 */
+export const MAX_IMAGES = 3;
+
+const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "originals";
+
+const EXT: Record<string, string> = {
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+};
+
+/**
+ * 로컬 보관 자리. 개발용이다 — pipeline/ CLI 가 쓰는 .local/originals 와 같다.
+ * 운영에서는 Supabase Storage 로 간다. 여기로 떨어지면 컨테이너가 재시작할 때
+ * 원본이 날아가므로 (원칙 ⑤ 위반) 그때는 차라리 실패시킨다.
+ */
+function localDir(): string {
+  // 개발 전용 경로다. 번들러가 프로젝트 전체를 추적하지 않게 표시해둔다.
+  return path.resolve(/*turbopackIgnore: true*/ process.env.ORIGINALS_DIR || "../.local/originals");
+}
+
+/**
+ * 원본 바이트를 보관하고 `storage_key` 를 돌려준다.
+ *
+ * 내용 해시로 이름을 짓는다. 같은 캡처를 두 번 넣어도 사본이 안 늘고,
+ * 파일명이 바뀌어도 같은 원본임을 알 수 있다.
+ */
+export async function keepOriginal(
+  bytes: Buffer,
+  mediaType: string,
+): Promise<string> {
+  const digest = crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 16);
+  const name = `${digest}${EXT[mediaType] ?? ".bin"}`;
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (url && key) {
+    const endpoint = `${url.replace(/\/+$/, "")}/storage/v1/object/${BUCKET}/${name}`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": mediaType,
+        // 같은 해시면 같은 파일이다. 덮어써도 내용이 안 바뀐다.
+        "x-upsert": "true",
+      },
+      body: new Uint8Array(bytes),
+    });
+    if (!res.ok && res.status !== 409) {
+      throw new Error(
+        `원본을 못 올렸어요 (${res.status}). 버킷 '${BUCKET}' 이 있는지 봐주세요.`,
+      );
+    }
+    return `${BUCKET}/${name}`;
+  }
+
+  if (process.env.NODE_ENV === "production" && !process.env.ORIGINALS_DIR) {
+    throw new Error(
+      "원본 보관 자리가 없어요. SUPABASE_URL 과 SUPABASE_SERVICE_ROLE_KEY 를 " +
+        "넣거나, 디스크에 남기려면 ORIGINALS_DIR 을 정해주세요.",
+    );
+  }
+
+  const dir = localDir();
+  await fs.mkdir(dir, { recursive: true });
+  const dest = path.join(/*turbopackIgnore: true*/ dir, name);
+  try {
+    await fs.access(dest);
+  } catch {
+    await fs.writeFile(dest, new Uint8Array(bytes));
+  }
+  return dest;
+}

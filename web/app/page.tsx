@@ -114,6 +114,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <p className={styles.sub}>레시피 {data.total}개</p>
       </header>
 
+      <Link href="/add" className={styles.add}>
+        레시피 추가
+      </Link>
+
       <nav className={styles.tabs}>
         {TABS.map((t) => (
           <Link

@@ -32,14 +32,19 @@ function pool(): Pool {
   if (!url) throw new Error("DATABASE_URL 이 없다");
 
   if (!globalThis.__recipePool) {
+    const local = /localhost|127\.0\.0\.1/.test(url);
     globalThis.__recipePool = new Pool({
       connectionString: url,
-      max: 5,
+      // 무료 요금제에서 접속 수가 제일 먼저 바닥난다. 서버리스는 인스턴스가
+      // 여러 개 뜨는데 각자 풀을 들고 있어서, 인스턴스당 1개만 잡는다.
+      // 사용자가 둘뿐이라 이걸로 충분하다 (README "무료로 굴리기").
+      max: Number(process.env.DB_POOL_MAX || (local ? 5 : 1)),
+      // 놀고 있는 접속을 오래 붙들지 않는다 — 위와 같은 이유다.
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 10_000,
       // Supabase 는 TLS 를 쓰지만 인증서 체인을 따로 받지 않는다.
-      // 로컬(localhost)에는 TLS 가 없으므로 끈다.
-      ssl: /localhost|127\.0\.0\.1/.test(url)
-        ? undefined
-        : { rejectUnauthorized: false },
+      // 로컬에는 TLS 가 없으므로 끈다.
+      ssl: local ? undefined : { rejectUnauthorized: false },
     });
   }
   return globalThis.__recipePool;
@@ -64,14 +69,23 @@ export async function one<T extends QueryResultRow>(
   return rows[0] ?? null;
 }
 
-/** 여러 문장을 한 트랜잭션으로. 캐시 컬럼을 갱신할 때 쓴다. */
-export async function tx<T>(
-  run: (q: (text: string, params?: unknown[]) => Promise<unknown>) => Promise<T>,
-): Promise<T> {
+/** 트랜잭션 안에서 쓰는 질의. query() 와 같은 모양이다. */
+export type Tx = <T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params?: unknown[],
+) => Promise<T[]>;
+
+/**
+ * 여러 문장을 한 트랜잭션으로. 캐시 컬럼을 갱신하거나 레시피 한 건을
+ * 통째로 넣을 때 쓴다 — 중간에 실패하면 반쪽짜리 레시피가 남으면 안 된다.
+ */
+export async function tx<T>(run: (q: Tx) => Promise<T>): Promise<T> {
   const client = await pool().connect();
   try {
     await client.query("BEGIN");
-    const out = await run((text, params = []) => client.query(text, params));
+    const q: Tx = async (text, params = []) =>
+      (await client.query(text, params)).rows;
+    const out = await run(q);
     await client.query("COMMIT");
     return out;
   } catch (e) {

@@ -53,6 +53,8 @@
 | [`supabase/migrations/`](supabase/migrations/) | **자동 생성.** `db/*.sql` → 마이그레이션 |
 | [`db/policy.sql`](db/policy.sql) | 접근 잠금. RLS 를 켜고 정책은 두지 않는다 |
 | [`db/seed_dev.sql`](db/seed_dev.sql) | 손으로 돌려볼 예시 데이터. **마이그레이션 아님** |
+| [`prompts/`](prompts/) | **파서의 본체.** 1패스·2패스 프롬프트. 파이썬과 앱이 같이 쓴다 |
+| [`tools/build_prompts.py`](tools/build_prompts.py) | `prompts/*.md` → `web/lib/parse/prompts.ts` (`--check` 검증만) |
 | [`tools/build_migrations.py`](tools/build_migrations.py) | `db/*.sql` → 마이그레이션 생성 (`--check` 검증만) |
 | [`tools/verify_migration.py`](tools/verify_migration.py) | 마이그레이션을 **진짜 PostgreSQL** 에 올려보는 검증 |
 | [`tools/accuracy_test.py`](tools/accuracy_test.py) | 이미지 파싱 정확도 측정. 1패스 vs 2패스 비교 (`--compare`) |
@@ -129,8 +131,8 @@ BAD   별로였다                          → 숨김
 | 1 | 프로젝트 셋업 + DB 스키마 반영 | 마이그레이션 통과 | **완료** |
 | 2 | 재료 사전 시드 투입 | CSV 47개 표기 반영 | **완료** |
 | 3 | 레시피 목록 3탭 + 만들었어요(날짜 선택) | 데이터를 손으로 넣어 돌아감 | **완료** |
-| 4 | 캡처 업로드 → 2패스 파싱 → 확인 화면 → 저장 | **캡처 1장이 레시피가 된다** | 다음. 파이프라인은 CLI 로 돎 |
-| 5 | 미분류 확인 | `unmapped_term` 10% 안쪽 | |
+| 4 | 캡처 업로드 → 2패스 파싱 → 확인 화면 → 저장 | **캡처 1장이 레시피가 된다** | **완료** |
+| 5 | 미분류 확인 | `unmapped_term` 10% 안쪽 | 다음. 실제 레시피를 넣어봐야 안다 |
 | 6 | 이번 주 담기 + 장보기 목록 3단 분류 | 담은 요리의 재료가 합산됨 | |
 | 7 | 링크 파싱 + 캡처 폴백 | 링크 실패 시 안내가 뜬다 | |
 | 8 | 냉장고 재료 가중치 | | |
@@ -154,14 +156,50 @@ BAD   별로였다                          → 숨김
   모든 테이블에 RLS 를 켜고 정책은 두지 않는다 (`db/policy.sql`).
   브라우저는 DB 에 붙지 않는다
 
+### 무료로 굴리기
+
+**쓰는 사람은 둘이다.** 그 전제로 무료 요금제 안에서 돈다.
+
+| | |
+|---|---|
+| 앱 | Vercel 무료 (Next.js) |
+| DB | Supabase 무료 (PostgreSQL) |
+| 원본 보관 | Supabase Storage 무료 |
+| 캡처 읽기 | Anthropic API — **여기만 종량제.** 레시피 1건에 12~24원 |
+
+한 가지만 주의하면 된다. **서버리스에서는 Transaction pooler(6543) 로 붙어라.**
+Supabase 대시보드 > Connect 에서 가져온다. direct(5432) 로 붙으면 함수 인스턴스마다
+접속을 잡아서 무료 요금제의 접속 수가 금방 바닥난다. 인스턴스당 접속은 1개로
+막아뒀다 (`web/lib/db.ts`).
+
+### 앱으로 가는 길
+
+모바일 웹으로 먼저 써보고, 쓸 만하면 앱으로 간다. 그때를 위해 지금 지키는 것:
+
+- **화면과 로직을 섞지 않는다.** 조회·저장은 `web/lib/` 에 있고 화면은 그걸 부른다
+- **파싱 규칙은 프롬프트 파일에 있다** (`prompts/`). 클라이언트를 바꿔도 안 따라온다
+- 앱을 만들 때는 이 Next.js 를 **서버로 두고** 네이티브를 클라이언트로 붙이는 게 싸다.
+  로직을 두 번 쓰지 않아도 되고, API 키가 기기에 안 들어간다
+
+**지금 React Native 를 준비하느라 구조를 비틀지 않는다.** 4주 뒤 마트에서
+실제로 열었는지가 먼저다 — 안 열면 앱을 만들 이유가 없다.
+
 ### 앱 돌리는 법
 
 ```bash
 cd web
 npm install
-cp .env.example .env.local      # DATABASE_URL 채우기
+cp .env.example .env.local      # DATABASE_URL · ANTHROPIC_API_KEY 채우기
 npm run dev                     # http://localhost:3000
 ```
+
+캡처를 읽는 화면(`/add`)만 따로 만져볼 때는 API 키 없이도 된다.
+
+```bash
+PARSER_FAKE=1 npm run dev       # LLM 대신 고정된 예시 응답
+```
+
+배관만 재는 용도다. 파서 정확도와는 아무 상관이 없고, 운영에서는 무시된다.
 
 키를 안 채워도 뜬다 — "아직 DB 를 안 붙였어요"라고 말해주는 게 그 화면의 일이다.
 

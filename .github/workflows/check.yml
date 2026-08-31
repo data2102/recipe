@@ -56,6 +56,11 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
         run: python tools/verify_migration.py
 
+      # prompts/ 와 web/lib/parse/prompts.ts 가 어긋나면 실패한다.
+      # 어긋나면 정확도를 잰 파서와 제품이 쓰는 파서가 달라진다.
+      - name: 프롬프트 생성 검증
+        run: python tools/build_prompts.py --check
+
       # 수집->파싱->정규화->저장 한 바퀴. LLM 자리에 가짜 응답을 넣으므로
       # 여기도 API 키가 필요 없다.
       - name: 파이프라인 한 바퀴

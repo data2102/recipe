@@ -98,9 +98,12 @@ def normalize(items, choice_groups, table):
             # 사전에 후보는 있다. 그래도 단정하지 않는다.
             row["bucket"] = CHECK
             row["record_unmapped"] = False
+            # 질문으로 쓰지 않는다. 화면에서 이 줄 아래에 "넣을게요/아니요"
+            # 가 붙는데, 물음표를 달아두면 "아니요" 가 "진간장이 아니다" 로
+            # 읽혀 재료가 통째로 빠진다 (원칙 ② — 치명적인 쪽 오류).
             row["reasons"].append(
-                f"'{it['raw_name']}' 은 종류가 불명하다. "
-                f"'{hit['canonical']}' 인가요?")
+                f"'{it['raw_name']}' 은 종류가 여러 가지다. "
+                f"'{hit['canonical']}' 처럼 고쳐주면 다음부터 알아본다.")
         else:
             row["ingredient_id"] = hit["id"]
             row["bucket"] = MAPPED

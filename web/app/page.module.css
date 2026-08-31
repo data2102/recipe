@@ -128,3 +128,23 @@
   padding: var(--sp-5);
   margin: 0;
 }
+
+/* 사용자가 하는 일은 두 가지다 — 올리고, 만들고 나서 체크한다.
+   그중 하나라 눈에 띄어야 한다 (지시서 1장) */
+.add {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  background: var(--accent-strong);
+  color: var(--on-accent);
+  font-size: var(--fs-subhead);
+  font-weight: var(--fw-medium);
+  border-radius: var(--radius-md);
+  padding: 14px var(--sp-5);
+  min-height: 44px;
+  margin-bottom: var(--sp-4);
+}
+
+.add:hover {
+  background: var(--accent-hover);
+}
