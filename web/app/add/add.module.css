@@ -281,3 +281,22 @@
 .shared:hover {
   background: var(--accent-hover);
 }
+
+/* 링크를 읽는 건 캡처 올리기와 나란한 길이라 주 버튼으로 두지 않는다 */
+.linkGo {
+  display: block;
+  width: 100%;
+  margin-top: var(--sp-3);
+  background: var(--surface-sunken);
+  color: var(--accent-strong);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 12px var(--sp-4);
+  min-height: 44px;
+}
+
+.linkGo:hover {
+  background: var(--bg);
+}

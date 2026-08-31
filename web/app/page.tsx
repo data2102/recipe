@@ -12,6 +12,7 @@
  */
 
 import Link from "next/link";
+import Fridge from "./Fridge";
 import RecipeRow from "./RecipeRow";
 import Shopping from "./Shopping";
 import { dbUrl } from "@/lib/db";
@@ -29,6 +30,8 @@ import {
   ingredientSummary,
   todayInput,
 } from "@/lib/say";
+import { chips as fridgeChips, parseHave, weighted } from "@/lib/fridge";
+import type { Chip } from "@/lib/fridge.types";
 import { items as shoppingItems, openList, picked as pickedRecipes } from "@/lib/shopping";
 import type { PickedRecipe, ShoppingItem } from "@/lib/shopping.types";
 import styles from "./page.module.css";
@@ -54,10 +57,14 @@ type Loaded =
       fresh: Row[];
       basket: PickedRecipe[];
       cart: ShoppingItem[];
+      chips: Chip[];
+      have: number[];
+      /** 냉장고 재료를 넣었을 때만. 필터가 아니라 가중치다 */
+      byFridge: Row[] | null;
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
-async function load(tab: TabKey): Promise<Loaded> {
+async function load(tab: TabKey, have: number[]): Promise<Loaded> {
   try {
     const n = await counts();
     const total = n.wish + n.good;
@@ -71,7 +78,31 @@ async function load(tab: TabKey): Promise<Loaded> {
       pickedRecipes(listId),
       shoppingItems(listId),
     ]);
-    return { kind: "week", total, old, fresh, basket, cart };
+    const [chips, byFridge] = await Promise.all([
+      fridgeChips(),
+      have.length > 0 ? weighted(have) : Promise.resolve(null),
+    ]);
+    return {
+      kind: "week",
+      total,
+      old,
+      fresh,
+      basket,
+      cart,
+      chips,
+      have,
+      byFridge: byFridge
+        ? byFridge.map((r) => ({
+            id: r.id,
+            title: r.title,
+            status: r.status as Row["status"],
+            source_url: null,
+            last_cooked_on: r.last_cooked_on,
+            cook_count: 0,
+            ingredients: r.ingredients,
+          }))
+        : null,
+    };
   } catch (e) {
     return { kind: "error", message: e instanceof Error ? e.message : String(e) };
   }
@@ -134,7 +165,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const raw = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const tab: TabKey = TABS.some((t) => t.key === raw) ? (raw as TabKey) : "week";
 
-  const data = await load(tab);
+  const have = parseHave(params.have);
+  const data = await load(tab, have);
   if (data.kind === "error") return <Broken message={data.message} />;
 
   return (
@@ -152,7 +184,13 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={t.key === "week" ? "/" : `/?tab=${t.key}`}
+            href={
+              t.key === "week"
+                ? have.length > 0
+                  ? `/?have=${have.join(",")}`
+                  : "/"
+                : `/?tab=${t.key}`
+            }
             className={styles.tab}
             aria-current={t.key === tab ? "page" : undefined}
           >
@@ -181,26 +219,51 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       {data.kind === "week" && (
         <>
-          {/* 이미 담은 건 또 담을 게 없다 */}
-          <h2 className={styles.section}>오랜만에 어때요</h2>
-          <List
-            list={data.old}
-            today={today}
-            mode="cooked"
-            empty="만든 이력이 쌓이면 여기에 나와요."
-            pick="add"
-            inBasket={new Set(data.basket.map((r) => r.id))}
-          />
+          {/* 집에 있는 재료 — 전부 선택 사항. 안 해도 아래는 그대로 나온다 */}
+          <h2 className={styles.section}>집에 있는 재료 (선택)</h2>
+          <Fridge chips={data.chips} have={data.have} />
 
-          <h2 className={styles.section}>아직 안 만들어본 것</h2>
-          <List
-            list={data.fresh}
-            today={today}
-            mode="wish"
-            empty="담아둔 게 없어요."
-            pick="add"
-            inBasket={new Set(data.basket.map((r) => r.id))}
-          />
+          {data.byFridge ? (
+            <>
+              <h2 className={styles.section}>
+                집에 있는 걸로 만들 수 있는 것
+              </h2>
+              <List
+                list={data.byFridge}
+                today={today}
+                mode="wish"
+                empty="레시피가 아직 없어요."
+                pick="add"
+                inBasket={new Set(data.basket.map((r) => r.id))}
+              />
+              <p className={styles.note}>
+                재료가 안 맞아도 빼지 않아요. 맞는 게 많은 순서로 올려둘 뿐이에요.
+              </p>
+            </>
+          ) : (
+            <>
+              {/* 이미 담은 건 또 담을 게 없다 */}
+              <h2 className={styles.section}>오랜만에 어때요</h2>
+              <List
+                list={data.old}
+                today={today}
+                mode="cooked"
+                empty="만든 이력이 쌓이면 여기에 나와요."
+                pick="add"
+                inBasket={new Set(data.basket.map((r) => r.id))}
+              />
+
+              <h2 className={styles.section}>아직 안 만들어본 것</h2>
+              <List
+                list={data.fresh}
+                today={today}
+                mode="wish"
+                empty="담아둔 게 없어요."
+                pick="add"
+                inBasket={new Set(data.basket.map((r) => r.id))}
+              />
+            </>
+          )}
 
           <h2 className={styles.section}>담은 것</h2>
           {data.basket.length > 0 ? (

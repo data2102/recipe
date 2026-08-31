@@ -1,0 +1,58 @@
+.box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-5);
+  margin-bottom: var(--sp-4);
+}
+
+.lead {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  margin: 0 0 var(--sp-4);
+  line-height: var(--lh-body);
+}
+
+.quiet {
+  color: var(--text-tertiary);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* 누른 것만 채운다. 칩은 누를 수 있는 것이라 액션색을 써도 된다 */
+.off,
+.on {
+  border-radius: var(--radius-pill);
+  padding: 10px var(--sp-4);
+  min-height: 44px;
+  font-size: var(--fs-caption);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.on {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: var(--fw-medium);
+}
+
+.off:hover {
+  background: var(--surface-sunken);
+}
+
+.clear {
+  display: block;
+  margin: var(--sp-4) 0 0;
+  background: none;
+  border: 0;
+  padding: var(--sp-2) 0;
+  min-height: 44px;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+}

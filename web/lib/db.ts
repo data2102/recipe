@@ -10,7 +10,19 @@
  * Server Action 안에서만 일어난다.
  */
 
-import { Pool, type QueryResultRow } from "pg";
+import { Pool, types, type QueryResultRow } from "pg";
+
+/**
+ * BIGINT 를 숫자로 받는다.
+ *
+ * pg 는 기본으로 int8 을 **문자열**로 준다 (자릿수가 넘칠까 봐). 그런데
+ * 우리 스키마는 id 가 전부 BIGSERIAL 이라, 그대로 두면 `{ id: number }`
+ * 라고 적어둔 타입이 전부 거짓말이 된다. `new Set([13]).has("13")` 이
+ * false 인 걸 화면에서야 알게 된다.
+ *
+ * 쓰는 사람이 둘인 앱에서 id 가 2^53 을 넘을 일은 없다.
+ */
+types.setTypeParser(types.builtins.INT8, (v) => Number(v));
 
 declare global {
   // 개발 중 Fast Refresh 가 모듈을 다시 불러도 풀을 새로 만들지 않게.

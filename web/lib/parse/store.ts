@@ -136,3 +136,23 @@ export async function assetKeys(
     [ids],
   );
 }
+
+
+/**
+ * 재료 없이 이름만 저장한다 (작업 순서 7번).
+ *
+ * 링크를 못 읽었어도 레시피는 남는다. 탭 1 이 "재료는 링크에서 확인해요"
+ * 라고 보여주고, 나중에 캡처로 재료를 채우면 된다.
+ */
+export async function saveTitleOnly(
+  title: string,
+  sourceUrl: string | null,
+  sourceKind: string,
+): Promise<number> {
+  const row = await one<{ id: number }>(
+    `INSERT INTO recipe (title, status, source_url, source_kind)
+     VALUES ($1, 'WISH', $2, $3) RETURNING id`,
+    [title, sourceUrl, sourceKind],
+  );
+  return row!.id;
+}

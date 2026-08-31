@@ -23,8 +23,9 @@ import {
   keepOriginal,
   readOriginal,
 } from "@/lib/parse/originals";
+import { kindOf, normalizeUrl, readLink } from "@/lib/parse/link";
 import { PARSER_VERSION, ParseError, parse } from "@/lib/parse/parse";
-import { assetKeys, recordAsset, recordParsed, save } from "@/lib/parse/store";
+import { assetKeys, recordAsset, recordParsed, save, saveTitleOnly } from "@/lib/parse/store";
 
 export type DraftItem = {
   raw_name: string;
@@ -57,7 +58,16 @@ export type Draft = {
 
 export type IngestResult =
   | { ok: true; draft: Draft }
-  | { ok: false; message: string; hint?: string };
+  | {
+      ok: false;
+      message: string;
+      hint?: string;
+      /**
+       * 링크는 못 읽었지만 제목은 건졌을 때. 이름만 저장해두는 길을
+       * 열어준다 — 탭 1 은 "재료는 링크에서 확인해요" 인 행을 이미 받는다.
+       */
+      linkOnly?: { title: string; url: string };
+    };
 
 /**
  * 답을 안 했을 때의 기본값.
@@ -329,4 +339,95 @@ export async function commit(draft: Draft): Promise<number> {
 
   revalidatePath("/");
   return recipeId;
+}
+
+
+/* ---------------------------------------------------------------- */
+/*  링크 (작업 순서 7번)                                              */
+/* ---------------------------------------------------------------- */
+
+/**
+ * 링크 하나를 읽어본다.
+ *
+ * **폴백이 핵심이다.** 못 읽으면 왜 못 읽었는지 말하고 캡처로 안내한다.
+ * 제목이라도 건졌으면 "이름만 저장" 을 같이 내준다 — 유튜브·인스타는
+ * 그게 정상 경로다 (지시서 4장 소스별 현실 표).
+ */
+export async function ingestLink(raw: string): Promise<IngestResult> {
+  const u = normalizeUrl(raw);
+  if (!u) return { ok: false, message: "주소를 못 알아보겠어요." };
+
+  const read = await readLink(u);
+
+  if (!read.ok) {
+    return {
+      ok: false,
+      message: read.why,
+      hint: "재료와 만드는 법이 보이는 화면을 캡처해서 올려주세요.",
+      ...(read.title
+        ? { linkOnly: { title: read.title, url: u.toString() } }
+        : {}),
+    };
+  }
+
+  if (!hasKey()) {
+    return {
+      ok: false,
+      message: "레시피를 읽을 준비가 아직 안 됐어요.",
+      hint: "web/.env.local 에 ANTHROPIC_API_KEY 를 넣어주세요.",
+      ...(read.title
+        ? { linkOnly: { title: read.title, url: u.toString() } }
+        : {}),
+    };
+  }
+
+  // 읽어온 본문도 원본이다. 파싱보다 먼저 남긴다 (원칙 ⑤).
+  let assetId: number;
+  try {
+    assetId = await recordAsset(
+      { kind: "TEXT", storageKey: null, rawText: read.text },
+      PARSER_VERSION,
+    );
+  } catch (e) {
+    // DB 가 잠깐 안 되는 것 때문에 화면이 깨지면 안 된다.
+    return {
+      ok: false,
+      message: "읽어온 걸 보관하지 못했어요.",
+      hint: e instanceof Error ? e.message : String(e),
+      ...(read.title
+        ? { linkOnly: { title: read.title, url: u.toString() } }
+        : {}),
+    };
+  }
+
+  const result = await readAndDraft(
+    [{ kind: "TEXT", text: read.text }],
+    [assetId],
+    u.toString(),
+    false,
+  );
+
+  // 링크에서 온 건 og:title 을 제목 기본값으로 쓴다.
+  if (result.ok && read.title && result.draft.title === "제목 없음") {
+    result.draft.title = read.title;
+  }
+  if (result.ok) result.draft.sourceKind = kindOf(u);
+  return result;
+}
+
+/**
+ * 이름만 저장해둔다 (지시서 3장 탭 1).
+ *
+ * 재료가 없어도 레시피다 — "이름만 적어도 돼요. 재료는 만들 때 링크에서
+ * 보면 되니까요." 유튜브처럼 글로는 재료를 못 얻는 소스가 여기로 온다.
+ */
+export async function saveLinkOnly(
+  title: string,
+  url: string,
+): Promise<number> {
+  const clean = title.trim() || "제목 없음";
+  const u = normalizeUrl(url);
+  const id = await saveTitleOnly(clean, u ? u.toString() : null, u ? kindOf(u) : "MANUAL");
+  revalidatePath("/");
+  return id;
 }

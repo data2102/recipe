@@ -13,7 +13,16 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { commit, ingest, ingestShared, type Draft, type DraftItem } from "./actions";
+import {
+  commit,
+  ingest,
+  ingestLink,
+  ingestShared,
+  saveLinkOnly,
+  type Draft,
+  type DraftItem,
+  type IngestResult,
+} from "./actions";
 import type { Shared } from "./page";
 import styles from "./add.module.css";
 
@@ -21,9 +30,12 @@ const MAPPED = "MAPPED";
 const CHECK = "CHECK";
 const UNMAPPED = "UNMAPPED";
 
+type Fail = Extract<IngestResult, { ok: false }>;
+
 type Phase =
-  | { at: "pick"; error?: { message: string; hint?: string } }
+  | { at: "pick"; error?: Fail }
   | { at: "reading" }
+  | { at: "linking" }
   | { at: "confirm"; draft: Draft }
   | { at: "saving"; draft: Draft };
 
@@ -32,17 +44,27 @@ export default function Add({ shared }: { shared?: Shared | null }) {
   const [phase, setPhase] = useState<Phase>({ at: "pick" });
   const [, startTransition] = useTransition();
 
-  function land(result: Awaited<ReturnType<typeof ingest>>) {
+  function land(result: IngestResult) {
     setPhase(
-      result.ok
-        ? { at: "confirm", draft: result.draft }
-        : { at: "pick", error: { message: result.message, hint: result.hint } },
+      result.ok ? { at: "confirm", draft: result.draft } : { at: "pick", error: result },
     );
   }
 
   function onIngest(form: FormData) {
     setPhase({ at: "reading" });
     startTransition(async () => land(await ingest(form)));
+  }
+
+  function onLink(url: string) {
+    setPhase({ at: "linking" });
+    startTransition(async () => land(await ingestLink(url)));
+  }
+
+  function onLinkOnly(title: string, url: string) {
+    startTransition(async () => {
+      await saveLinkOnly(title, url);
+      router.push("/?tab=want");
+    });
   }
 
   function onShared() {
@@ -66,6 +88,7 @@ export default function Add({ shared }: { shared?: Shared | null }) {
     });
   }
 
+  if (phase.at === "linking") return <Linking />;
   if (phase.at === "reading") return <Reading />;
   if (phase.at === "confirm" || phase.at === "saving") {
     return (
@@ -84,6 +107,8 @@ export default function Add({ shared }: { shared?: Shared | null }) {
       error={phase.error}
       shared={shared}
       onShared={onShared}
+      onLink={onLink}
+      onLinkOnly={onLinkOnly}
     />
   );
 }
@@ -95,11 +120,15 @@ function Pick({
   error,
   shared,
   onShared,
+  onLink,
+  onLinkOnly,
 }: {
   onSubmit: (form: FormData) => void;
-  error?: { message: string; hint?: string };
+  error?: Fail;
   shared?: Shared | null;
   onShared: () => void;
+  onLink: (url: string) => void;
+  onLinkOnly: (title: string, url: string) => void;
 }) {
   const [count, setCount] = useState(0);
   const [url, setUrl] = useState(shared?.url ?? "");
@@ -171,7 +200,7 @@ function Pick({
 
       <section className={styles.card}>
         <label className={styles.label} htmlFor="sourceUrl">
-          원본 링크 (선택)
+          링크가 있으면 붙여넣어 주세요
         </label>
         <input
           id="sourceUrl"
@@ -184,15 +213,41 @@ function Pick({
         />
         <p className={styles.hint}>
           {instagram
-            ? "인스타는 링크로는 못 읽어요. 캡처를 같이 올려주세요."
-            : "어디서 왔는지 같이 보관해요. 지금은 링크를 읽지는 않아요."}
+            ? "인스타는 링크로는 못 읽어요. 캡처를 올려주세요 — 주소는 같이 보관할게요."
+            : "읽을 수 있으면 읽고, 안 되면 캡처를 올려달라고 알려드려요."}
         </p>
+        {url.trim() && !instagram && (
+          <button
+            type="button"
+            className={styles.linkGo}
+            onClick={() => onLink(url)}
+          >
+            링크 읽어볼게요
+          </button>
+        )}
       </section>
 
       {error && (
         <section className={styles.card}>
           <h2 className={`${styles.cardTitle} ${styles.warm}`}>{error.message}</h2>
           {error.hint && <p className={styles.body}>{error.hint}</p>}
+          {/* 못 읽어도 제목은 건졌으면 이름만 저장하는 길을 연다 */}
+          {error.linkOnly && (
+            <>
+              <p className={styles.hint}>
+                이름만 저장해두고, 재료는 만들 때 링크에서 봐도 돼요.
+              </p>
+              <button
+                type="button"
+                className={styles.linkGo}
+                onClick={() =>
+                  onLinkOnly(error.linkOnly!.title, error.linkOnly!.url)
+                }
+              >
+                &ldquo;{error.linkOnly.title}&rdquo; 이름만 저장할게요
+              </button>
+            </>
+          )}
         </section>
       )}
 
@@ -207,6 +262,17 @@ function Pick({
         {gotShared ? "올린 걸로 정리해줄게요" : "정리해줄게요"}
       </button>
     </form>
+  );
+}
+
+function Linking() {
+  return (
+    <section className={styles.card}>
+      <h2 className={styles.cardTitle}>링크를 열어보는 중이에요</h2>
+      <p className={styles.body}>
+        읽어도 되는 페이지인지 먼저 확인하고, 본문이 있으면 가져와요.
+      </p>
+    </section>
   );
 }
 
