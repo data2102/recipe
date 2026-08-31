@@ -44,6 +44,15 @@ export default function Add({ shared }: { shared?: Shared | null }) {
   const [phase, setPhase] = useState<Phase>({ at: "pick" });
   const [pending, startTransition] = useTransition();
 
+  /*
+   * 주소는 여기서 들고 있는다. Pick 안에 두면 "읽는 중" 화면이 뜨는 동안
+   * Pick 이 통째로 사라졌다가 다시 그려지면서 **사용자가 붙여넣은 주소가
+   * 없어진다.** 링크를 못 읽어 캡처로 넘어가는 게 인스타·유튜브의 정상
+   * 경로인데, 그때 주소를 잃으면 source_url 없이 저장된다 (저작권 —
+   * 지시서 4장은 원문 주소를 항상 같이 남기라고 한다).
+   */
+  const [url, setUrl] = useState(shared?.url ?? "");
+
   function land(result: IngestResult) {
     setPhase(
       result.ok ? { at: "confirm", draft: result.draft } : { at: "pick", error: result },
@@ -63,6 +72,27 @@ export default function Add({ shared }: { shared?: Shared | null }) {
   function onIngest(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
+
+    /*
+     * 링크만 넣었으면 링크를 읽는다.
+     *
+     * 예전에는 링크를 읽는 버튼이 카드 안에 따로 있었고, 아래 큰 버튼은
+     * 캡처·메모만 봤다. 그래서 주소만 붙여넣고 큰 버튼을 누르면
+     * "캡처를 올리거나 레시피를 붙여넣어 주세요" 가 떴다 — 방금 주소를
+     * 넣었는데 못 본 척하는 셈이다. 인스타 주소일 때는 작은 버튼이 아예
+     * 안 나와서 빠져나갈 길도 없었다.
+     *
+     * 버튼은 하나고, 채워진 것에 맞춰 움직인다 (design-system.md 6장).
+     */
+    const hasFile = form
+      .getAll("images")
+      .some((f) => f instanceof File && f.size > 0);
+    const hasText = String(form.get("text") || "").trim().length > 0;
+    if (!hasFile && !hasText && url.trim()) {
+      onLink(url);
+      return;
+    }
+
     setPhase({ at: "reading" });
     startTransition(async () => land(await ingest(form)));
   }
@@ -125,8 +155,9 @@ export default function Add({ shared }: { shared?: Shared | null }) {
       pending={pending}
       error={phase.error}
       shared={shared}
+      url={url}
+      setUrl={setUrl}
       onShared={onShared}
-      onLink={onLink}
       onLinkOnly={onLinkOnly}
     />
   );
@@ -168,8 +199,9 @@ function Pick({
   pending,
   error,
   shared,
+  url,
+  setUrl,
   onShared,
-  onLink,
   onLinkOnly,
 }: {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
@@ -177,18 +209,23 @@ function Pick({
   pending: boolean;
   error?: Fail;
   shared?: Shared | null;
+  /** Add 가 들고 있다 — 화면이 바뀌어도 붙여넣은 주소가 살아 있어야 한다 */
+  url: string;
+  setUrl: (v: string) => void;
   onShared: () => void;
-  onLink: (url: string) => void;
   onLinkOnly: (title: string, url: string) => void;
 }) {
   const [count, setCount] = useState(0);
-  const [url, setUrl] = useState(shared?.url ?? "");
+  const [hasText, setHasText] = useState(Boolean(shared?.text?.trim()));
   const fileRef = useRef<HTMLInputElement>(null);
   const gotShared = Boolean(shared?.assetIds.length);
 
   // 인스타는 링크로 본문을 못 읽는다. 넣어놓고 안 될 걸 알면서
   // 시도하게 만들지 않는다 (지시서 4장).
   const instagram = /instagram\.com/i.test(url);
+
+  /** 주소만 넣었다 — 누르면 링크를 읽으러 간다 (onIngest 참조) */
+  const linkOnly = url.trim().length > 0 && count === 0 && !hasText;
 
   return (
     <form onSubmit={onSubmit}>
@@ -244,6 +281,7 @@ function Pick({
           name="text"
           rows={4}
           defaultValue={shared?.text ?? ""}
+          onChange={(e) => setHasText(e.target.value.trim().length > 0)}
           placeholder="레시피 본문을 그대로 붙여넣으세요"
         />
       </section>
@@ -268,15 +306,6 @@ function Pick({
               : "읽을 수 있으면 읽고, 안 되면 캡처를 올려달라고 알려드려요."}
           </span>
         </div>
-        {url.trim() && !instagram && (
-          <button
-            type="button"
-            className={`ds-btn ds-btn-secondary ds-btn-block ${styles.linkGo}`}
-            onClick={() => onLink(url)}
-          >
-            링크 읽어볼게요
-          </button>
-        )}
       </section>
 
       {error && (
@@ -316,6 +345,10 @@ function Pick({
       {/*
         공유로 들어왔으면 주 행동은 위쪽("이걸로 정리해줄게요")이다.
         파란 버튼이 한 화면에 둘이면 어느 쪽을 눌러야 할지 갈린다.
+
+        버튼 글자는 **누르면 실제로 일어날 일**을 적는다. 주소만 넣었으면
+        링크를 읽으러 가므로 그렇게 적는다 — 인스타는 읽을 수 없다는 걸
+        이미 아니까 캡처를 부탁하는 말로 남긴다.
       */}
       <button
         type="submit"
@@ -323,7 +356,11 @@ function Pick({
           gotShared ? "ds-btn-secondary" : "ds-btn-primary"
         }`}
       >
-        {gotShared ? "올린 걸로 정리해줄게요" : "정리해줄게요"}
+        {gotShared
+          ? "올린 걸로 정리해줄게요"
+          : linkOnly && !instagram
+            ? "링크 읽어볼게요"
+            : "정리해줄게요"}
       </button>
     </form>
   );
