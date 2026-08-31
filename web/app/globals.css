@@ -1,0 +1,48 @@
+/* ============================================================
+   앱 바탕
+   색·간격·글꼴 값은 여백 디자인 시스템에서 온다. 여기에 색을
+   하드코딩하지 마라 — var(--...) 로만 쓴다. (yeobaek/README.md)
+   ============================================================ */
+
+@import "./yeobaek/tokens.css";
+@import "./yeobaek/components.css";
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 한 손으로 드는 화면. 안드로이드 우선이라 폭을 잡아둔다 (지시서 7장) */
+.shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  padding: var(--sp-5) var(--sp-4) var(--sp-12);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: var(--accent-strong);
+}

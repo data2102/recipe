@@ -1,0 +1,11 @@
+# Supabase CLI 설정. 마이그레이션은 supabase/migrations/ 에 있고
+# 그 파일들은 db/*.sql 에서 생성된다 (tools/build_migrations.py).
+#
+# CLI 없이 psql 로 올려도 된다:
+#   for f in supabase/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+
+project_id = "recipe"
+
+[db]
+# 운영(Supabase)과 같은 메이저 버전으로 맞춘다.
+major_version = 16

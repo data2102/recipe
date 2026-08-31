@@ -1,0 +1,58 @@
+-- ==================================================================
+--  접근 잠금 — RLS 켜고 정책은 두지 않는다
+--
+--  자동 생성 파일 — 직접 고치지 말 것.
+--  원본: db/policy.sql
+--  생성: python tools/build_migrations.py
+--
+--  v1 에는 로그인이 없다. anon 키로 아무나 읽고 지우는 일이 없게
+--  문을 닫아둔다. 앱은 서버에서 service_role 키로 붙는다.
+--  이유는 db/policy.sql 머리말에 있다.
+--
+--  방언: PostgreSQL (Supabase). 로컬 검증은 tools/verify_migration.py
+-- ==================================================================
+
+-- =====================================================================
+--  접근 잠금  (Supabase 전용)
+--
+--  v1 에는 로그인이 없다 (docs/claude-code-brief.md 7장). 그런데 Supabase 는
+--  public 스키마의 테이블을 anon 키로 REST 에 그대로 연다. anon 키는 브라우저
+--  번들에 실려 나가므로, 잠그지 않으면 링크를 아는 누구나 내 레시피를 읽고
+--  지울 수 있다. "로그인이 없다" 가 "아무나 쓴다" 가 되면 안 된다.
+--
+--  그래서: 모든 테이블에 RLS 를 켜고 **정책은 하나도 만들지 않는다.**
+--    - anon / authenticated  -> 아무것도 못 본다 (정책이 없으니 전부 거부)
+--    - service_role          -> RLS 를 통과한다 (Supabase 규정)
+--
+--  앱은 브라우저에서 DB 를 직접 부르지 않는다. 서버(Server Component ·
+--  Route Handler)에서 service_role 키로 부른다. 그 키는 서버에만 둔다
+--  (web/.env.example 참조 — NEXT_PUBLIC_ 접두사를 붙이지 마라).
+--
+--  v2 에서 로그인이 생기면 여기에 user_id 기반 정책을 추가한다.
+--  그때까지는 정책이 비어 있는 게 맞다.
+--
+--  방언: PostgreSQL. SQLite 에는 RLS 가 없어서 이 파일은 db/schema.sql 과
+--  따로 둔다 (verify_seed.py 는 SQLite 라 schema.sql 만 올린다).
+-- =====================================================================
+
+-- 테이블 이름을 손으로 적지 않는다. 테이블이 늘면 여기도 자동으로 따라온다.
+-- 여러 번 돌려도 안전하다.
+DO $$
+DECLARE
+    t text;
+BEGIN
+    FOR t IN
+        SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    END LOOP;
+END
+$$;
+
+
+-- 확인:
+--   SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname='public';
+--     -> rowsecurity 가 전부 t 여야 한다
+--   SELECT COUNT(*) FROM pg_policies WHERE schemaname='public';
+--     -> 0 이어야 한다. 정책이 생겼다면 누가 문을 연 것이다

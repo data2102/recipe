@@ -1,5 +1,7 @@
-# 사전 시드가 실제로 DB 에 올라가는지 매 푸시마다 확인한다.
-# API 키가 필요 없다 — 시드 도구는 표준 라이브러리만 쓴다.
+# 매 푸시마다 두 가지를 본다.
+#   seed  — 사전·파이프라인·마이그레이션이 실제로 DB 에 올라가는가
+#   web   — 앱이 타입 검사와 빌드를 통과하는가
+# 둘 다 API 키가 필요 없다. 파이프라인 검증은 LLM 자리에 가짜 응답을 넣는다.
 
 name: check
 
@@ -9,8 +11,24 @@ on:
 
 jobs:
   seed:
-    name: 사전 시드
+    name: 사전 · 스키마
     runs-on: ubuntu-latest
+
+    # 운영은 PostgreSQL 이다. SQLite 검증만으로는 BIGSERIAL·FILTER·LATERAL
+    # 같은 PG 문법이 안 걸린다 (tools/verify_migration.py 머리말 참조).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +45,17 @@ jobs:
       - name: 스키마 + 시드 적재
         run: python tools/verify_seed.py
 
+      # supabase/migrations/ 가 db/ 원본보다 낡았으면 실패한다.
+      - name: 마이그레이션 생성 검증
+        run: python tools/build_migrations.py --check
+
+      # 마이그레이션을 진짜 PostgreSQL 에 순서대로 올려본다.
+      # schema.sql 이 주석에 적어둔 핵심 쿼리 3개도 여기서 파싱시킨다.
+      - name: 마이그레이션 적재 (PostgreSQL)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: python tools/verify_migration.py
+
       # 수집->파싱->정규화->저장 한 바퀴. LLM 자리에 가짜 응답을 넣으므로
       # 여기도 API 키가 필요 없다.
       - name: 파이프라인 한 바퀴
@@ -34,3 +63,30 @@ jobs:
 
       - name: 문법 검사
         run: python -m compileall -q tools pipeline
+
+  web:
+    name: 앱
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: 의존성
+        run: npm ci
+
+      - name: 린트
+        run: npm run lint
+
+      # next build 가 타입 검사까지 한다. 환경변수 없이도 빌드돼야 한다 —
+      # 키가 없으면 화면이 "아직 DB 를 안 붙였어요" 를 띄우는 게 설계다.
+      - name: 빌드
+        run: npm run build

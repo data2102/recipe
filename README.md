@@ -49,6 +49,11 @@
 | [`db/seed_dictionary.sql`](db/seed_dictionary.sql) | **자동 생성.** 위 CSV → `ingredient` · `ingredient_alias` 시드 |
 | [`tools/build_dictionary_seed.py`](tools/build_dictionary_seed.py) | 사전 CSV → 시드 SQL 생성 (`--check` 검증만, `--sqlite` 방언) |
 | [`tools/verify_seed.py`](tools/verify_seed.py) | 스키마 + 시드를 실제 DB에 올려보는 검증 |
+| [`web/`](web/) | **앱.** Next.js (App Router) + Supabase. 화면은 작업 순서 3번부터 |
+| [`supabase/migrations/`](supabase/migrations/) | **자동 생성.** `db/*.sql` → 마이그레이션 |
+| [`db/policy.sql`](db/policy.sql) | 접근 잠금. RLS 를 켜고 정책은 두지 않는다 |
+| [`tools/build_migrations.py`](tools/build_migrations.py) | `db/*.sql` → 마이그레이션 생성 (`--check` 검증만) |
+| [`tools/verify_migration.py`](tools/verify_migration.py) | 마이그레이션을 **진짜 PostgreSQL** 에 올려보는 검증 |
 | [`tools/accuracy_test.py`](tools/accuracy_test.py) | 이미지 파싱 정확도 측정. 1패스 vs 2패스 비교 (`--compare`) |
 | [`tools/truth.example.json`](tools/truth.example.json) | 정확도 테스트 정답지 양식 |
 
@@ -115,18 +120,74 @@ BAD   별로였다                          → 숨김
 
 ## 개발 순서
 
-| # | 작업 | 완료 판단 |
-|---|---|---|
-| 1 | 사전 시드 투입 (`ingredient`, `ingredient_alias`) | CSV 47개 표기 반영 — `tools/verify_seed.py` 통과 |
-| 2 | 수집 → 파싱 → 저장 한 바퀴 | 캡처 1장이 레시피로 저장됨 — `tools/verify_pipeline.py` 통과 |
-| 3 | 매핑 배치 → `unmapped_term` 확인 | **미분류 10% 안쪽이면 통과** |
-| 4 | 홈 추천 화면 | 화면 하나로 앱이 켜짐 |
-| 5 | 메뉴 고르기 → 장보기 목록 | 3단 분류가 나옴 |
-| 6 | 요리 완료 + 평가 | 이력이 쌓이기 시작 |
-| 7 | 영수증 / 보유 재료 (선택) | |
+원본은 [`docs/claude-code-brief.md`](docs/claude-code-brief.md) 8장이다.
+여기엔 어디까지 왔는지만 적는다.
 
-3번에서 미분류가 절반 넘으면 사전을 더 키우고 4번으로 넘어가지 않는다.
-로그인·결제·온보딩은 전부 나중이다.
+| # | 작업 | 완료 판단 | 상태 |
+|---|---|---|---|
+| 1 | 프로젝트 셋업 + DB 스키마 반영 | 마이그레이션 통과 | **완료** |
+| 2 | 재료 사전 시드 투입 | CSV 47개 표기 반영 | **완료** |
+| 3 | 레시피 목록 3탭 + 만들었어요(날짜 선택) | 데이터를 손으로 넣어 돌아감 | 다음 |
+| 4 | 캡처 업로드 → 2패스 파싱 → 확인 화면 → 저장 | **캡처 1장이 레시피가 된다** | 파이프라인은 CLI 로 돎 |
+| 5 | 미분류 확인 | `unmapped_term` 10% 안쪽 | |
+| 6 | 이번 주 담기 + 장보기 목록 3단 분류 | 담은 요리의 재료가 합산됨 | |
+| 7 | 링크 파싱 + 캡처 폴백 | 링크 실패 시 안내가 뜬다 | |
+| 8 | 냉장고 재료 가중치 | | |
+| 9 | PWA + Web Share Target | 인스타 공유 시트에 앱이 뜬다 | |
+
+**3번까지가 최소 동작 앱이다.** 4번이 이 제품의 심장이고 나머지는 그 위에 얹는다.
+5번에서 미분류가 절반을 넘으면 사전을 더 키우고 6번으로 넘어가지 않는다.
+로그인·결제·온보딩·설정은 전부 나중이다.
+
+### 스택
+
+지시서 7장 권장안 그대로다.
+
+- **Next.js (App Router) + Supabase.** 안드로이드 PWA 가 Web Share Target 을
+  지원해서, 네이티브 앱 없이 인스타 공유 시트에 뜬다. 이게 핵심 유입 경로다
+- **로그인은 v1 에 없다.** 단일 사용자 전제. 필요해지면 `user_id` 를 나중에 붙인다
+- 다만 "로그인이 없다"가 "아무나 쓴다"는 아니다. 모든 테이블에 RLS 를 켜두고
+  (`db/policy.sql`) 앱은 **서버에서만** `service_role` 키로 붙는다.
+  브라우저에 DB 키가 나가지 않는다
+
+### 앱 돌리는 법
+
+```bash
+cd web
+npm install
+cp .env.example .env.local      # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 채우기
+npm run dev                     # http://localhost:3000
+```
+
+키를 안 채워도 뜬다 — "아직 DB 를 안 붙였어요"라고 말해주는 게 그 화면의 일이다.
+
+### 마이그레이션 돌리는 법
+
+```bash
+python tools/build_migrations.py          # db/*.sql -> supabase/migrations/
+python tools/build_migrations.py --check  # 어긋났는지만 확인
+
+# 진짜 PostgreSQL 에 올려보고 확인 (작업 순서 1번의 완료 판단)
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/postgres \
+  python tools/verify_migration.py
+
+# 실제 DB 에 올리기
+supabase db push
+# CLI 없이:
+for f in supabase/migrations/*.sql; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+done
+```
+
+`supabase/migrations/*.sql` 은 **생성물이다.** 직접 고치지 말고 `db/` 쪽을
+고친 뒤 다시 생성한다. 스키마를 두 벌로 손보면 갈라진다.
+단, **실제 DB 에 한 번 올린 뒤부터는** 그 파일이 과거라서 못 고친다 —
+그때는 `build_migrations.py` 의 `FROZEN` 에 넣고 델타 파일을 새로 쓴다.
+
+검증이 보는 것: 파일이 순서대로 올라가는가 · 테이블 12개가 다 생겼는가 ·
+시드가 CSV 만큼 들어갔는가 · 두 번 올려도 안전한가 ·
+`schema.sql` 이 주석에 적어둔 **핵심 쿼리 3개가 실제 스키마와 맞는가** ·
+미분류를 `NULL` 로 남길 수 있는가 · 모든 테이블이 RLS 로 잠겼는가.
 
 ### 사전 시드 돌리는 법
 
