@@ -13,6 +13,7 @@
 
 import Link from "next/link";
 import RecipeRow from "./RecipeRow";
+import Shopping from "./Shopping";
 import { dbUrl } from "@/lib/db";
 import {
   counts,
@@ -28,6 +29,8 @@ import {
   ingredientSummary,
   todayInput,
 } from "@/lib/say";
+import { items as shoppingItems, openList, picked as pickedRecipes } from "@/lib/shopping";
+import type { PickedRecipe, ShoppingItem } from "@/lib/shopping.types";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +47,14 @@ type Loaded =
   | { kind: "error"; message: string }
   | { kind: "want"; total: number; list: Row[] }
   | { kind: "done"; total: number; list: Row[] }
-  | { kind: "week"; total: number; old: Row[]; fresh: Row[] };
+  | {
+      kind: "week";
+      total: number;
+      old: Row[];
+      fresh: Row[];
+      basket: PickedRecipe[];
+      cart: ShoppingItem[];
+    };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
 async function load(tab: TabKey): Promise<Loaded> {
@@ -54,13 +64,26 @@ async function load(tab: TabKey): Promise<Loaded> {
     if (tab === "want") return { kind: "want", total, list: await listWish() };
     if (tab === "done") return { kind: "done", total, list: await listCooked() };
     const { old, fresh } = await suggest();
-    return { kind: "week", total, old, fresh };
+    // 담은 것과 장보기는 같은 목록에서 나온다. 목록이 없으면 만들지 않는다 —
+    // 담기 전까지 빈 목록이 쌓이면 "이번 주" 가 뭔지 흐려진다.
+    const listId = await openList();
+    const [basket, cart] = await Promise.all([
+      pickedRecipes(listId),
+      shoppingItems(listId),
+    ]);
+    return { kind: "week", total, old, fresh, basket, cart };
   } catch (e) {
     return { kind: "error", message: e instanceof Error ? e.message : String(e) };
   }
 }
 
-function rows(list: Row[], today: string, mode: "wish" | "cooked") {
+function rows(
+  list: Row[],
+  today: string,
+  mode: "wish" | "cooked",
+  pick?: "add" | "remove" | "in",
+  inBasket?: Set<number>,
+) {
   return list.map((r) => {
     const days = daysSince(r.last_cooked_on);
     return (
@@ -70,6 +93,7 @@ function rows(list: Row[], today: string, mode: "wish" | "cooked") {
         title={r.title}
         sourceUrl={r.source_url}
         today={today}
+        pick={pick === "add" && inBasket?.has(r.id) ? "in" : pick}
         warm={mode === "cooked" && days !== null && days >= OLD_DAYS}
         meta={
           mode === "cooked"
@@ -86,14 +110,20 @@ function List({
   today,
   mode,
   empty,
+  pick,
+  inBasket,
 }: {
   list: Row[];
   today: string;
   mode: "wish" | "cooked";
   empty: string;
+  pick?: "add" | "remove" | "in";
+  inBasket?: Set<number>;
 }) {
   if (list.length === 0) return <p className={styles.empty}>{empty}</p>;
-  return <ul className={styles.list}>{rows(list, today, mode)}</ul>;
+  return (
+    <ul className={styles.list}>{rows(list, today, mode, pick, inBasket)}</ul>
+  );
 }
 
 export default async function Home({ searchParams }: PageProps<"/">) {
@@ -151,12 +181,15 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       {data.kind === "week" && (
         <>
+          {/* 이미 담은 건 또 담을 게 없다 */}
           <h2 className={styles.section}>오랜만에 어때요</h2>
           <List
             list={data.old}
             today={today}
             mode="cooked"
             empty="만든 이력이 쌓이면 여기에 나와요."
+            pick="add"
+            inBasket={new Set(data.basket.map((r) => r.id))}
           />
 
           <h2 className={styles.section}>아직 안 만들어본 것</h2>
@@ -165,11 +198,41 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             today={today}
             mode="wish"
             empty="담아둔 게 없어요."
+            pick="add"
+            inBasket={new Set(data.basket.map((r) => r.id))}
           />
 
-          <p className={styles.note}>
-            담기와 장보기 목록은 작업 순서 6번에서 붙습니다.
-          </p>
+          <h2 className={styles.section}>담은 것</h2>
+          {data.basket.length > 0 ? (
+            <ul className={styles.list}>
+              {data.basket.map((r) => (
+                <RecipeRow
+                  key={r.id}
+                  id={r.id}
+                  title={r.title}
+                  meta={r.status === "WISH" ? "아직 안 만들어봤어요" : "만들어봤어요"}
+                  sourceUrl={null}
+                  today={today}
+                  pick="remove"
+                />
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.empty}>
+              위에서 담으면 여기 모이고, 재료가 아래에 합쳐져요.
+            </p>
+          )}
+
+          <h2 className={styles.section}>장보기</h2>
+          {data.cart.length > 0 ? (
+            <Shopping items={data.cart} />
+          ) : (
+            <p className={styles.empty}>
+              {data.basket.length > 0
+                ? "담은 요리에 재료가 아직 안 붙어 있어요."
+                : "요리를 담으면 살 것을 합쳐서 보여드려요."}
+            </p>
+          )}
         </>
       )}
     </main>

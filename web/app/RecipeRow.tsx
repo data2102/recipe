@@ -10,7 +10,7 @@
  */
 
 import { useRef, useState } from "react";
-import { markBad, markCooked } from "./actions";
+import { addToWeek, markBad, markCooked, removeFromWeek } from "./actions";
 import styles from "./RecipeRow.module.css";
 
 const LONG_PRESS_MS = 450;
@@ -23,6 +23,11 @@ export type Props = {
   warm?: boolean;
   sourceUrl: string | null;
   today: string;
+  /**
+   * 이번 주 담기 버튼. 탭 3 에서만 붙는다 (지시서 3장).
+   * "in" 은 이미 담은 것 — 또 누를 게 없으니 버튼으로 두지 않는다.
+   */
+  pick?: "add" | "remove" | "in";
 };
 
 export default function RecipeRow({
@@ -32,6 +37,7 @@ export default function RecipeRow({
   warm,
   sourceUrl,
   today,
+  pick,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -58,17 +64,33 @@ export default function RecipeRow({
 
   return (
     <li className={styles.row}>
-      <button
-        type="button"
-        className={styles.rowButton}
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-      >
-        <span className={styles.title}>{title}</span>
-        <span className={`${styles.meta} ${warm ? styles.warm : ""}`}>
-          {meta}
-        </span>
-      </button>
+      <div className={styles.rowWrap}>
+        <button
+          type="button"
+          className={styles.rowButton}
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+        >
+          <span className={styles.title}>{title}</span>
+          <span className={`${styles.meta} ${warm ? styles.warm : ""}`}>
+            {meta}
+          </span>
+        </button>
+
+        {pick === "in" && <span className={styles.inBasket}>담아뒀어요</span>}
+
+        {(pick === "add" || pick === "remove") && (
+          <form action={pick === "add" ? addToWeek : removeFromWeek}>
+            <input type="hidden" name="id" value={id} />
+            <button
+              type="submit"
+              className={pick === "add" ? styles.pick : styles.unpick}
+            >
+              {pick === "add" ? "담기" : "뺄게요"}
+            </button>
+          </form>
+        )}
+      </div>
 
       {open && (
         <div className={styles.sheetBg} onClick={close}>

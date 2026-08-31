@@ -2,16 +2,23 @@
   list-style: none;
 }
 
+.rowWrap {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
 .rowButton {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--sp-1);
   width: 100%;
   text-align: left;
-  background: var(--surface);
+  background: none;
   border: 0;
-  border-bottom: 1px solid var(--border);
   padding: var(--sp-4);
   /* 터치 타겟 최소선 (foundations.md) */
   min-height: 44px;
@@ -171,4 +178,41 @@
   font-size: var(--fs-footnote);
   color: var(--text-tertiary);
   margin: var(--sp-2) 0 var(--sp-4);
+}
+
+/* 담기는 이 화면에서 하는 유일한 행동이라 액션색을 쓴다.
+   빼기는 되돌리는 것이라 조용하게 (지시서 5장) */
+.pick,
+.unpick {
+  height: 100%;
+  border: 0;
+  background: none;
+  padding: 0 var(--sp-4);
+  min-width: 56px;
+  min-height: 44px;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+}
+
+.pick {
+  color: var(--accent-strong);
+}
+
+.unpick {
+  color: var(--text-tertiary);
+}
+
+.pick:hover,
+.unpick:hover {
+  background: var(--surface-sunken);
+}
+
+/* 이미 담은 것. 누를 게 없으니 액션색을 쓰지 않는다 (지시서 5장) */
+.inBasket {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }

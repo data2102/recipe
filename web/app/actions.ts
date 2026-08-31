@@ -10,6 +10,7 @@
 
 import { revalidatePath } from "next/cache";
 import { tx } from "@/lib/db";
+import * as shopping from "@/lib/shopping";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -74,5 +75,44 @@ export async function markBad(formData: FormData) {
     );
   });
 
+  revalidatePath("/");
+}
+
+
+/* ---------------------------------------------------------------- */
+/*  이번 주 담기 · 장보기 (작업 순서 6번)                              */
+/* ---------------------------------------------------------------- */
+
+function recipeId(formData: FormData): number {
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) throw new Error("레시피를 못 찾았어요");
+  return id;
+}
+
+/** 이번 주에 담는다. 열려 있는 목록이 없으면 새로 연다. */
+export async function addToWeek(formData: FormData) {
+  await shopping.addRecipe(recipeId(formData));
+  revalidatePath("/");
+}
+
+export async function removeFromWeek(formData: FormData) {
+  await shopping.removeRecipe(recipeId(formData));
+  revalidatePath("/");
+}
+
+/**
+ * 장보기에서 체크/해제.
+ * 체크하면 구매 기록이 생긴다 — 새 입력을 요구하지 않고 기존 행동에 얹는다.
+ */
+export async function toggleItem(formData: FormData) {
+  const label = String(formData.get("label") || "");
+  if (!label) return;
+  await shopping.toggle(label, formData.get("checked") === "1");
+  revalidatePath("/");
+}
+
+/** 장보기 끝. 다음에 담으면 새 목록이 열린다. */
+export async function finishShopping() {
+  await shopping.finish();
   revalidatePath("/");
 }

@@ -250,18 +250,35 @@ CREATE TABLE shopping_item (
 --     구매 이력 + 대략적인 유통기한으로 BUY/CHECK/HAVE 를 가른다.
 --     확신이 없으면 CHECK 로 보내고 판정을 사용자에게 넘긴다.
 --
--- WITH need AS (
+-- WITH picked AS (
+--     -- 택1 그룹에서 살 것 하나만 고른다. 고른 게 있으면 그것,
+--     -- 아무도 안 골랐으면 첫 번째. 하나도 안 사면 요리를 못 한다.
+--     SELECT DISTINCT ON (ri.recipe_id, ri.choice_group) ri.id
+--       FROM recipe_ingredient ri
+--       JOIN shopping_list_recipe slr ON slr.recipe_id = ri.recipe_id
+--      WHERE slr.list_id = $1
+--        AND ri.choice_group IS NOT NULL
+--      ORDER BY ri.recipe_id, ri.choice_group, ri.confirmed DESC, ri.id
+-- ),
+-- need AS (
 --     SELECT ri.ingredient_id,
+--            -- 사전에 못 붙인 표기는 이름별로 따로 나간다. ingredient_id
+--            -- 로만 묶으면 미분류가 전부 NULL 한 줄로 뭉쳐서, 묵은지와
+--            -- 고등어가 한 항목이 된다.
+--            CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END AS raw_key,
 --            MIN(ri.raw_name) AS label
 --       FROM recipe_ingredient ri
 --       JOIN shopping_list_recipe slr ON slr.recipe_id = ri.recipe_id
 --       LEFT JOIN ingredient i ON i.id = ri.ingredient_id
 --      WHERE slr.list_id = $1
 --        AND (ri.origin <> 'BODY' OR ri.confirmed)     -- 미확인 BODY 는 제외
+--        AND (ri.choice_group IS NULL
+--             OR ri.id IN (SELECT id FROM picked))     -- 택1 은 고른 것만
 --        AND COALESCE(i.purchasable, TRUE)             -- 물 같은 건 빼고
---      GROUP BY ri.ingredient_id
+--      GROUP BY ri.ingredient_id,
+--               CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END
 -- )
--- SELECT n.ingredient_id, n.label,
+-- SELECT n.ingredient_id, n.raw_key, n.label,
 --        CASE
 --          WHEN p.purchased_on IS NULL                      THEN 'BUY'
 --          WHEN CURRENT_DATE - p.purchased_on
@@ -270,8 +287,13 @@ CREATE TABLE shopping_item (
 --               > COALESCE(i.shelf_life_days, 7) / 2        THEN 'CHECK'
 --          ELSE 'HAVE'
 --        END AS bucket,
---        CASE WHEN p.purchased_on IS NOT NULL
---             THEN (CURRENT_DATE - p.purchased_on) || '일 전에 샀어요' END AS reason
+--        CASE WHEN p.purchased_on IS NOT NULL THEN
+--          CASE CURRENT_DATE - p.purchased_on
+--            WHEN 0 THEN '오늘 샀어요'
+--            WHEN 1 THEN '어제 샀어요'
+--            ELSE (CURRENT_DATE - p.purchased_on) || '일 전에 샀어요'
+--          END
+--        END AS reason
 --   FROM need n
 --   LEFT JOIN ingredient i ON i.id = n.ingredient_id
 --   LEFT JOIN LATERAL (

@@ -115,7 +115,7 @@
   overflow: hidden;
 }
 
-.list > :last-child > button {
+.list > :last-child > div {
   border-bottom: 0;
 }
 
