@@ -76,16 +76,34 @@ Storage → **New bucket** → 이름 `originals`, **Private** (공개로 두지
 
 ### 접속 주소 챙기기
 
-Connect 버튼 → **Transaction pooler** 주소를 복사한다 (포트 **6543**).
+> **Connect 창의 Next.js 안내는 따라 하지 마라.**
+> Supabase 는 기본으로 "supabase-js 를 깔고 `NEXT_PUBLIC_SUPABASE_URL` 과
+> publishable 키를 넣어라"라고 안내한다. 그건 **브라우저에서 REST 를 쓰는**
+> 방식이고 이 앱은 그걸 안 쓴다 (`web/lib/db.ts` 머리말 참조).
+> 그대로 따라가면 DB 에 닿는 길이 두 개가 되고, `NEXT_PUBLIC_` 키는
+> 브라우저 번들로 나간다.
+
+값은 셋이다.
+
+**1. `DATABASE_URL`** — Connect 창에서 프레임워크 탭 말고 **Transaction pooler**
+연결 문자열을 고른다 (Settings → Database → Connection string 에도 있다).
 
 ```
 postgresql://postgres.<ref>:<비밀번호>@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
 ```
 
-**direct(5432) 를 쓰지 마라.** Vercel 은 함수 인스턴스를 여러 개 띄우는데
-각자 접속을 잡아서 무료 요금제의 접속 수가 금방 바닥난다.
+**포트가 6543 인지 본다.** direct(5432) 로 붙으면 Vercel 이 함수 인스턴스를
+여러 개 띄우면서 각자 접속을 잡아 무료 요금제의 접속 수가 금방 바닥난다.
+`<비밀번호>` 는 프로젝트를 만들 때 받은 DB 비밀번호다.
 
-Settings → API 에서 **`service_role` 키**도 복사한다 (Storage 에 원본을 올릴 때 쓴다).
+**2. `SUPABASE_URL`** — `https://<ref>.supabase.co`.
+Connect 창이 보여주는 `NEXT_PUBLIC_SUPABASE_URL` 과 **값은 같다.**
+접두사만 떼고 쓴다 — 이건 서버에서만 쓰는 값이다.
+
+**3. `SUPABASE_SERVICE_ROLE_KEY`** — Settings → API 의 **secret key**
+(`sb_secret_...`). 예전 이름은 `service_role` 이다.
+같은 화면의 **publishable 키(`sb_publishable_...`)가 아니다** — 그건 공개용이라
+RLS 에 막혀서 Storage 에 원본을 못 올린다.
 
 ---
 
