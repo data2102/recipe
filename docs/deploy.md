@@ -138,6 +138,21 @@ Settings → Environment Variables 에 넣는다. **전부 Production·Preview �
 
 Deploy 를 누르면 `https://<이름>.vercel.app` 이 나온다.
 
+### 함수를 서울에 둔다
+
+`web/vercel.json` 이 `"regions": ["icn1"]` 로 잡아둔다. **지우지 마라.**
+
+Vercel 의 기본 지역은 `iad1`(미국 버지니아)인데 DB 는 서울
+(`ap-northeast-2`)에 있다. 그대로 두면 SQL 한 번에 태평양을 왕복해서
+**한 번에 200ms 쯤** 든다. 저장 한 건이 DB 를 여러 번 오가니까 그것만으로
+몇 초가 쌓인다. 함수를 DB 옆에 두면 왕복이 1~2ms 로 떨어진다.
+
+Supabase 프로젝트를 다른 지역에 만들었으면 이 값도 같이 바꾼다
+(도쿄 `hnd1`, 싱가포르 `sin1`, 미국 동부 `iad1`).
+
+> Hobby 요금제는 지역을 **하나만** 고를 수 있다. 배포 화면의 Functions
+> 탭에서 지금 어디인지 확인할 수 있다.
+
 ---
 
 ## 4. 폰에 설치 (2분)

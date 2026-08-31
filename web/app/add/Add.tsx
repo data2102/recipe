@@ -36,13 +36,13 @@ type Phase =
   | { at: "pick"; error?: Fail }
   | { at: "reading" }
   | { at: "linking" }
-  | { at: "confirm"; draft: Draft }
+  | { at: "confirm"; draft: Draft; failed?: string }
   | { at: "saving"; draft: Draft };
 
 export default function Add({ shared }: { shared?: Shared | null }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ at: "pick" });
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
 
   function land(result: IngestResult) {
     setPhase(
@@ -50,7 +50,19 @@ export default function Add({ shared }: { shared?: Shared | null }) {
     );
   }
 
-  function onIngest(form: FormData) {
+  /*
+   * `<form action={...}>` 로 넘기지 않는다.
+   *
+   * React 는 form action 을 트랜지션 안에서 돌린다. 그 안에서 부른
+   * setPhase 는 뒤따르는 비동기 트랜지션과 한 덩어리로 묶여서, 파싱이 다
+   * 끝날 때까지 **화면이 안 바뀐다.** 30초짜리 작업 앞에서 아무 반응이
+   * 없으면 사용자는 버튼을 또 누른다 (실제로 그렇게 됐다).
+   *
+   * onSubmit 안에서 부르면 평범한 긴급 갱신이라 그 자리에서 그려진다.
+   */
+  function onIngest(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
     setPhase({ at: "reading" });
     startTransition(async () => land(await ingest(form)));
   }
@@ -82,8 +94,13 @@ export default function Add({ shared }: { shared?: Shared | null }) {
         await commit(draft);
         router.push("/?tab=want");
       } catch (e) {
-        setPhase({ at: "confirm", draft });
-        alert(e instanceof Error ? e.message : "저장하지 못했어요");
+        // alert 는 브라우저 오류처럼 보이고, 닫고 나면 뭘 해야 하는지가
+        // 화면에 안 남는다. 화면 안에 두고 다시 누를 길을 같이 낸다.
+        setPhase({
+          at: "confirm",
+          draft,
+          failed: e instanceof Error ? e.message : "저장하지 못했어요.",
+        });
       }
     });
   }
@@ -95,6 +112,7 @@ export default function Add({ shared }: { shared?: Shared | null }) {
       <Confirm
         draft={phase.draft}
         saving={phase.at === "saving"}
+        failed={phase.at === "confirm" ? phase.failed : undefined}
         onChange={(draft) => setPhase({ at: "confirm", draft })}
         onSave={onCommit}
         onBack={() => setPhase({ at: "pick" })}
@@ -104,6 +122,7 @@ export default function Add({ shared }: { shared?: Shared | null }) {
   return (
     <Pick
       onSubmit={onIngest}
+      pending={pending}
       error={phase.error}
       shared={shared}
       onShared={onShared}
@@ -146,13 +165,16 @@ function Notice({ children }: { children: React.ReactNode }) {
 
 function Pick({
   onSubmit,
+  pending,
   error,
   shared,
   onShared,
   onLink,
   onLinkOnly,
 }: {
-  onSubmit: (form: FormData) => void;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  /** 이름만 저장이 도는 중. 두 번 누르면 두 건이 된다 */
+  pending: boolean;
   error?: Fail;
   shared?: Shared | null;
   onShared: () => void;
@@ -169,7 +191,7 @@ function Pick({
   const instagram = /instagram\.com/i.test(url);
 
   return (
-    <form action={onSubmit}>
+    <form onSubmit={onSubmit}>
       {/* 공유 시트로 넘어온 것. 여기서 바로 이어가면 다시 고를 필요가 없다 */}
       {gotShared && (
         <section className="ds-card">
@@ -277,11 +299,14 @@ function Pick({
               <button
                 type="button"
                 className={`ds-btn ds-btn-secondary ds-btn-block ${styles.linkGo}`}
+                disabled={pending}
                 onClick={() =>
                   onLinkOnly(error.linkOnly!.title, error.linkOnly!.url)
                 }
               >
-                &ldquo;{error.linkOnly.title}&rdquo; 이름만 저장할게요
+                {pending
+                  ? "저장하는 중이에요"
+                  : `“${error.linkOnly.title}” 이름만 저장할게요`}
               </button>
             </section>
           )}
@@ -332,12 +357,14 @@ function Reading() {
 function Confirm({
   draft,
   saving,
+  failed,
   onChange,
   onSave,
   onBack,
 }: {
   draft: Draft;
   saving: boolean;
+  failed?: string;
   onChange: (d: Draft) => void;
   onSave: (d: Draft) => void;
   onBack: () => void;
@@ -475,13 +502,25 @@ function Confirm({
         </section>
       )}
 
+      {/*
+        같은 초안은 두 번 저장되지 않는다 (lib/parse/store.ts 의 save).
+        그걸 말해줘야 다시 눌러도 되는지 망설이지 않는다.
+      */}
+      {failed && (
+        <Notice>
+          {failed}
+          <br />
+          다시 눌러도 돼요 — 같은 걸 두 번 저장하지는 않아요.
+        </Notice>
+      )}
+
       <button
         type="button"
         className="ds-btn ds-btn-primary ds-btn-block"
         disabled={saving}
         onClick={() => onSave(draft)}
       >
-        {saving ? "저장하는 중이에요" : "저장할게요"}
+        {saving ? "저장하는 중이에요" : failed ? "다시 저장할게요" : "저장할게요"}
       </button>
       <button type="button" className="ds-btn ds-btn-secondary ds-btn-block" onClick={onBack} disabled={saving}>
         다시 올릴래요
