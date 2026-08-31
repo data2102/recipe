@@ -6,7 +6,7 @@
 --  생성: python tools/build_migrations.py
 --
 --  v1 에는 로그인이 없다. anon 키로 아무나 읽고 지우는 일이 없게
---  문을 닫아둔다. 앱은 서버에서 service_role 키로 붙는다.
+--  REST 문을 닫아둔다. 앱은 서버에서 PostgreSQL 에 직접 붙는다.
 --  이유는 db/policy.sql 머리말에 있다.
 --
 --  방언: PostgreSQL (Supabase). 로컬 검증은 tools/verify_migration.py
@@ -16,17 +16,17 @@
 --  접근 잠금  (Supabase 전용)
 --
 --  v1 에는 로그인이 없다 (docs/claude-code-brief.md 7장). 그런데 Supabase 는
---  public 스키마의 테이블을 anon 키로 REST 에 그대로 연다. anon 키는 브라우저
---  번들에 실려 나가므로, 잠그지 않으면 링크를 아는 누구나 내 레시피를 읽고
+--  public 스키마의 테이블을 anon 키로 REST 에 그대로 연다. anon 키는 공개
+--  값이라, 잠그지 않으면 프로젝트 주소를 아는 누구나 내 레시피를 읽고
 --  지울 수 있다. "로그인이 없다" 가 "아무나 쓴다" 가 되면 안 된다.
 --
 --  그래서: 모든 테이블에 RLS 를 켜고 **정책은 하나도 만들지 않는다.**
 --    - anon / authenticated  -> 아무것도 못 본다 (정책이 없으니 전부 거부)
---    - service_role          -> RLS 를 통과한다 (Supabase 규정)
 --
---  앱은 브라우저에서 DB 를 직접 부르지 않는다. 서버(Server Component ·
---  Route Handler)에서 service_role 키로 부른다. 그 키는 서버에만 둔다
---  (web/.env.example 참조 — NEXT_PUBLIC_ 접두사를 붙이지 마라).
+--  앱은 REST 를 쓰지 않는다. 서버에서 PostgreSQL 에 직접 붙는다
+--  (web/lib/db.ts). 접속 주인(postgres)은 RLS 를 통과하므로 앱은 그대로
+--  돌아가고, 열려 있던 REST 문만 닫힌다. 접속 문자열은 서버에만 둔다 —
+--  web/.env.example 참조.
 --
 --  v2 에서 로그인이 생기면 여기에 user_id 기반 정책을 추가한다.
 --  그때까지는 정책이 비어 있는 게 맞다.

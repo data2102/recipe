@@ -24,6 +24,7 @@ python tools/verify_migration.py                 # 마이그레이션을 진짜 
 
 cd web && npm run dev                            # 앱 (http://localhost:3000)
 cd web && npm run lint && npm run build          # CI 가 보는 것
+psql "$DATABASE_URL" -f db/seed_dev.sql          # 손으로 돌려볼 예시 데이터
 
 python -m pipeline ingest 캡처.png               # 수집 → 파싱 → 정규화 → 저장
 python -m pipeline show 1
@@ -56,7 +57,8 @@ LLM 자리에 가짜 응답을 넣어 배관만 잰다 (파서 정확도는 accu
 | `db/schema.sql` | PostgreSQL 기준. SQLite 치환 규칙이 머리말에 있고 `verify_seed.py` 가 그 규칙을 쓴다. 끝의 "핵심 쿼리 3개" 주석은 `verify_migration.py` 가 실제로 파싱시킨다 — 컬럼을 바꾸면 같이 고쳐라 |
 | `supabase/migrations/*.sql` | **자동 생성물.** `db/*.sql` 을 고친 뒤 `build_migrations.py` 로 재생성한다. 단 실제 DB 에 한 번 올린 파일은 못 고친다 — `FROZEN` 에 넣고 델타를 새로 쓴다 |
 | `web/app/yeobaek/*.css` | **복사본.** 여백 디자인 시스템 원본 저장소를 고치고 다시 복사한다 (`web/app/yeobaek/README.md`) |
-| `web/lib/supabase.ts` | 서버 전용. Client Component 에서 import 하면 `service_role` 키가 번들에 실린다 |
+| `web/lib/db.ts` | 서버 전용. Client Component 에서 import 하면 접속 문자열이 번들에 실린다 |
+| `db/seed_dev.sql` | **예시 데이터.** 마이그레이션이 아니다. 실제 DB 에 넣지 마라 |
 
 ---
 
@@ -67,11 +69,20 @@ LLM 자리에 가짜 응답을 넣어 배관만 잰다 (파서 정확도는 accu
 - **1번 프로젝트 셋업 + DB 스키마 반영 — 완료.** `web/` (Next.js) +
   `supabase/migrations/`. `verify_migration.py` 가 진짜 PostgreSQL 에서 통과
 - **2번 재료 사전 시드 — 완료.** 표기 47개 → 표준 40종 + 별칭 11개
-- **3번 레시피 목록 3탭 + 만들었어요 — 다음.** 화면은 여기서 처음 생긴다.
-  프로토타입(`prototype/오늘뭐먹지.html`)의 톤·간격을 참고한다
-- **4번 캡처 → 2패스 파싱 → 확인 화면 → 저장 — 파이프라인만 됨.**
-  `pipeline/` + CLI 로 한 바퀴가 돈다. 업로드·확인 화면이 없다
+- **3번 레시피 목록 3탭 + 만들었어요 — 완료.** `db/seed_dev.sql` 을 넣고
+  세 탭·시트·날짜 선택이 도는 걸 브라우저로 확인했다
+- **4번 캡처 → 2패스 파싱 → 확인 화면 → 저장 — 다음.** `pipeline/` + CLI 로
+  한 바퀴는 돈다. 업로드 화면과 확인 화면이 없다. **이게 제품의 심장이다**
 - **5번 미분류 확인 — 실제 레시피를 넣어야 한다.** 통과 기준은 미분류 10% 안쪽
+
+### 앱 쪽 규칙
+
+- **DB 는 생 SQL 로 직접 붙는다** (`web/lib/db.ts`). Supabase REST 를 안 쓰는
+  이유는 그 파일 머리말에 있다 — 쪼개면 `schema.sql` 과 다른 로직이 두 벌 생긴다
+- **브라우저는 DB 에 안 붙는다.** 조회는 Server Component, 변경은 Server Action
+- **색을 하드코딩하지 마라.** 여백 토큰(`var(--...)`)만 쓴다.
+  파랑(`--accent`)은 누를 수 있는 것에만 — "68일" 같은 정보는 텍스트 3단계로
+- **탭 2 의 오래된 순 정렬을 뒤집지 마라.** 그 정렬이 곧 추천이다
 
 ### 이미 내린 결정 — 되돌리지 마라
 

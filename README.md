@@ -52,6 +52,7 @@
 | [`web/`](web/) | **앱.** Next.js (App Router) + Supabase. 화면은 작업 순서 3번부터 |
 | [`supabase/migrations/`](supabase/migrations/) | **자동 생성.** `db/*.sql` → 마이그레이션 |
 | [`db/policy.sql`](db/policy.sql) | 접근 잠금. RLS 를 켜고 정책은 두지 않는다 |
+| [`db/seed_dev.sql`](db/seed_dev.sql) | 손으로 돌려볼 예시 데이터. **마이그레이션 아님** |
 | [`tools/build_migrations.py`](tools/build_migrations.py) | `db/*.sql` → 마이그레이션 생성 (`--check` 검증만) |
 | [`tools/verify_migration.py`](tools/verify_migration.py) | 마이그레이션을 **진짜 PostgreSQL** 에 올려보는 검증 |
 | [`tools/accuracy_test.py`](tools/accuracy_test.py) | 이미지 파싱 정확도 측정. 1패스 vs 2패스 비교 (`--compare`) |
@@ -127,8 +128,8 @@ BAD   별로였다                          → 숨김
 |---|---|---|---|
 | 1 | 프로젝트 셋업 + DB 스키마 반영 | 마이그레이션 통과 | **완료** |
 | 2 | 재료 사전 시드 투입 | CSV 47개 표기 반영 | **완료** |
-| 3 | 레시피 목록 3탭 + 만들었어요(날짜 선택) | 데이터를 손으로 넣어 돌아감 | 다음 |
-| 4 | 캡처 업로드 → 2패스 파싱 → 확인 화면 → 저장 | **캡처 1장이 레시피가 된다** | 파이프라인은 CLI 로 돎 |
+| 3 | 레시피 목록 3탭 + 만들었어요(날짜 선택) | 데이터를 손으로 넣어 돌아감 | **완료** |
+| 4 | 캡처 업로드 → 2패스 파싱 → 확인 화면 → 저장 | **캡처 1장이 레시피가 된다** | 다음. 파이프라인은 CLI 로 돎 |
 | 5 | 미분류 확인 | `unmapped_term` 10% 안쪽 | |
 | 6 | 이번 주 담기 + 장보기 목록 3단 분류 | 담은 요리의 재료가 합산됨 | |
 | 7 | 링크 파싱 + 캡처 폴백 | 링크 실패 시 안내가 뜬다 | |
@@ -146,20 +147,32 @@ BAD   별로였다                          → 숨김
 - **Next.js (App Router) + Supabase.** 안드로이드 PWA 가 Web Share Target 을
   지원해서, 네이티브 앱 없이 인스타 공유 시트에 뜬다. 이게 핵심 유입 경로다
 - **로그인은 v1 에 없다.** 단일 사용자 전제. 필요해지면 `user_id` 를 나중에 붙인다
-- 다만 "로그인이 없다"가 "아무나 쓴다"는 아니다. 모든 테이블에 RLS 를 켜두고
-  (`db/policy.sql`) 앱은 **서버에서만** `service_role` 키로 붙는다.
-  브라우저에 DB 키가 나가지 않는다
+- **DB 는 생 SQL 로 직접 붙는다.** Supabase 는 호스팅된 Postgres 로 쓰고 REST 는
+  안 쓴다 — `schema.sql` 의 장보기 3단 분류가 CTE + LATERAL 이라 REST 로는
+  표현이 안 되고, 쪼개서 앱에서 합치면 같은 로직이 두 벌 생긴다
+- 다만 "로그인이 없다"가 "아무나 쓴다"는 아니다. 열려 있는 REST 문은 닫아둔다 —
+  모든 테이블에 RLS 를 켜고 정책은 두지 않는다 (`db/policy.sql`).
+  브라우저는 DB 에 붙지 않는다
 
 ### 앱 돌리는 법
 
 ```bash
 cd web
 npm install
-cp .env.example .env.local      # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 채우기
+cp .env.example .env.local      # DATABASE_URL 채우기
 npm run dev                     # http://localhost:3000
 ```
 
 키를 안 채워도 뜬다 — "아직 DB 를 안 붙였어요"라고 말해주는 게 그 화면의 일이다.
+
+손으로 넣어볼 예시 데이터가 있다. **마이그레이션이 아니다** — 실제 DB 에 넣지 마라.
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/seed_dev.sql
+```
+
+레시피 6건(만든 것 4 + 안 만든 것 2)이 들어간다. 탭 2 의 오래된 순 정렬과
+60일 넘은 것의 warm 색이 보이도록 날짜를 오늘 기준 상대값으로 잡아뒀다.
 
 ### 마이그레이션 돌리는 법
 
