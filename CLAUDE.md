@@ -3,6 +3,7 @@
 작업을 시작하기 전에 **[`docs/claude-code-brief.md`](docs/claude-code-brief.md) 를 읽어라.**
 개발 지시서다. 무엇을 어떤 순서로 만드는지가 여기 있다 (8장 작업 순서).
 왜 그렇게 정했는지는 **[`docs/v1-spec.md`](docs/v1-spec.md)** 에 있다.
+올리는 절차는 **[`docs/deploy.md`](docs/deploy.md)** 에 있다.
 이유를 모르고 코드를 고치면 이미 검토해서 버린 선택지로 되돌아가게 된다.
 
 [`README.md`](README.md) 의 "🤖 Claude Code에게" 절에 **반드시 지킬 것 7가지**가 있다.

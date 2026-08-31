@@ -38,6 +38,7 @@
 | 경로 | 내용 |
 |---|---|
 | [`docs/claude-code-brief.md`](docs/claude-code-brief.md) | **개발 지시서.** 화면 3탭, 레시피 정리 파이프라인, 작업 순서 9단계 |
+| [`docs/deploy.md`](docs/deploy.md) | **올리는 법.** Supabase + Vercel + 폰에 설치까지 |
 | [`docs/v1-spec.md`](docs/v1-spec.md) | **배경 문서.** 제품 정의, 원칙, 범위, 화면 6장, 파싱 파이프라인, 추천/장보기 로직 |
 | [`prototype/오늘뭐먹지.html`](prototype/오늘뭐먹지.html) | 동작하는 화면 프로토타입. UI 톤·간격 참고용 |
 | [`db/schema.sql`](db/schema.sql) | 데이터 모델 DDL + 핵심 쿼리 3개 (PostgreSQL 기준, SQLite 치환법 주석) |
@@ -168,6 +169,8 @@ SELECT raw_name, hit_count FROM unmapped_term
   브라우저는 DB 에 붙지 않는다
 
 ### 무료로 굴리기
+
+올리는 절차는 [`docs/deploy.md`](docs/deploy.md) 에 있다.
 
 **쓰는 사람은 둘이다.** 그 전제로 무료 요금제 안에서 돈다.
 
