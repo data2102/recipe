@@ -20,32 +20,35 @@
 
 ### 마이그레이션 올리기
 
-Supabase 대시보드 **SQL Editor** 에 아래 세 파일을 **순서대로** 붙여넣고 실행한다.
+**둘 중 하나를 고른다.** CLI 쪽이 실수할 여지가 없다.
 
-```
-supabase/migrations/20260831000000_init_schema.sql      테이블 12개
-supabase/migrations/20260831000001_seed_dictionary.sql  재료 사전 40종 + 별칭 11개
-supabase/migrations/20260831000002_lock_down.sql        RLS 잠금
-```
-
-CLI 를 쓰면 한 번에 된다.
+#### 방법 A — CLI (권장)
 
 ```bash
+npx supabase login
 npx supabase link --project-ref <프로젝트 ref>
 npx supabase db push
 ```
 
-**확인**: SQL Editor 에서
+`supabase/migrations/` 를 파일명 순서대로 알아서 올린다.
+`<프로젝트 ref>` 는 대시보드 주소의 `.../project/<여기>` 부분이다.
 
-```sql
-SELECT COUNT(*) FROM ingredient;                                  -- 40
-SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public';       -- 12
-SELECT COUNT(*) FROM pg_policies WHERE schemaname = 'public';     -- 0  (정책 없이 잠긴 게 맞다)
-```
+#### 방법 B — 대시보드 SQL Editor
 
-> 한 번 올린 뒤로는 이 파일들을 **못 고친다.** 이미 적용된 과거다.
-> `tools/build_migrations.py` 의 `FROZEN` 에 세 파일 이름을 넣어라.
-> 그때부터 스키마 변경은 델타 파일을 새로 쓴다.
+SQL Editor 는 **SQL 만** 실행한다. 파일 이름을 붙여넣으면
+`syntax error at or near "supabase"` 가 난다 — **파일 안의 내용**을 넣어야 한다.
+
+아래 세 개를 **하나씩, 순서대로** 연다 → 전체 선택(Ctrl+A) → 복사 →
+SQL Editor 에 붙여넣고 Run → 다음 것으로.
+
+1. [`20260831000000_init_schema.sql`](https://raw.githubusercontent.com/data2102/recipe/main/supabase/migrations/20260831000000_init_schema.sql) — 테이블 12개
+2. [`20260831000001_seed_dictionary.sql`](https://raw.githubusercontent.com/data2102/recipe/main/supabase/migrations/20260831000001_seed_dictionary.sql) — 재료 사전 40종 + 별칭 11개
+3. [`20260831000002_lock_down.sql`](https://raw.githubusercontent.com/data2102/recipe/main/supabase/migrations/20260831000002_lock_down.sql) — RLS 잠금
+
+> 아직 main 에 머지 안 했으면 위 주소의 `/main/` 을 작업 브랜치 이름으로 바꾼다.
+> 저장소를 받아뒀다면 `cat supabase/migrations/<파일>.sql` 로 열어 복사해도 된다.
+
+**순서를 지켜라.** 2번은 1번이 만든 테이블에 넣고, 3번은 그 테이블들을 잠근다.
 
 ### 원본 보관함 만들기
 
