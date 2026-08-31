@@ -10,8 +10,10 @@
 
 ## 🤖 Claude Code에게
 
-이 저장소에서 작업을 시작할 때 **[`docs/v1-spec.md`](docs/v1-spec.md)를 먼저 읽어라.**
-설계 결정과 그 이유가 전부 거기 있다. 이유를 모르고 코드를 고치면 이미 검토해서 버린 선택지로 되돌아가게 된다.
+**[`docs/claude-code-brief.md`](docs/claude-code-brief.md) 를 먼저 읽어라.** 개발 지시서다 —
+화면 3탭, 레시피 정리 파이프라인, 작업 순서 9단계가 여기 있다.
+배경과 결정 이유가 궁금하면 [`docs/v1-spec.md`](docs/v1-spec.md) 를 본다.
+이유를 모르고 코드를 고치면 이미 검토해서 버린 선택지로 되돌아가게 된다.
 
 ### 반드시 지킬 것 (어기면 제품이 망가진다)
 
@@ -35,7 +37,9 @@
 
 | 경로 | 내용 |
 |---|---|
-| [`docs/v1-spec.md`](docs/v1-spec.md) | **기준 문서.** 제품 정의, 원칙, 범위, 화면 6장, 파싱 파이프라인, 추천/장보기 로직, 개발 순서 |
+| [`docs/claude-code-brief.md`](docs/claude-code-brief.md) | **개발 지시서.** 화면 3탭, 레시피 정리 파이프라인, 작업 순서 9단계 |
+| [`docs/v1-spec.md`](docs/v1-spec.md) | **배경 문서.** 제품 정의, 원칙, 범위, 화면 6장, 파싱 파이프라인, 추천/장보기 로직 |
+| [`prototype/오늘뭐먹지.html`](prototype/오늘뭐먹지.html) | 동작하는 화면 프로토타입. UI 톤·간격 참고용 |
 | [`db/schema.sql`](db/schema.sql) | 데이터 모델 DDL + 핵심 쿼리 3개 (PostgreSQL 기준, SQLite 치환법 주석) |
 | [`data/ingredient-dictionary.csv`](data/ingredient-dictionary.csv) | 재료 정규화 사전 시드 (표기 47개 → 표준 40종) |
 | [`data/unit-notation.csv`](data/unit-notation.csv) | 수량·단위 표기 실측 정리 |

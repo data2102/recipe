@@ -1,0 +1,344 @@
+<div id="app">
+  <div class="head">
+    <h1>오늘 뭐 먹지</h1>
+    <div class="cnt" id="cnt"></div>
+  </div>
+
+  <button class="banner" id="banner" hidden>
+    <div class="bwrap">
+      <b id="bTitle"></b>
+      <span id="bNames"></span>
+    </div>
+    <div class="go">장보기</div>
+  </button>
+
+  <div class="tabs">
+    <button class="tab" data-tab="done" aria-selected="true">만들어봤어요</button>
+    <button class="tab" data-tab="want" aria-selected="false">해보고 싶어요</button>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <button class="fab" id="fab">레시피 추가</button>
+
+  <div class="sheet-bg" id="addBg" hidden>
+    <div class="sheet">
+      <h2>해보고 싶은 요리</h2>
+      <p class="sub">이름만 적어도 돼요. 재료는 만들 때 링크에서 보면 되니까요.</p>
+      <label for="fName">요리 이름</label>
+      <input id="fName" placeholder="예: 두부조림" autocomplete="off">
+      <label for="fUrl">링크 (선택)</label>
+      <input id="fUrl" placeholder="인스타·유튜브·블로그 주소" autocomplete="off">
+      <div class="btns">
+        <button data-close="addBg">닫기</button>
+        <button class="main" id="doAdd" disabled>추가</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-bg" id="shopBg" hidden>
+    <div class="sheet">
+      <h2>이번 주 장보기</h2>
+      <p class="sub" id="shopSub"></p>
+      <div id="shopList"></div>
+      <div class="ingHead">사야 할 것</div>
+      <div class="ings" id="shopIngs"></div>
+      <p class="note">여기 나오는 건 메인 재료뿐이에요. 양념이나 부재료는 아직 안 들어가 있어요.</p>
+      <div class="btns">
+        <button data-close="shopBg">닫기</button>
+        <button class="main" id="doneShop">장보기 끝</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<style>
+  :root{
+    --accent:#3182f6; --accent-strong:#1d63c9; --accent-bg:#e8f3ff;
+    --warm:#c96f4c;
+    --text-1:#191f28; --text-2:#4e5968; --text-3:#8b95a1; --text-4:#b0b8c1;
+    --bg:#f2f4f6; --surface:#fff; --sunken:#f9fafb;
+    --border:#eef1f4; --border-strong:#d1d6db;
+    --r-md:12px; --r-lg:16px; --r-xl:20px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  #app{
+    font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif;
+    background:var(--bg);color:var(--text-1);
+    max-width:480px;margin:0 auto;min-height:680px;
+    padding:20px 16px 100px;position:relative;letter-spacing:-0.01em;
+  }
+  #app button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit;padding:0}
+  #app [hidden]{display:none !important}
+
+  .head{display:flex;align-items:baseline;justify-content:space-between}
+  .head h1{font-size:26px;font-weight:600;letter-spacing:-0.035em;margin:0}
+  .cnt{font-size:13px;color:var(--text-3)}
+
+  .banner{
+    display:flex !important;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--accent-bg);border-radius:var(--r-lg);
+    padding:14px 16px;margin:16px 0 0;width:100%;text-align:left;
+  }
+  .banner[hidden]{display:none !important}
+  .bwrap{min-width:0}
+  .banner b{font-size:15px;font-weight:600;color:var(--accent-strong);display:block}
+  .banner span{font-size:13px;color:var(--text-2);display:block;margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .banner .go{font-size:14px;font-weight:600;color:var(--accent);white-space:nowrap}
+
+  .tabs{display:flex;gap:4px;margin:20px 0 12px}
+  .tab{padding:7px 14px;border-radius:999px;font-size:14px;color:var(--text-3);font-weight:500}
+  .tab[aria-selected="true"]{background:var(--text-1);color:#fff;font-weight:600}
+
+  .list{display:flex;flex-direction:column;gap:8px}
+  .card{background:var(--surface);border-radius:var(--r-lg);overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;padding:15px 16px}
+  .nm{flex:1;min-width:0;text-align:left}
+  .nm b{display:block;font-size:16px;font-weight:500;letter-spacing:-0.02em}
+  .nm small{display:block;font-size:13px;color:var(--text-3);margin-top:3px}
+  .nm small.long{color:var(--warm)}
+  .pick{
+    width:34px;height:34px;border-radius:50%;flex:none;
+    border:1.5px solid var(--border-strong);
+    display:grid;place-items:center;font-size:17px;line-height:1;color:var(--text-4);
+    transition:background .12s,border-color .12s,color .12s;
+  }
+  .pick.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .acts{display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid var(--border)}
+  .acts button{flex:1;padding:11px;border-radius:var(--r-md);font-size:14px;font-weight:500;background:var(--sunken);color:var(--text-2)}
+  .acts button.main{background:var(--accent);color:#fff;font-weight:600}
+  .acts button.quiet{color:var(--text-3)}
+
+  .empty{text-align:center;padding:56px 16px;color:var(--text-3);font-size:15px;line-height:1.7}
+
+  .fab{
+    position:sticky;bottom:20px;display:block;margin:24px auto 0;
+    background:var(--text-1);color:#fff;font-size:15px;font-weight:600;
+    padding:15px 26px;border-radius:999px;box-shadow:0 6px 24px rgba(25,31,40,.22);
+  }
+
+  .sheet-bg{position:fixed;inset:0;background:rgba(25,31,40,.4);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+  .sheet-bg[hidden]{display:none !important}
+  .sheet{background:var(--surface);width:100%;max-width:480px;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:20px 16px 24px;max-height:88vh;overflow:auto}
+  .sheet h2{font-size:20px;font-weight:600;margin:0 0 8px;letter-spacing:-0.03em}
+  .sheet .sub{font-size:14px;color:var(--text-3);margin:0 0 4px}
+  .sheet label{display:block;font-size:13px;color:var(--text-2);margin:16px 0 8px;font-weight:500}
+  .sheet input{width:100%;padding:14px 16px;border-radius:var(--r-md);border:1px solid var(--border-strong);font-size:16px;font-family:inherit;background:var(--sunken)}
+  .sheet input:focus{outline:2px solid var(--accent);outline-offset:-2px;background:#fff}
+  .btns{display:flex;gap:8px;margin-top:24px}
+  .btns button{flex:1;padding:15px;border-radius:var(--r-md);font-size:15px;font-weight:600;background:var(--sunken);color:var(--text-2)}
+  .btns button.main{background:var(--accent);color:#fff}
+  .btns button.main:disabled{background:var(--border);color:var(--text-4);cursor:default}
+
+  .shop-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}
+  .shop-item b{font-size:15px;font-weight:500}
+  .shop-item span{font-size:13px;color:var(--text-3);white-space:nowrap}
+  .ingHead{margin-top:20px;font-size:13px;color:var(--text-2);font-weight:500}
+  .ings{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .ing{background:var(--sunken);border-radius:999px;padding:8px 14px;font-size:14px;color:var(--text-2)}
+  .note{font-size:13px;color:var(--text-3);line-height:1.65;margin-top:20px}
+
+  .toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:var(--text-1);color:#fff;font-size:14px;padding:12px 20px;border-radius:999px;z-index:40;white-space:nowrap}
+</style>
+
+<script>
+(function(){
+  var SEED = [
+    ["오리훈제부추무침","오리훈제·부추"],["소고기알배추찜","소고기"],["매콤바지락","바지락"],
+    ["김치찜","김치·삼겹살"],["버터갈릭새우","새우"],["이북식찜닭","닭"],
+    ["삼겹살 제육볶음","삼겹살"],["된장찌개(짜글이)","부채살·된장"],["항정들기름김치찜","항정살·김치"],
+    ["신라면투움바","신라면"],["된장술밥","된장"],["스팸순두부찌개","순두부·스팸"],
+    ["오리주물럭","오리"],["비빔야채만두","만두"],["무침만두","만두"],
+    ["알감자조림","감자"],["닭볶음탕","닭"],["홍합탕어묵꼬치","홍합·어묵"],
+    ["부추무침","부추"],["우삼겹갈비탕","우삼겹"],["계란찜","계란"],
+    ["우삼겹숙주찜","우삼겹·숙주"],["무수분수육","삼겹살"],["삼겹김치찜","삼겹살·김치"],
+    ["돼지김치짜글이","돼지고기·김치"],["지코바","닭"],["순두부참치짜글이","순두부"],
+    ["제육볶음","돼지고기"],["돼지고기김치찌개","돼지고기"],["묵은지고등어","고등어"],
+    ["장조림","메추리알"],["콩나물무침","콩나물"],["스팸짜글이","스팸·감자"]
+  ];
+  var KEY = "recipes-v1";
+  var items = [], tab = "done", openId = null;
+
+  var $ = function(id){ return document.getElementById(id); };
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function days(d){ return d ? Math.floor((new Date(today()) - new Date(d)) / 86400000) : null; }
+  function since(d){
+    var n = days(d);
+    if(n === null) return "아직 안 만들었어요";
+    if(n === 0) return "오늘 만들었어요";
+    if(n === 1) return "어제 만들었어요";
+    return n + "일 전에 만들었어요";
+  }
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function save(){
+    try{ window.storage.set(KEY, JSON.stringify(items)); }
+    catch(e){ flash("저장이 안 됐어요"); }
+    render();
+  }
+  var tId;
+  function flash(msg){
+    var t = $("toast");
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(tId);
+    tId = setTimeout(function(){ t.hidden = true; }, 1600);
+  }
+  function find(id){
+    for(var i=0;i<items.length;i++) if(items[i].id === id) return items[i];
+    return null;
+  }
+
+  function render(){
+    $("cnt").textContent = items.length + "개";
+
+    var picked = items.filter(function(i){ return i.pick; });
+    var b = $("banner");
+    if(picked.length){
+      b.hidden = false;
+      $("bTitle").textContent = "이번 주에 " + picked.length + "개 담았어요";
+      $("bNames").textContent = picked.map(function(i){ return i.name; }).join(", ");
+    } else { b.hidden = true; }
+
+    var tabs = document.querySelectorAll(".tab");
+    for(var t=0;t<tabs.length;t++)
+      tabs[t].setAttribute("aria-selected", tabs[t].dataset.tab === tab ? "true" : "false");
+
+    var vis = items.filter(function(i){
+      return tab === "done" ? i.status === "done" : i.status === "want";
+    });
+    vis.sort(function(a,b2){
+      if(tab === "want") return b2.id - a.id;
+      var x = days(a.last), y = days(b2.last);
+      return (y === null ? 99999 : y) - (x === null ? 99999 : x);
+    });
+
+    var html = "";
+    if(!vis.length){
+      html = '<div class="empty">' + (tab === "want"
+        ? "해보고 싶은 요리가 아직 없어요.<br>아래 버튼으로 이름만 적어두세요."
+        : "만들어본 요리가 없어요.") + "</div>";
+    }
+    for(var k=0;k<vis.length;k++){
+      var it = vis[k];
+      var sub = tab === "want" ? (it.ing || "재료는 링크에서 확인해요") : since(it.last);
+      var lng = (days(it.last) !== null && days(it.last) >= 60) ? " long" : "";
+      html += '<div class="card">'
+        + '<div class="row">'
+        + '<button class="nm" data-open="' + it.id + '"><b>' + esc(it.name) + '</b>'
+        + '<small class="' + lng.trim() + '">' + esc(sub) + '</small></button>'
+        + '<button class="pick' + (it.pick ? " on" : "") + '" data-pick="' + it.id + '" '
+        + 'aria-label="' + (it.pick ? "이번 주에서 빼기" : "이번 주에 담기") + '">'
+        + (it.pick ? "✓" : "+") + '</button>'
+        + '</div>';
+      if(openId === it.id){
+        html += '<div class="acts">'
+          + '<button class="main" data-cook="' + it.id + '">만들었어요</button>'
+          + (it.url ? '<button data-link="' + it.id + '">레시피 열기</button>' : "")
+          + '<button class="quiet" data-skip="' + it.id + '">별로였어요</button>'
+          + '</div>';
+      }
+      html += "</div>";
+    }
+    $("list").innerHTML = html;
+  }
+
+  document.addEventListener("click", function(e){
+    var el = e.target.closest ? e.target.closest("[data-open],[data-pick],[data-cook],[data-skip],[data-link],[data-tab],[data-close]") : null;
+    if(!el) return;
+    var d = el.dataset;
+
+    if(d.tab){ tab = d.tab; openId = null; render(); return; }
+    if(d.close){ $(d.close).hidden = true; return; }
+
+    var id = parseInt(d.open || d.pick || d.cook || d.skip || d.link, 10);
+    var it = find(id);
+    if(!it) return;
+
+    if(d.open !== undefined){ openId = (openId === id ? null : id); render(); return; }
+    if(d.pick !== undefined){ it.pick = !it.pick; save(); return; }
+    if(d.link !== undefined){ window.open(it.url, "_blank"); return; }
+    if(d.cook !== undefined){
+      var wasWant = it.status === "want";
+      it.last = today(); it.status = "done"; it.pick = false;
+      openId = null; save();
+      flash(wasWant ? "만들어본 목록으로 옮겼어요" : "오늘 날짜로 기록했어요");
+      return;
+    }
+    if(d.skip !== undefined){
+      it.status = "skip"; it.pick = false; openId = null; save();
+      flash("목록에서 숨겼어요");
+    }
+  });
+
+  $("fab").addEventListener("click", function(){
+    $("fName").value = ""; $("fUrl").value = "";
+    $("doAdd").disabled = true;
+    $("addBg").hidden = false;
+    $("fName").focus();
+  });
+  $("fName").addEventListener("input", function(){
+    $("doAdd").disabled = !this.value.trim();
+  });
+  $("doAdd").addEventListener("click", function(){
+    var name = $("fName").value.trim();
+    if(!name) return;
+    var max = 0;
+    for(var i=0;i<items.length;i++) if(items[i].id > max) max = items[i].id;
+    items.push({ id: max + 1, name: name, ing: "", status: "want",
+                 last: null, pick: false, url: $("fUrl").value.trim() });
+    $("addBg").hidden = true;
+    tab = "want"; save(); flash("담아뒀어요");
+  });
+
+  $("banner").addEventListener("click", function(){
+    var picked = items.filter(function(i){ return i.pick; });
+    $("shopSub").textContent = "고른 요리 " + picked.length + "개예요.";
+    var h = "";
+    for(var i=0;i<picked.length;i++){
+      h += '<div class="shop-item"><b>' + esc(picked[i].name) + "</b><span>"
+         + esc(picked[i].ing || "재료 미정") + "</span></div>";
+    }
+    $("shopList").innerHTML = h;
+    var set = [], seen = {};
+    picked.forEach(function(p){
+      (p.ing ? p.ing.split("·") : []).forEach(function(x){
+        if(x && !seen[x]){ seen[x] = 1; set.push(x); }
+      });
+    });
+    $("shopIngs").innerHTML = set.length
+      ? set.map(function(x){ return '<div class="ing">' + esc(x) + "</div>"; }).join("")
+      : '<div class="ing">재료가 등록된 요리가 없어요</div>';
+    $("shopBg").hidden = false;
+  });
+  $("doneShop").addEventListener("click", function(){
+    items.forEach(function(i){ i.pick = false; });
+    $("shopBg").hidden = true; save(); flash("장보기를 끝냈어요");
+  });
+
+  [["addBg"],["shopBg"]].forEach(function(p){
+    $(p[0]).addEventListener("click", function(e){ if(e.target === this) this.hidden = true; });
+  });
+
+  (async function init(){
+    var data = null;
+    try{
+      var r = await window.storage.get(KEY);
+      if(r && r.value) data = JSON.parse(r.value);
+    }catch(e){}
+    if(!data || !data.length){
+      data = SEED.map(function(s, i){
+        return { id:i+1, name:s[0], ing:s[1], status:"done", last:null, pick:false, url:"" };
+      });
+    }
+    items = data;
+    render();
+  })();
+})();
+</script>
