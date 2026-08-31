@@ -51,30 +51,31 @@ export default function Shopping({ items }: { items: ShoppingItem[] }) {
         return (
           <div key={bucket} className={styles.group}>
             <h3 className={styles.bucket}>
-              {BUCKET_TITLE[bucket]} {picked.length}
+              {BUCKET_TITLE[bucket]}
+              <span className={styles.count}>{picked.length}</span>
             </h3>
             <ul className={styles.list}>
               {picked.map((item) => (
-                <li key={item.label}>
-                  <button
-                    type="button"
-                    className={styles.item}
-                    onClick={() => onToggle(item)}
-                    aria-pressed={item.checked}
-                  >
-                    <span className={styles.box} aria-hidden="true">
-                      {item.checked ? "✓" : ""}
-                    </span>
-                    <span
-                      className={`${styles.label} ${item.checked ? styles.done : ""}`}
-                    >
-                      {item.label}
-                    </span>
+                /*
+                 * 여백의 .ds-check 를 쓴다 — 보이는 네모는 .box 가 그리고
+                 * 진짜 <input> 이 안에 숨어 있어서 키보드·스크린리더가 그대로
+                 * 동작한다 (components.css Phase 1). 줄 전체가 라벨이라
+                 * 마트에서 아무 데나 눌러도 체크된다.
+                 */
+                <li key={item.label} className={styles.line}>
+                  <label className="ds-check">
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      onChange={() => onToggle(item)}
+                    />
+                    <span className="box" />
+                    <span className={styles.name}>{item.label}</span>
                     {/* 근거만 보여준다. "없음" 이라고 단정하지 않는다 */}
                     {item.reason && (
                       <span className={styles.reason}>{item.reason}</span>
                     )}
-                  </button>
+                  </label>
                 </li>
               ))}
             </ul>
@@ -88,7 +89,11 @@ export default function Shopping({ items }: { items: ShoppingItem[] }) {
       </p>
 
       <form action={finishShopping}>
-        <button type="submit" className={styles.finish} disabled={bought === 0}>
+        <button
+          type="submit"
+          className="ds-btn ds-btn-primary ds-btn-block"
+          disabled={bought === 0}
+        >
           {bought > 0 ? `장보기 끝 (${bought}개 담음)` : "장보기 끝"}
         </button>
       </form>

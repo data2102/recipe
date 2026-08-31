@@ -71,13 +71,30 @@ export default function RecipeRow({
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
         >
-          <span className={styles.title}>{title}</span>
-          <span className={`${styles.meta} ${warm ? styles.warm : ""}`}>
-            {meta}
+          {/* 좌측 아이콘칩 — 여백의 리스트 행 규칙 (design-system.md 6장).
+              아이콘 세트를 섞지 않으려고 요리 이름 첫 글자를 쓴다 */}
+          <span className={styles.icon} aria-hidden="true">
+            {Array.from(title)[0] ?? "?"}
           </span>
+          <span className={styles.texts}>
+            <span className={styles.title}>{title}</span>
+            <span className={`${styles.meta} ${warm ? styles.warm : ""}`}>
+              {meta}
+            </span>
+          </span>
+          {/* 오른쪽에 다른 버튼이 없을 때만. 탭하면 열린다는 표시다 */}
+          {!pick && (
+            <span className={styles.chevron} aria-hidden="true">
+              ›
+            </span>
+          )}
         </button>
 
-        {pick === "in" && <span className={styles.inBasket}>담아뒀어요</span>}
+        {pick === "in" && (
+          <span className={styles.inBasket}>
+            <span className={`ds-badge ${styles.quietBadge}`}>담아뒀어요</span>
+          </span>
+        )}
 
         {(pick === "add" || pick === "remove") && (
           <form action={pick === "add" ? addToWeek : removeFromWeek}>
@@ -107,27 +124,29 @@ export default function RecipeRow({
             {picking ? (
               <form action={markCooked} className={styles.pickForm}>
                 <input type="hidden" name="id" value={id} />
-                <label className={styles.label} htmlFor={`d${id}`}>
-                  언제 만들었어요?
-                </label>
-                <input
-                  id={`d${id}`}
-                  className={styles.date}
-                  type="date"
-                  name="cookedOn"
-                  defaultValue={today}
-                  max={today}
-                />
-                <p className={styles.hint}>
-                  정확하지 않아도 돼요. 순서만 맞으면 됩니다.
-                </p>
+                <div className="ds-field">
+                  <label className="ds-label" htmlFor={`d${id}`}>
+                    언제 만들었어요?
+                  </label>
+                  <input
+                    id={`d${id}`}
+                    className="ds-input"
+                    type="date"
+                    name="cookedOn"
+                    defaultValue={today}
+                    max={today}
+                  />
+                  <span className="ds-help">
+                    정확하지 않아도 돼요. 순서만 맞으면 됩니다.
+                  </span>
+                </div>
                 <div className={styles.actions}>
-                  <button type="submit" className={styles.primary}>
+                  <button type="submit" className="ds-btn ds-btn-primary ds-btn-block">
                     이 날로 기록
                   </button>
                   <button
                     type="button"
-                    className={styles.quiet}
+                    className="ds-btn ds-btn-secondary ds-btn-block"
                     onClick={() => setPicking(false)}
                   >
                     돌아가기
@@ -140,7 +159,7 @@ export default function RecipeRow({
                   <input type="hidden" name="id" value={id} />
                   <button
                     type="submit"
-                    className={styles.primary}
+                    className="ds-btn ds-btn-primary ds-btn-block"
                     onPointerDown={pressStart}
                     onPointerUp={pressEnd}
                     onPointerLeave={pressEnd}
@@ -156,7 +175,7 @@ export default function RecipeRow({
 
                 <button
                   type="button"
-                  className={styles.quiet}
+                  className="ds-btn ds-btn-secondary ds-btn-block"
                   onClick={() => setPicking(true)}
                 >
                   다른 날에 만들었어요
@@ -164,7 +183,7 @@ export default function RecipeRow({
 
                 {sourceUrl ? (
                   <a
-                    className={styles.quiet}
+                    className="ds-btn ds-btn-secondary ds-btn-block"
                     href={sourceUrl}
                     target="_blank"
                     rel="noreferrer noopener"
@@ -172,12 +191,12 @@ export default function RecipeRow({
                     레시피 열기
                   </a>
                 ) : (
-                  <span className={styles.disabled}>링크가 없어요</span>
+                  <span className={`ds-btn ds-btn-secondary ds-btn-block ${styles.disabled}`}>링크가 없어요</span>
                 )}
 
                 <form action={markBad}>
                   <input type="hidden" name="id" value={id} />
-                  <button type="submit" className={styles.quiet}>
+                  <button type="submit" className="ds-btn ds-btn-secondary ds-btn-block">
                     별로였어요
                   </button>
                 </form>

@@ -115,6 +115,35 @@ export default function Add({ shared }: { shared?: Shared | null }) {
 
 /* ---------------------------------------------------------------- */
 
+/**
+ * 붙박이 상태 안내 — 여백의 .ds-banner (components.md Phase 2).
+ *
+ * 아이콘은 아웃라인 한 벌로 통일한다 (foundations.md). 이모지를 섞지
+ * 않으려고 Tabler 계열 SVG 를 직접 넣는다 — 아이콘 하나 쓰자고 웹폰트를
+ * 받아오지 않는다.
+ */
+function Notice({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={`ds-banner ds-banner-warning ${styles.notice}`}>
+      <svg
+        className="ico"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+      <div>{children}</div>
+    </div>
+  );
+}
+
 function Pick({
   onSubmit,
   error,
@@ -143,28 +172,27 @@ function Pick({
     <form action={onSubmit}>
       {/* 공유 시트로 넘어온 것. 여기서 바로 이어가면 다시 고를 필요가 없다 */}
       {gotShared && (
-        <section className={styles.card}>
+        <section className="ds-card">
           <h2 className={styles.cardTitle}>
             공유받은 캡처 {shared!.assetIds.length}장이 있어요
           </h2>
           <p className={styles.body}>이걸로 바로 정리해드릴까요?</p>
           {shared!.url && <p className={styles.hint}>{shared!.url}</p>}
-          <button type="button" className={styles.shared} onClick={onShared}>
+          <button type="button" className={`ds-btn ds-btn-primary ds-btn-block ${styles.shared}`} onClick={onShared}>
             이걸로 정리해줄게요
           </button>
         </section>
       )}
 
       {shared?.problem && (
-        <section className={styles.card}>
-          <h2 className={`${styles.cardTitle} ${styles.warm}`}>
-            {shared.problem}
-          </h2>
-          <p className={styles.body}>아래에서 직접 올려주세요.</p>
-        </section>
+        <Notice>
+          {shared.problem}
+          <br />
+          아래에서 직접 올려주세요.
+        </Notice>
       )}
 
-      <section className={styles.card}>
+      <section className="ds-card">
         <h2 className={styles.cardTitle}>
           {gotShared ? "다른 캡처를 올려도 돼요" : "캡처를 올려주세요"}
         </h2>
@@ -187,10 +215,10 @@ function Pick({
         </label>
       </section>
 
-      <section className={styles.card}>
+      <section className="ds-card">
         <h2 className={styles.cardTitle}>글로 붙여넣어도 돼요</h2>
         <textarea
-          className={styles.textarea}
+          className="ds-textarea"
           name="text"
           rows={4}
           defaultValue={shared?.text ?? ""}
@@ -198,28 +226,30 @@ function Pick({
         />
       </section>
 
-      <section className={styles.card}>
-        <label className={styles.label} htmlFor="sourceUrl">
-          링크가 있으면 붙여넣어 주세요
-        </label>
-        <input
-          id="sourceUrl"
-          className={styles.input}
-          type="url"
-          name="sourceUrl"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="인스타·유튜브·블로그 주소"
-        />
-        <p className={styles.hint}>
-          {instagram
-            ? "인스타는 링크로는 못 읽어요. 캡처를 올려주세요 — 주소는 같이 보관할게요."
-            : "읽을 수 있으면 읽고, 안 되면 캡처를 올려달라고 알려드려요."}
-        </p>
+      <section className="ds-card">
+        <div className={`ds-field ${styles.lastField}`}>
+          <label className="ds-label" htmlFor="sourceUrl">
+            링크가 있으면 붙여넣어 주세요
+          </label>
+          <input
+            id="sourceUrl"
+            className="ds-input"
+            type="url"
+            name="sourceUrl"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="인스타·유튜브·블로그 주소"
+          />
+          <span className="ds-help">
+            {instagram
+              ? "인스타는 링크로는 못 읽어요. 캡처를 올려주세요 — 주소는 같이 보관할게요."
+              : "읽을 수 있으면 읽고, 안 되면 캡처를 올려달라고 알려드려요."}
+          </span>
+        </div>
         {url.trim() && !instagram && (
           <button
             type="button"
-            className={styles.linkGo}
+            className={`ds-btn ds-btn-secondary ds-btn-block ${styles.linkGo}`}
             onClick={() => onLink(url)}
           >
             링크 읽어볼게요
@@ -228,27 +258,34 @@ function Pick({
       </section>
 
       {error && (
-        <section className={styles.card}>
-          <h2 className={`${styles.cardTitle} ${styles.warm}`}>{error.message}</h2>
-          {error.hint && <p className={styles.body}>{error.hint}</p>}
+        <>
+          <Notice>
+            {error.message}
+            {error.hint && (
+              <>
+                <br />
+                {error.hint}
+              </>
+            )}
+          </Notice>
           {/* 못 읽어도 제목은 건졌으면 이름만 저장하는 길을 연다 */}
           {error.linkOnly && (
-            <>
-              <p className={styles.hint}>
+            <section className="ds-card">
+              <p className={styles.body}>
                 이름만 저장해두고, 재료는 만들 때 링크에서 봐도 돼요.
               </p>
               <button
                 type="button"
-                className={styles.linkGo}
+                className={`ds-btn ds-btn-secondary ds-btn-block ${styles.linkGo}`}
                 onClick={() =>
                   onLinkOnly(error.linkOnly!.title, error.linkOnly!.url)
                 }
               >
                 &ldquo;{error.linkOnly.title}&rdquo; 이름만 저장할게요
               </button>
-            </>
+            </section>
           )}
-        </section>
+        </>
       )}
 
       {/*
@@ -257,7 +294,9 @@ function Pick({
       */}
       <button
         type="submit"
-        className={gotShared ? styles.quiet : styles.primary}
+        className={`ds-btn ds-btn-block ${
+          gotShared ? "ds-btn-secondary" : "ds-btn-primary"
+        }`}
       >
         {gotShared ? "올린 걸로 정리해줄게요" : "정리해줄게요"}
       </button>
@@ -267,7 +306,7 @@ function Pick({
 
 function Linking() {
   return (
-    <section className={styles.card}>
+    <section className="ds-card">
       <h2 className={styles.cardTitle}>링크를 열어보는 중이에요</h2>
       <p className={styles.body}>
         읽어도 되는 페이지인지 먼저 확인하고, 본문이 있으면 가져와요.
@@ -278,7 +317,7 @@ function Linking() {
 
 function Reading() {
   return (
-    <section className={styles.card}>
+    <section className="ds-card">
       <h2 className={styles.cardTitle}>읽는 중이에요</h2>
       <p className={styles.body}>
         재료를 먼저 옮기고, 만드는 법에만 나오는 재료가 있는지 한 번 더 봐요.
@@ -319,24 +358,26 @@ function Confirm({
 
   return (
     <>
-      <section className={styles.card}>
-        <label className={styles.label} htmlFor="title">
-          요리 이름
-        </label>
-        <input
-          id="title"
-          className={styles.input}
-          value={draft.title}
-          onChange={(e) => onChange({ ...draft, title: e.target.value })}
-        />
-        <p className={styles.hint}>
-          재료 {draft.items.length} · 만드는 법 {draft.steps.length}단계
-        </p>
+      <section className="ds-card">
+        <div className={`ds-field ${styles.lastField}`}>
+          <label className="ds-label" htmlFor="title">
+            요리 이름
+          </label>
+          <input
+            id="title"
+            className="ds-input"
+            value={draft.title}
+            onChange={(e) => onChange({ ...draft, title: e.target.value })}
+          />
+          <span className="ds-help">
+            재료 {draft.items.length} · 만드는 법 {draft.steps.length}단계
+          </span>
+        </div>
       </section>
 
       {/* 확인 필요 — 이것만 펼쳐서 물어본다 */}
       {check.length > 0 && (
-        <section className={styles.card}>
+        <section className="ds-card">
           <h2 className={styles.cardTitle}>이것만 확인해주세요</h2>
           <ul className={styles.checkList}>
             {check.map(({ item, i }) => (
@@ -357,7 +398,7 @@ function Confirm({
                   <button
                     type="button"
                     className={
-                      item.answered && item.confirmed ? styles.picked : styles.choice
+                      `ds-btn ds-btn-secondary ${item.answered && item.confirmed ? styles.picked : ""}`
                     }
                     onClick={() => set(i, { confirmed: true, answered: true })}
                   >
@@ -366,7 +407,7 @@ function Confirm({
                   <button
                     type="button"
                     className={
-                      item.answered && !item.confirmed ? styles.picked : styles.choice
+                      `ds-btn ds-btn-secondary ${item.answered && !item.confirmed ? styles.picked : ""}`
                     }
                     onClick={() => set(i, { confirmed: false, answered: true })}
                   >
@@ -381,7 +422,7 @@ function Confirm({
 
       {/* 확정 — 뭉쳐서 접어둔다 */}
       {mapped.length > 0 && (
-        <section className={styles.card}>
+        <section className="ds-card">
           <button
             type="button"
             className={styles.foldHead}
@@ -414,7 +455,7 @@ function Confirm({
 
       {/* 미분류 — 원문 그대로 저장한다. 추측하지 않는다 */}
       {unmapped.length > 0 && (
-        <section className={styles.card}>
+        <section className="ds-card">
           <h2 className={styles.cardTitle}>처음 보는 재료예요</h2>
           <p className={styles.body}>
             적힌 그대로 저장할게요. 장보기에서는 따로 한 줄로 나와요.
@@ -436,13 +477,13 @@ function Confirm({
 
       <button
         type="button"
-        className={styles.primary}
+        className="ds-btn ds-btn-primary ds-btn-block"
         disabled={saving}
         onClick={() => onSave(draft)}
       >
         {saving ? "저장하는 중이에요" : "저장할게요"}
       </button>
-      <button type="button" className={styles.quiet} onClick={onBack} disabled={saving}>
+      <button type="button" className="ds-btn ds-btn-secondary ds-btn-block" onClick={onBack} disabled={saving}>
         다시 올릴래요
       </button>
     </>
@@ -472,19 +513,19 @@ function Editable({
   return (
     <div className={styles.editRow}>
       <input
-        className={styles.input}
+        className="ds-input"
         value={item.raw_name}
         aria-label="재료 이름"
         onChange={(e) => onChange({ raw_name: e.target.value })}
       />
       <input
-        className={styles.qtyInput}
+        className={`ds-input ${styles.qtyInput}`}
         value={item.raw_qty ?? ""}
         aria-label="수량"
         placeholder="수량"
         onChange={(e) => onChange({ raw_qty: e.target.value })}
       />
-      <button type="button" className={styles.done} onClick={onOpen}>
+      <button type="button" className={`ds-btn ds-btn-secondary ${styles.done}`} onClick={onOpen}>
         됐어요
       </button>
     </div>

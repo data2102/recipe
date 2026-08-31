@@ -49,7 +49,7 @@ export default function Fridge({
   if (chips.length === 0) return null;
 
   return (
-    <section className={styles.box}>
+    <section className="ds-card">
       <p className={styles.lead}>
         집에 있는 걸 눌러두면 그게 들어간 요리를 위로 올려드려요.
         <br />
@@ -61,7 +61,7 @@ export default function Fridge({
           <button
             key={c.id}
             type="button"
-            className={picked.has(c.id) ? styles.on : styles.off}
+            className={`ds-chip ${picked.has(c.id) ? "on" : ""}`}
             aria-pressed={picked.has(c.id)}
             onClick={() => toggle(c.id)}
           >

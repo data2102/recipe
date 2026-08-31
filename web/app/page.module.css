@@ -1,5 +1,14 @@
+/*
+ * 목록 화면 — 여백 디자인 시스템 위에 얹는 배치만 여기 둔다.
+ *
+ * 카드·버튼·탭·칩·배지는 시스템 것(.ds-*)을 그대로 쓴다. 여기 있는 건
+ * "어디에 놓을지"뿐이다. 색·크기를 새로 정하지 마라 — 토큰만 쓴다.
+ */
+
+/* --- 머리 ------------------------------------------------------- */
+
 .head {
-  margin: 0 0 var(--sp-6);
+  margin: 0 0 var(--sp-5);
 }
 
 .title {
@@ -12,16 +21,79 @@
 .sub {
   font-size: var(--fs-caption);
   color: var(--text-tertiary);
-  margin: var(--sp-2) 0 0;
+  margin: var(--sp-1) 0 0;
 }
 
-.card {
+/* --- 탭 --------------------------------------------------------- */
+
+/*
+ * 시스템의 .ds-tabs / .ds-tab (밑줄형) 을 그대로 쓴다.
+ * 선택된 탭에 액센트가 붙는 건 원칙 ② 에 어긋나지 않는다 — 탭은 셋 다
+ * 눌러서 가는 자리고, 색이 가리키는 것도 "지금 눌러 와 있는 곳"이다.
+ */
+.tabs {
+  margin-bottom: var(--sp-5);
+}
+
+.tabs a {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* --- 섹션 ------------------------------------------------------- */
+
+.section {
+  font-size: var(--fs-heading);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  margin: var(--sp-8) 0 var(--sp-3);
+}
+
+.section:first-of-type {
+  margin-top: 0;
+}
+
+.note {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin: var(--sp-3) 0 0;
+}
+
+/* --- 목록 ------------------------------------------------------- */
+
+/* 행은 카드 안에 들어간다 (design-system.md 6장 "리스트 행") */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: var(--sp-5);
-  margin-bottom: var(--sp-4);
+  overflow: hidden;
 }
+
+.list > :last-child > div {
+  border-bottom: 0;
+}
+
+/*
+ * 빈 화면은 사과가 아니라 초대다 (design-system.md 7장).
+ * .ds-empty 의 기본 여백은 아이콘·제목·버튼이 다 있는 화면 기준이라,
+ * 한 줄짜리 안내에는 과하다. 카드에 얹고 위아래만 줄인다.
+ */
+.empty {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-6) var(--sp-5);
+}
+
+.empty p {
+  margin: 0;
+}
+
+/* --- 셋업 안내 --------------------------------------------------- */
 
 .cardTitle {
   font-size: var(--fs-subhead);
@@ -34,14 +106,6 @@
   color: var(--text-secondary);
   margin: 0;
 }
-
-/* 정보는 텍스트 3단계로만 구분한다. 파랑은 누를 수 있는 것에만 (지시서 5장) */
-.note {
-  font-size: var(--fs-caption);
-  color: var(--text-tertiary);
-  margin: var(--sp-3) 0 0;
-}
-
 
 .code {
   display: block;
@@ -58,93 +122,13 @@
   color: var(--text-secondary);
 }
 
-/* --- 탭 --------------------------------------------------------- */
-
-.tabs {
-  display: flex;
-  gap: var(--sp-1);
-  margin-bottom: var(--sp-4);
-}
+/* --- 주 행동 ----------------------------------------------------- */
 
 /*
- * 선택된 탭은 글자 굵기와 색으로만 구분한다. 파랑은 누를 수 있는 것에만
- * 쓰는데 탭은 셋 다 누를 수 있어서, 파랑으로는 지금 어디인지 못 가른다.
+ * 사용자가 하는 일은 두 가지다 — 올리고, 만들고 나서 체크한다.
+ * 그중 하나라 눈에 띄어야 한다 (지시서 1장). 화면당 채운 파란 버튼은
+ * 하나만 (design-system.md 6장).
  */
-.tab {
-  flex: 1;
-  text-align: center;
-  text-decoration: none;
-  font-size: var(--fs-caption);
-  color: var(--text-tertiary);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-md);
-  padding: 12px var(--sp-2);
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tab[aria-current="page"] {
-  background: var(--surface);
-  color: var(--text-primary);
-  font-weight: var(--fw-medium);
-  box-shadow: var(--shadow-card);
-}
-
-/* --- 목록 ------------------------------------------------------- */
-
-.section {
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-regular);
-  color: var(--text-tertiary);
-  margin: var(--sp-5) 0 var(--sp-2);
-}
-
-.section:first-of-type {
-  margin-top: 0;
-}
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.list > :last-child > div {
-  border-bottom: 0;
-}
-
-.empty {
-  color: var(--text-tertiary);
-  font-size: var(--fs-caption);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-5);
-  margin: 0;
-}
-
-/* 사용자가 하는 일은 두 가지다 — 올리고, 만들고 나서 체크한다.
-   그중 하나라 눈에 띄어야 한다 (지시서 1장) */
 .add {
-  display: block;
-  text-align: center;
-  text-decoration: none;
-  background: var(--accent-strong);
-  color: var(--on-accent);
-  font-size: var(--fs-subhead);
-  font-weight: var(--fw-medium);
-  border-radius: var(--radius-md);
-  padding: 14px var(--sp-5);
-  min-height: 44px;
-  margin-bottom: var(--sp-4);
-}
-
-.add:hover {
-  background: var(--accent-hover);
+  margin-bottom: var(--sp-5);
 }

@@ -1,3 +1,10 @@
+/*
+ * 올리기 → 확인 → 저장.
+ *
+ * 카드·버튼·폼·배너는 여백의 .ds-* 를 그대로 쓴다 (globals.css 에서 불러온다).
+ * 여기 있는 건 이 화면에만 있는 모양 — 캡처 고르는 자리, 재료 줄, 택1 버튼.
+ */
+
 .head {
   display: flex;
   align-items: baseline;
@@ -16,14 +23,6 @@
   font-weight: var(--fw-medium);
   letter-spacing: var(--ls-tight);
   margin: 0;
-}
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-5);
-  margin-bottom: var(--sp-4);
 }
 
 .cardTitle {
@@ -48,6 +47,15 @@
   margin: var(--sp-2) 0 0;
 }
 
+.notice {
+  margin-bottom: var(--sp-4);
+}
+
+/* 카드 안 마지막 필드는 아래 여백을 카드가 준다 */
+.lastField {
+  margin-bottom: 0;
+}
+
 .missing {
   margin: var(--sp-3) 0 0;
   padding-left: 1.2em;
@@ -55,7 +63,7 @@
   color: var(--text-secondary);
 }
 
-/* --- 고르기 ------------------------------------------------------ */
+/* --- 캡처 고르기 -------------------------------------------------- */
 
 .file {
   position: absolute;
@@ -80,34 +88,13 @@
   cursor: pointer;
 }
 
+.drop:hover {
+  border-color: var(--text-tertiary);
+}
+
+/* 진짜 input 은 숨어 있으니 포커스 링을 라벨이 대신 받는다 (foundations.md) */
 .file:focus-visible + .drop {
   box-shadow: var(--shadow-focus);
-}
-
-.label {
-  display: block;
-  font-size: var(--fs-caption);
-  color: var(--text-secondary);
-  margin-bottom: var(--sp-2);
-}
-
-.input,
-.qtyInput,
-.textarea {
-  width: 100%;
-  font-family: inherit;
-  font-size: var(--fs-body);
-  color: var(--text-primary);
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 12px var(--sp-4);
-  min-height: 44px;
-}
-
-.textarea {
-  resize: vertical;
-  line-height: var(--lh-body);
 }
 
 /* --- 확인 -------------------------------------------------------- */
@@ -164,13 +151,8 @@
 
 .done {
   flex: none;
-  background: var(--surface-sunken);
-  border: 0;
-  border-radius: var(--radius-sm);
-  padding: 12px var(--sp-3);
-  min-height: 44px;
-  font-size: var(--fs-caption);
-  color: var(--text-secondary);
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-4);
 }
 
 /* 근거는 판정이 아니다. 왜 물어보는지만 보여준다 (원칙 ③) */
@@ -185,24 +167,18 @@
   gap: var(--sp-2);
 }
 
-.choice,
-.picked {
+.yesno > button {
   flex: 1;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-secondary);
-  padding: 10px var(--sp-3);
-  min-height: 44px;
-  font-size: var(--fs-caption);
 }
 
-/* 고른 쪽만 채운다. 파랑은 누를 수 있는 것에 쓰는 색이라 선택 표시로도 맞다 */
+/*
+ * 고른 쪽만 채운다. 파랑은 누를 수 있는 것에 쓰는 색이라 선택 표시로도 맞다.
+ * 연한 틴트 위 글자라 --accent-strong (foundations.md 접근성).
+ */
 .picked {
   background: var(--accent-bg);
   border-color: var(--accent);
   color: var(--accent-strong);
-  font-weight: var(--fw-medium);
 }
 
 .foldHead {
@@ -229,74 +205,12 @@
 
 /* --- 버튼 -------------------------------------------------------- */
 
-.primary,
-.quiet {
-  display: block;
-  width: 100%;
-  text-align: center;
-  font-size: var(--fs-subhead);
-  font-weight: var(--fw-medium);
-  border: 0;
-  border-radius: var(--radius-md);
-  padding: 14px var(--sp-5);
-  min-height: 44px;
-  margin-bottom: var(--sp-2);
-}
-
-.primary {
-  background: var(--accent-strong);
-  color: var(--on-accent);
-}
-
-.primary:hover {
-  background: var(--accent-hover);
-}
-
-.primary:disabled {
-  background: var(--surface-sunken);
-  color: var(--text-disabled);
-  cursor: not-allowed;
-}
-
-.quiet {
-  background: var(--surface-sunken);
-  color: var(--text-primary);
-}
-
-/* 공유로 들어온 길. 여기서 바로 이어가는 게 기본 동작이다 */
+/* 모양은 .ds-btn 이 준다. 여기서는 사이 간격만 */
 .shared {
-  display: block;
-  width: 100%;
   margin-top: var(--sp-4);
-  background: var(--accent-strong);
-  color: var(--on-accent);
-  font-size: var(--fs-subhead);
-  font-weight: var(--fw-medium);
-  border: 0;
-  border-radius: var(--radius-md);
-  padding: 14px var(--sp-5);
-  min-height: 44px;
-}
-
-.shared:hover {
-  background: var(--accent-hover);
 }
 
 /* 링크를 읽는 건 캡처 올리기와 나란한 길이라 주 버튼으로 두지 않는다 */
 .linkGo {
-  display: block;
-  width: 100%;
   margin-top: var(--sp-3);
-  background: var(--surface-sunken);
-  color: var(--accent-strong);
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-medium);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  padding: 12px var(--sp-4);
-  min-height: 44px;
-}
-
-.linkGo:hover {
-  background: var(--bg);
 }

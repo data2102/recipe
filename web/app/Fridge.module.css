@@ -1,10 +1,7 @@
-.box {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-5);
-  margin-bottom: var(--sp-4);
-}
+/*
+ * 집에 있는 재료 칩.
+ * 칩 자체는 여백의 .ds-chip 이다 (선택 상태는 .on). 여기 있는 건 배치뿐.
+ */
 
 .lead {
   font-size: var(--fs-caption);
@@ -23,29 +20,7 @@
   gap: var(--sp-2);
 }
 
-/* 누른 것만 채운다. 칩은 누를 수 있는 것이라 액션색을 써도 된다 */
-.off,
-.on {
-  border-radius: var(--radius-pill);
-  padding: 10px var(--sp-4);
-  min-height: 44px;
-  font-size: var(--fs-caption);
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--text-secondary);
-}
-
-.on {
-  background: var(--accent-bg);
-  border-color: var(--accent);
-  color: var(--accent-strong);
-  font-weight: var(--fw-medium);
-}
-
-.off:hover {
-  background: var(--surface-sunken);
-}
-
+/* 누른 칩이 없으면 지울 것도 없다. 있을 때만 조용히 붙는다 */
 .clear {
   display: block;
   margin: var(--sp-4) 0 0;

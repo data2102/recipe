@@ -136,6 +136,15 @@ function rows(
   });
 }
 
+/** 빈 화면. 사과 말고 초대다 (design-system.md 7장 마이크로카피) */
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={`ds-empty ${styles.empty}`}>
+      <p>{children}</p>
+    </div>
+  );
+}
+
 function List({
   list,
   today,
@@ -151,7 +160,7 @@ function List({
   pick?: "add" | "remove" | "in";
   inBasket?: Set<number>;
 }) {
-  if (list.length === 0) return <p className={styles.empty}>{empty}</p>;
+  if (list.length === 0) return <Empty>{empty}</Empty>;
   return (
     <ul className={styles.list}>{rows(list, today, mode, pick, inBasket)}</ul>
   );
@@ -176,11 +185,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <p className={styles.sub}>레시피 {data.total}개</p>
       </header>
 
-      <Link href="/add" className={styles.add}>
+      <Link
+        href="/add"
+        className={`ds-btn ds-btn-primary ds-btn-block ${styles.add}`}
+      >
         레시피 추가
       </Link>
 
-      <nav className={styles.tabs}>
+      <nav className={`ds-tabs ${styles.tabs}`}>
         {TABS.map((t) => (
           <Link
             key={t.key}
@@ -191,7 +203,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   : "/"
                 : `/?tab=${t.key}`
             }
-            className={styles.tab}
+            className={`ds-tab ${t.key === tab ? "on" : ""}`}
             aria-current={t.key === tab ? "page" : undefined}
           >
             {t.label}
@@ -281,20 +293,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               ))}
             </ul>
           ) : (
-            <p className={styles.empty}>
-              위에서 담으면 여기 모이고, 재료가 아래에 합쳐져요.
-            </p>
+            <Empty>위에서 담으면 여기 모이고, 재료가 아래에 합쳐져요.</Empty>
           )}
 
           <h2 className={styles.section}>장보기</h2>
           {data.cart.length > 0 ? (
             <Shopping items={data.cart} />
           ) : (
-            <p className={styles.empty}>
+            <Empty>
               {data.basket.length > 0
                 ? "담은 요리에 재료가 아직 안 붙어 있어요."
                 : "요리를 담으면 살 것을 합쳐서 보여드려요."}
-            </p>
+            </Empty>
           )}
         </>
       )}
@@ -311,7 +321,7 @@ function Setup() {
         <h1 className={styles.title}>오늘 뭐 먹지</h1>
         <p className={styles.sub}>셋업 확인</p>
       </header>
-      <section className={styles.card}>
+      <section className="ds-card">
         <h2 className={styles.cardTitle}>아직 DB 를 안 붙였어요</h2>
         <p className={styles.body}>
           <code>web/.env.local</code> 에 접속 주소를 넣어주세요.
@@ -332,7 +342,7 @@ function Broken({ message }: { message: string }) {
       <header className={styles.head}>
         <h1 className={styles.title}>오늘 뭐 먹지</h1>
       </header>
-      <section className={styles.card}>
+      <section className="ds-card">
         <h2 className={styles.cardTitle}>DB 에 못 붙었어요</h2>
         <p className={styles.body}>{message}</p>
         <p className={styles.note}>

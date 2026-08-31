@@ -49,7 +49,7 @@ export default async function AddPage({ searchParams }: PageProps<"/add">) {
       {ready ? (
         <Add shared={shared} />
       ) : (
-        <section className={styles.card}>
+        <section className="ds-card">
           <h2 className={styles.cardTitle}>아직 준비가 안 됐어요</h2>
           <p className={styles.body}>
             <code>web/.env.local</code> 에 아래 두 값이 필요해요.

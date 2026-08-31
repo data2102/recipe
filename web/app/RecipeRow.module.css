@@ -1,3 +1,10 @@
+/*
+ * 레시피 한 줄 + 열리는 시트.
+ *
+ * 버튼·폼·배지는 여백의 .ds-* 를 그대로 쓴다. 여기 있는 건 행의 뼈대와
+ * 시트가 올라오는 방식뿐이다.
+ */
+
 .row {
   list-style: none;
 }
@@ -9,17 +16,18 @@
   background: var(--surface);
 }
 
+/* 좌측 아이콘칩 + 제목/메타 2줄 (+ 우측 chevron) — design-system.md 6장 */
 .rowButton {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-1);
+  align-items: center;
+  gap: var(--sp-3);
   width: 100%;
+  min-width: 0;
   text-align: left;
   background: none;
   border: 0;
-  padding: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
   /* 터치 타겟 최소선 (foundations.md) */
   min-height: 44px;
   transition: background var(--dur-fast) var(--ease-standard);
@@ -33,8 +41,34 @@
   transform: scale(0.995);
 }
 
-.title {
+/*
+ * 연한 액센트 배경 위 글자라 --accent-strong 을 쓴다 (foundations.md 접근성).
+ * 아이콘 세트를 섞지 않으려고 (아웃라인/이모지 혼용 금지) 글자를 넣는다.
+ */
+.icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--accent-bg);
+  color: var(--accent-strong);
+  font-weight: var(--fw-bold);
   font-size: var(--fs-subhead);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.texts {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: var(--fs-body);
   font-weight: var(--fw-medium);
   color: var(--text-primary);
 }
@@ -48,6 +82,15 @@
 .warm {
   color: var(--warm);
 }
+
+.chevron {
+  flex: none;
+  color: var(--text-tertiary);
+  font-size: var(--fs-heading);
+  line-height: 1;
+}
+
+/* --- 시트 -------------------------------------------------------- */
 
 .sheetBg {
   position: fixed;
@@ -103,42 +146,12 @@
   display: contents;
 }
 
-.primary,
-.quiet,
-.disabled {
-  display: block;
-  width: 100%;
-  text-align: center;
-  text-decoration: none;
-  font-size: var(--fs-subhead);
-  font-weight: var(--fw-medium);
-  border: 0;
-  border-radius: var(--radius-md);
-  padding: 14px var(--sp-5);
-  min-height: 44px;
-}
-
-.primary {
-  background: var(--accent-strong);
-  color: var(--on-accent);
-}
-
-.primary:hover {
-  background: var(--accent-hover);
-}
-
-.quiet {
-  background: var(--surface-sunken);
-  color: var(--text-primary);
-}
-
-.quiet:hover {
-  background: var(--bg);
-}
-
+/* 누를 수 없다는 표시. .ds-btn:disabled 와 같은 모양을 span 에도 준다 */
 .disabled {
   background: var(--surface-sunken);
   color: var(--text-disabled);
+  border-color: var(--border);
+  cursor: not-allowed;
 }
 
 .close {
@@ -155,30 +168,7 @@
   display: block;
 }
 
-.label {
-  display: block;
-  font-size: var(--fs-caption);
-  color: var(--text-secondary);
-  margin-bottom: var(--sp-2);
-}
-
-.date {
-  width: 100%;
-  font-family: inherit;
-  font-size: var(--fs-subhead);
-  color: var(--text-primary);
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 12px var(--sp-4);
-  min-height: 44px;
-}
-
-.hint {
-  font-size: var(--fs-footnote);
-  color: var(--text-tertiary);
-  margin: var(--sp-2) 0 var(--sp-4);
-}
+/* --- 담기 -------------------------------------------------------- */
 
 /* 담기는 이 화면에서 하는 유일한 행동이라 액션색을 쓴다.
    빼기는 되돌리는 것이라 조용하게 (지시서 5장) */
@@ -207,12 +197,20 @@
   background: var(--surface-sunken);
 }
 
-/* 이미 담은 것. 누를 게 없으니 액션색을 쓰지 않는다 (지시서 5장) */
+/* 이미 담은 것. 누를 게 없으니 배지로 알린다 (design-system.md 6장) */
 .inBasket {
   display: flex;
   align-items: center;
   padding: 0 var(--sp-4);
-  font-size: var(--fs-caption);
-  color: var(--text-tertiary);
   white-space: nowrap;
+}
+
+/*
+ * 담아뒀다는 건 상태 신호가 아니다 — 성공/주의/위험이 아니라 그냥 사실이라
+ * 색을 안 쓴다 (design-system.md 원칙 ③). 여백에는 아직 무채색 배지 변형이
+ * 없어서 여기서 만든다. 원본 저장소에 .ds-badge-quiet 로 올릴 만하다.
+ */
+.quietBadge {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
 }
