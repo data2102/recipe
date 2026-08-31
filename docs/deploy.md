@@ -50,6 +50,26 @@ SQL Editor 에 붙여넣고 Run → 다음 것으로.
 
 **순서를 지켜라.** 2번은 1번이 만든 테이블에 넣고, 3번은 그 테이블들을 잠근다.
 
+Supabase 가 "Potential issue detected — 이 쿼리가 RLS 없이 테이블을 만든다"고
+물으면 **Run and enable RLS** 를 고른다. 3번이 어차피 하는 일이라 결과는 같고,
+그 사이에 테이블이 잠깐 열려 있는 것만 없앤다. 테이블 주인은 RLS 를 통과하므로
+2번 시드도 그대로 들어간다.
+
+### 올린 뒤 — 얼린다
+
+한 번 올라간 마이그레이션은 **이미 적용된 과거라 못 고친다.**
+`tools/build_migrations.py` 의 `FROZEN` 에 세 파일이 들어가 있다.
+
+여기서부터 스키마를 바꾸려면:
+
+1. `db/schema.sql` 을 고친다 (여전히 '현재 상태'의 원본이다)
+2. `supabase/migrations/` 에 **델타 파일을 손으로 새로 쓴다**
+   (`20260901000000_add_xxx.sql` 처럼 뒤 번호로)
+3. 그 델타를 Supabase 에 올린다
+
+`build_migrations.py --check` 는 계속 돈다. `db/schema.sql` 을 고쳤는데 델타를
+안 썼으면 CI 가 "얼린 마이그레이션이 원본과 어긋난다"로 막는다.
+
 ### 원본 보관함 만들기
 
 Storage → **New bucket** → 이름 `originals`, **Private** (공개로 두지 마라).

@@ -58,7 +58,7 @@ LLM 자리에 가짜 응답을 넣어 배관만 잰다 (파서 정확도는 accu
 | `db/seed_dictionary.sql` | **자동 생성물.** 직접 고치지 말고 CSV 를 고친 뒤 재생성한다. `verify_seed.py` 가 어긋남을 잡는다 |
 | `data/ingredient-dictionary.csv` | **실측 기록.** 추론으로 행을 채우지 마라. 문서에 있다는 이유로 넣지도 마라 |
 | `db/schema.sql` | PostgreSQL 기준. SQLite 치환 규칙이 머리말에 있고 `verify_seed.py` 가 그 규칙을 쓴다. 끝의 "핵심 쿼리 3개" 주석은 `verify_migration.py` 가 실제로 파싱시킨다 — 컬럼을 바꾸면 같이 고쳐라 |
-| `supabase/migrations/*.sql` | **자동 생성물.** `db/*.sql` 을 고친 뒤 `build_migrations.py` 로 재생성한다. 단 실제 DB 에 한 번 올린 파일은 못 고친다 — `FROZEN` 에 넣고 델타를 새로 쓴다 |
+| `supabase/migrations/*.sql` | **셋 다 얼렸다** (2026-08-31 운영 DB 적용). 스키마를 바꾸려면 `db/schema.sql` 을 고치고 **델타 파일을 손으로 새로 쓴다.** 재생성하려 하면 `build_migrations.py` 가 막는다 |
 | `web/app/yeobaek/*.css` | **복사본.** 여백 디자인 시스템 원본 저장소를 고치고 다시 복사한다 (`web/app/yeobaek/README.md`) |
 | `web/lib/db.ts` | 서버 전용. Client Component 에서 import 하면 접속 문자열이 번들에 실린다 |
 | `db/seed_dev.sql` | **예시 데이터.** 마이그레이션이 아니다. 실제 DB 에 넣지 마라 |
