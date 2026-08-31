@@ -13,7 +13,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { commit, ingest, type Draft, type DraftItem } from "./actions";
+import { commit, ingest, ingestShared, type Draft, type DraftItem } from "./actions";
+import type { Shared } from "./page";
 import styles from "./add.module.css";
 
 const MAPPED = "MAPPED";
@@ -26,21 +27,30 @@ type Phase =
   | { at: "confirm"; draft: Draft }
   | { at: "saving"; draft: Draft };
 
-export default function Add() {
+export default function Add({ shared }: { shared?: Shared | null }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ at: "pick" });
   const [, startTransition] = useTransition();
 
+  function land(result: Awaited<ReturnType<typeof ingest>>) {
+    setPhase(
+      result.ok
+        ? { at: "confirm", draft: result.draft }
+        : { at: "pick", error: { message: result.message, hint: result.hint } },
+    );
+  }
+
   function onIngest(form: FormData) {
     setPhase({ at: "reading" });
-    startTransition(async () => {
-      const result = await ingest(form);
-      setPhase(
-        result.ok
-          ? { at: "confirm", draft: result.draft }
-          : { at: "pick", error: { message: result.message, hint: result.hint } },
-      );
-    });
+    startTransition(async () => land(await ingest(form)));
+  }
+
+  function onShared() {
+    if (!shared) return;
+    setPhase({ at: "reading" });
+    startTransition(async () =>
+      land(await ingestShared(shared.assetIds, shared.url)),
+    );
   }
 
   function onCommit(draft: Draft) {
@@ -68,7 +78,14 @@ export default function Add() {
       />
     );
   }
-  return <Pick onSubmit={onIngest} error={phase.error} />;
+  return (
+    <Pick
+      onSubmit={onIngest}
+      error={phase.error}
+      shared={shared}
+      onShared={onShared}
+    />
+  );
 }
 
 /* ---------------------------------------------------------------- */
@@ -76,13 +93,18 @@ export default function Add() {
 function Pick({
   onSubmit,
   error,
+  shared,
+  onShared,
 }: {
   onSubmit: (form: FormData) => void;
   error?: { message: string; hint?: string };
+  shared?: Shared | null;
+  onShared: () => void;
 }) {
   const [count, setCount] = useState(0);
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(shared?.url ?? "");
   const fileRef = useRef<HTMLInputElement>(null);
+  const gotShared = Boolean(shared?.assetIds.length);
 
   // 인스타는 링크로 본문을 못 읽는다. 넣어놓고 안 될 걸 알면서
   // 시도하게 만들지 않는다 (지시서 4장).
@@ -90,8 +112,33 @@ function Pick({
 
   return (
     <form action={onSubmit}>
+      {/* 공유 시트로 넘어온 것. 여기서 바로 이어가면 다시 고를 필요가 없다 */}
+      {gotShared && (
+        <section className={styles.card}>
+          <h2 className={styles.cardTitle}>
+            공유받은 캡처 {shared!.assetIds.length}장이 있어요
+          </h2>
+          <p className={styles.body}>이걸로 바로 정리해드릴까요?</p>
+          {shared!.url && <p className={styles.hint}>{shared!.url}</p>}
+          <button type="button" className={styles.shared} onClick={onShared}>
+            이걸로 정리해줄게요
+          </button>
+        </section>
+      )}
+
+      {shared?.problem && (
+        <section className={styles.card}>
+          <h2 className={`${styles.cardTitle} ${styles.warm}`}>
+            {shared.problem}
+          </h2>
+          <p className={styles.body}>아래에서 직접 올려주세요.</p>
+        </section>
+      )}
+
       <section className={styles.card}>
-        <h2 className={styles.cardTitle}>캡처를 올려주세요</h2>
+        <h2 className={styles.cardTitle}>
+          {gotShared ? "다른 캡처를 올려도 돼요" : "캡처를 올려주세요"}
+        </h2>
         <p className={styles.body}>
           재료와 만드는 법이 보이면 돼요. 1~3장까지 한 번에 읽어요.
         </p>
@@ -117,6 +164,7 @@ function Pick({
           className={styles.textarea}
           name="text"
           rows={4}
+          defaultValue={shared?.text ?? ""}
           placeholder="레시피 본문을 그대로 붙여넣으세요"
         />
       </section>
@@ -148,8 +196,15 @@ function Pick({
         </section>
       )}
 
-      <button type="submit" className={styles.primary}>
-        정리해줄게요
+      {/*
+        공유로 들어왔으면 주 행동은 위쪽("이걸로 정리해줄게요")이다.
+        파란 버튼이 한 화면에 둘이면 어느 쪽을 눌러야 할지 갈린다.
+      */}
+      <button
+        type="submit"
+        className={gotShared ? styles.quiet : styles.primary}
+      >
+        {gotShared ? "올린 걸로 정리해줄게요" : "정리해줄게요"}
       </button>
     </form>
   );

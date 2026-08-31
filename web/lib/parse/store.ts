@@ -121,3 +121,18 @@ export async function save(input: SaveInput): Promise<number> {
     return recipeId;
   });
 }
+
+/** 보관해둔 원본의 자리. 공유로 받은 캡처를 다시 꺼낼 때 쓴다. */
+export async function assetKeys(
+  ids: number[],
+): Promise<{ id: number; storage_key: string }[]> {
+  if (ids.length === 0) return [];
+  return query<{ id: number; storage_key: string }>(
+    `SELECT id, storage_key FROM source_asset
+      WHERE id = ANY($1::bigint[])
+        AND recipe_id IS NULL          -- 이미 레시피가 된 건 다시 안 쓴다
+        AND storage_key IS NOT NULL
+      ORDER BY id`,
+    [ids],
+  );
+}

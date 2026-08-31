@@ -8,8 +8,34 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "레시피 추가" };
 
-export default function AddPage() {
+/** 공유 시트에서 넘어온 것 (/share 가 붙여준다) */
+export type Shared = {
+  assetIds: number[];
+  url: string | null;
+  text: string | null;
+  problem: string | null;
+};
+
+function one(v: string | string[] | undefined): string | null {
+  const s = Array.isArray(v) ? v[0] : v;
+  return s?.trim() || null;
+}
+
+export default async function AddPage({ searchParams }: PageProps<"/add">) {
   const ready = dbUrl() && hasKey();
+  const params = await searchParams;
+
+  const shared: Shared | null = one(params.shared)
+    ? {
+        assetIds: (one(params.assets) ?? "")
+          .split(",")
+          .map((n) => Number(n))
+          .filter((n) => Number.isInteger(n) && n > 0),
+        url: one(params.url),
+        text: one(params.text),
+        problem: one(params.problem),
+      }
+    : null;
 
   return (
     <main className="shell">
@@ -21,7 +47,7 @@ export default function AddPage() {
       </header>
 
       {ready ? (
-        <Add />
+        <Add shared={shared} />
       ) : (
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>아직 준비가 안 됐어요</h2>

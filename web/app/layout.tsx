@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import RegisterSW from "./RegisterSW";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "오늘 뭐 먹지",
   description: "모아둔 레시피에서 이번 주 먹을 걸 정하고 장보기 목록을 뽑는다.",
+  // 홈 화면에 추가했을 때 브라우저 껍데기 없이 뜨게 한다
+  appleWebApp: { capable: true, title: "오늘뭐먹지", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
@@ -17,7 +20,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        {children}
+        <RegisterSW />
+      </body>
     </html>
   );
 }

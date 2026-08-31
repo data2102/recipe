@@ -94,3 +94,35 @@ export async function keepOriginal(
   }
   return dest;
 }
+
+/**
+ * 보관해둔 원본을 다시 읽는다.
+ *
+ * 공유로 받은 캡처는 /share 에서 먼저 저장하고, 사용자가 "정리해줄게요" 를
+ * 누르면 그때 여기서 다시 꺼내 파서에 넘긴다. 원본을 먼저 남기는 순서를
+ * 지키려면 (원칙 ⑤) 이 되돌아오는 길이 있어야 한다.
+ *
+ * storage_key 가 절대경로면 디스크, 아니면 Supabase Storage 다.
+ */
+export async function readOriginal(
+  storageKey: string,
+): Promise<{ bytes: Buffer; mediaType: string }> {
+  const ext = storageKey.slice(storageKey.lastIndexOf("."));
+  const mediaType =
+    Object.entries(EXT).find(([, e]) => e === ext)?.[0] ?? "image/png";
+
+  if (storageKey.startsWith("/")) {
+    return { bytes: await fs.readFile(storageKey), mediaType };
+  }
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("보관해둔 원본을 못 찾겠어요");
+
+  const res = await fetch(
+    `${url.replace(/\/+$/, "")}/storage/v1/object/${storageKey}`,
+    { headers: { Authorization: `Bearer ${key}` } },
+  );
+  if (!res.ok) throw new Error(`보관해둔 원본을 못 읽었어요 (${res.status})`);
+  return { bytes: Buffer.from(await res.arrayBuffer()), mediaType };
+}

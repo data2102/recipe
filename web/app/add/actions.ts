@@ -17,9 +17,14 @@
 import { revalidatePath } from "next/cache";
 import { currentAsk, hasKey, MEDIA_TYPES, type Source } from "@/lib/parse/claude";
 import { loadDictionary, normalize, type NormalizedItem } from "@/lib/parse/normalize";
-import { MAX_BYTES, MAX_IMAGES, keepOriginal } from "@/lib/parse/originals";
+import {
+  MAX_BYTES,
+  MAX_IMAGES,
+  keepOriginal,
+  readOriginal,
+} from "@/lib/parse/originals";
 import { PARSER_VERSION, ParseError, parse } from "@/lib/parse/parse";
-import { recordAsset, recordParsed, save } from "@/lib/parse/store";
+import { assetKeys, recordAsset, recordParsed, save } from "@/lib/parse/store";
 
 export type DraftItem = {
   raw_name: string;
@@ -172,7 +177,21 @@ export async function ingest(formData: FormData): Promise<IngestResult> {
     };
   }
 
-  // --- 2. 2패스 파싱 ---
+  return readAndDraft(sources, assetIds, sourceUrl, files.length > 0);
+}
+
+/**
+ * 2패스 파싱 -> 확인 화면이 쓸 초안.
+ *
+ * 원본은 이미 보관돼 있다는 전제다. 여기서 실패해도 원본은 남는다 —
+ * 파서를 고치면 재파싱 대상이 된다 (원칙 ⑤).
+ */
+async function readAndDraft(
+  sources: Source[],
+  assetIds: number[],
+  sourceUrl: string | null,
+  hasImage: boolean,
+): Promise<IngestResult> {
   try {
     const parsed = await parse(sources, await currentAsk());
     await recordParsed(assetIds, parsed.rawText);
@@ -189,12 +208,11 @@ export async function ingest(formData: FormData): Promise<IngestResult> {
         choiceGroups: parsed.choiceGroups,
         assetIds,
         sourceUrl,
-        sourceKind: sourceKindOf(sourceUrl, files.length > 0),
+        sourceKind: sourceKindOf(sourceUrl, hasImage),
         usage: parsed.usage,
       },
     };
   } catch (e) {
-    // 원본은 이미 남았다. 파서를 고치면 재파싱할 수 있다.
     const raw = e instanceof ParseError ? e.rawText : null;
     await recordParsed(assetIds, raw).catch(() => {});
     return {
@@ -206,6 +224,63 @@ export async function ingest(formData: FormData): Promise<IngestResult> {
       hint: "올린 건 그대로 보관했어요. 재료가 잘 보이는 캡처로 다시 해보세요.",
     };
   }
+}
+
+/**
+ * 공유 시트로 받아둔 캡처를 읽는다 (작업 순서 9번).
+ *
+ * /share 가 원본을 먼저 보관하고 id 만 넘겨준다. 여기서 다시 꺼내
+ * 파서에 넘긴다 — 공유를 누른 사람을 30초 기다리게 하지 않으려고
+ * 저장과 파싱을 갈라놨기 때문이다.
+ */
+export async function ingestShared(
+  assetIds: number[],
+  sourceUrl: string | null,
+): Promise<IngestResult> {
+  if (!hasKey()) {
+    return {
+      ok: false,
+      message: "레시피를 읽을 준비가 아직 안 됐어요.",
+      hint: "web/.env.local 에 ANTHROPIC_API_KEY 를 넣어주세요.",
+    };
+  }
+
+  const kept = await assetKeys(assetIds);
+  if (kept.length === 0) {
+    return {
+      ok: false,
+      message: "공유받은 캡처를 못 찾겠어요.",
+      hint: "다시 공유하거나, 아래에서 직접 올려주세요.",
+    };
+  }
+
+  const sources: Source[] = [];
+  try {
+    for (const a of kept) {
+      const { bytes, mediaType } = await readOriginal(a.storage_key);
+      const type = MEDIA_TYPES[mediaType];
+      if (!type) continue;
+      sources.push({
+        kind: "IMAGE",
+        mediaType: type,
+        b64: bytes.toString("base64"),
+        bytes: bytes.length,
+      });
+    }
+  } catch (e) {
+    return {
+      ok: false,
+      message: "보관해둔 캡처를 못 읽었어요.",
+      hint: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  return readAndDraft(
+    sources,
+    kept.map((a) => a.id),
+    sourceUrl,
+    true,
+  );
 }
 
 function sourceKindOf(url: string | null, hasImage: boolean): string {

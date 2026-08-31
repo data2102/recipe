@@ -17,6 +17,19 @@
 BEGIN;
 
 -- 여러 번 돌려도 같은 상태가 되게. 예시 데이터만 지운다.
+--
+-- 장보기에 담긴 걸 먼저 뺀다. shopping_list_recipe.recipe_id 에는
+-- ON DELETE CASCADE 가 없다 — 장보기 목록에 올라간 레시피가 말없이
+-- 사라지면 안 되기 때문이다(제품에는 레시피 삭제가 없다. '별로였어요'
+-- 는 status 를 BAD 로 바꿀 뿐이다). 그 규칙은 그대로 두고 여기서만 푼다.
+DELETE FROM shopping_list_recipe
+ WHERE recipe_id IN (
+    SELECT id FROM recipe WHERE title IN (
+        '묵은지 고등어조림', '제육볶음', '된장찌개', '두부조림',
+        '닭볶음탕', '김치볶음밥'
+    )
+);
+
 DELETE FROM recipe WHERE title IN (
     '묵은지 고등어조림', '제육볶음', '된장찌개', '두부조림',
     '닭볶음탕', '김치볶음밥'
