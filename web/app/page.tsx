@@ -87,20 +87,16 @@ async function load(tab: TabKey, have: Have): Promise<Loaded> {
       shoppingItems(listId, have),
     ]);
     /*
-      칩은 **이 화면에 있는 요리들이 쓰는 재료 전부**다.
-      추천으로 낸 것 + 이번 주에 담은 것. `have` 로 순서가 바뀌는
-      byFridge 는 넣지 않는다 — 하나 누를 때마다 칩이 통째로 갈리면
-      손가락 밑에서 칩이 움직인다.
+      칩은 **이번 주에 담은 요리들이 쓰는 재료**다. 추천 목록에 있는 것까지
+      넣으면 (아직 먹기로 정하지도 않은 요리의 재료까지) 칩이 수십 개가 돼서
+      뭘 눌러야 할지 알 수 없다.
+
+      담은 것 기준이면 장보기 목록의 범위와 정확히 같아진다 — 칩은
+      "살 것 중에 뭐가 이미 집에 있나" 를 묻는 것이니 그게 맞다.
+      담거나 빼면 칩도 그 자리에서 따라 바뀐다.
     */
-    const onScreen = [
-      ...new Set([
-        ...old.map((r) => r.id),
-        ...fresh.map((r) => r.id),
-        ...basket.map((r) => r.id),
-      ]),
-    ];
     const [chips, byFridge] = await Promise.all([
-      fridgeChips(onScreen),
+      fridgeChips(basket.map((r) => r.id)),
       have.ids.length + have.names.length > 0
         ? weighted(have)
         : Promise.resolve(null),

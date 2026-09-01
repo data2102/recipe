@@ -60,14 +60,26 @@ export default function Fridge({
     startTransition(() => router.replace(`/?${q}`, { scroll: false }));
   }
 
-  if (chips.length === 0) return null;
+  // 담은 게 없으면 물어볼 재료도 없다. 사과 말고 다음 할 일을 알려준다.
+  if (chips.length === 0) {
+    return (
+      <section className="ds-card">
+        <p className={styles.lead}>
+          <span className={styles.quiet}>
+            이번 주에 담으면 그 요리에 필요한 재료가 여기 나와요.
+          </span>
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="ds-card">
       <p className={styles.lead}>
-        집에 있는 걸 눌러두면 그게 들어간 요리를 위로 올려드려요.
+        담은 요리에 들어가는 재료예요. 집에 있는 걸 눌러두면 장보기에서
+        빼드려요.
         <br />
-        <span className={styles.quiet}>안 해도 추천은 그대로 나와요.</span>
+        <span className={styles.quiet}>안 눌러도 아래는 그대로 나와요.</span>
       </p>
 
       <div className={styles.chips}>
