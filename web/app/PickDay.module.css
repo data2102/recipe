@@ -1,0 +1,86 @@
+/*
+ * 화면 아래 붙는 요일 막대. 끌어다 놓거나 눌러서 고른다.
+ * 칩은 여백의 .ds-chip 이다 — 여기 있는 건 배치와 "지금 이 위" 표시뿐.
+ */
+
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-modal);
+  margin: 0 auto;
+  max-width: 480px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-popover);
+  padding: var(--sp-4) var(--sp-4) var(--sp-5);
+  animation: rise var(--dur-base) var(--ease-out);
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+  }
+}
+
+.what {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-subhead);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+
+.cancel {
+  flex: none;
+  background: none;
+  border: 0;
+  padding: var(--sp-2) 0;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+}
+
+.lead {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin: var(--sp-1) 0 var(--sp-3);
+}
+
+.days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.slot {
+  flex: 1 1 auto;
+  min-width: 44px;
+  justify-content: center;
+  text-align: center;
+}
+
+/*
+ * 손가락이 지금 이 위에 있다. 끌기는 눈으로만 따라갈 수 있어서
+ * 어디에 놓이는지가 분명해야 한다.
+ */
+.over {
+  background: var(--accent-bg);
+  color: var(--accent-strong);
+  border-color: var(--accent);
+  transform: scale(1.06);
+}

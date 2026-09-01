@@ -170,10 +170,9 @@
 
 /* --- 담기 -------------------------------------------------------- */
 
-/* 담기는 이 화면에서 하는 유일한 행동이라 액션색을 쓴다.
-   빼기는 되돌리는 것이라 조용하게 (지시서 5장) */
-.pick,
-.unpick {
+/* 담기는 이 화면에서 하는 유일한 행동이라 액션색을 쓴다 (지시서 5장).
+   빼기는 여기 없다 — 담은 뒤에는 이번 주 식단에서 뺀다 */
+.pick {
   height: 100%;
   border: 0;
   background: none;
@@ -188,12 +187,21 @@
   color: var(--accent-strong);
 }
 
-.unpick {
-  color: var(--text-tertiary);
+/*
+ * 끌 수 있는 버튼. touch-action 을 꺼야 손가락을 움직일 때 브라우저가
+ * 화면을 스크롤하지 않는다 — 그러면 끌기가 시작도 못 한다.
+ * 버튼이 작아서 여기서 스크롤을 시작 못 하는 건 감수한다.
+ */
+.grab {
+  touch-action: none;
+  cursor: grab;
 }
 
-.pick:hover,
-.unpick:hover {
+.grab:active {
+  cursor: grabbing;
+}
+
+.pick:hover {
   background: var(--surface-sunken);
 }
 

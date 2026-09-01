@@ -16,6 +16,7 @@ import Fridge from "./Fridge";
 import RecipeRow from "./RecipeRow";
 import Shopping from "./Shopping";
 import Week from "./Week";
+import PickDayProvider from "./PickDay";
 import { dbUrl } from "@/lib/db";
 import {
   counts,
@@ -120,7 +121,7 @@ function rows(
   list: Row[],
   today: string,
   mode: "wish" | "cooked",
-  pick?: "add" | "remove" | "in",
+  pick?: "add" | "in",
   inBasket?: Set<number>,
 ) {
   return list.map((r) => {
@@ -165,7 +166,7 @@ function List({
   today: string;
   mode: "wish" | "cooked";
   empty: string;
-  pick?: "add" | "remove" | "in";
+  pick?: "add" | "in";
   inBasket?: Set<number>;
 }) {
   if (list.length === 0) return <Empty>{empty}</Empty>;
@@ -238,7 +239,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       )}
 
       {data.kind === "week" && (
-        <>
+        /*
+          담기 버튼이 요일 막대를 띄우고 끌기를 따라간다. provider 는 이
+          탭에만 있다 — 탭 1·2 에는 이번 주라는 게 없어서 요일을 물을
+          자리가 아니다 (RecipeRow 가 provider 없으면 그냥 담는다).
+        */
+        <PickDayProvider>
           {/* 집에 있는 재료 — 전부 선택 사항. 안 해도 아래는 그대로 나온다 */}
           <h2 className={styles.section}>집에 있는 재료 (선택)</h2>
           <Fridge chips={data.chips} have={data.have} />
@@ -303,7 +309,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 : "요리를 담으면 살 것을 합쳐서 보여드려요."}
             </Empty>
           )}
-        </>
+        </PickDayProvider>
       )}
     </main>
   );

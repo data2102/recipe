@@ -114,6 +114,23 @@ export async function setDayOfWeek(formData: FormData) {
 }
 
 /**
+ * 담으면서 요일까지 한 번에 (추천 목록에서 요일로 끌어다 놓기).
+ *
+ * 담기와 요일 정하기는 여전히 별개의 일이지만, 이미 "수요일에 이거"
+ * 라고 마음먹은 사람에게 두 번 시킬 이유는 없다. 요일을 "미정" 으로
+ * 놓으면 예전 담기와 똑같다.
+ */
+export async function addToWeekOn(formData: FormData) {
+  const id = recipeId(formData);
+  const raw = String(formData.get("day") ?? "").trim();
+  const day = raw === "" ? null : Number(raw);
+
+  await shopping.addRecipe(id);
+  if (day !== null) await week.setDay(id, day);
+  revalidatePath("/");
+}
+
+/**
  * 장보기에서 체크/해제.
  * 체크하면 구매 기록이 생긴다 — 새 입력을 요구하지 않고 기존 행동에 얹는다.
  */

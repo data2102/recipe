@@ -10,7 +10,8 @@
  */
 
 import { useRef, useState } from "react";
-import { addToWeek, markBad, markCooked, removeFromWeek } from "./actions";
+import { addToWeek, markBad, markCooked } from "./actions";
+import { usePickDay } from "./PickDay";
 import styles from "./RecipeRow.module.css";
 
 const LONG_PRESS_MS = 450;
@@ -26,8 +27,11 @@ export type Props = {
   /**
    * 이번 주 담기 버튼. 탭 3 에서만 붙는다 (지시서 3장).
    * "in" 은 이미 담은 것 — 또 누를 게 없으니 버튼으로 두지 않는다.
+   *
+   * 빼기는 여기 없다. 담은 뒤에는 이번 주 식단에서 뺀다 (app/Week.tsx) —
+   * 추천 목록과 식단 두 군데에 빼기가 있으면 어디서 뺀 건지 헷갈린다.
    */
-  pick?: "add" | "remove" | "in";
+  pick?: "add" | "in";
 };
 
 export default function RecipeRow({
@@ -39,6 +43,7 @@ export default function RecipeRow({
   today,
   pick,
 }: Props) {
+  const picker = usePickDay();
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,14 +101,26 @@ export default function RecipeRow({
           </span>
         )}
 
-        {(pick === "add" || pick === "remove") && (
-          <form action={pick === "add" ? addToWeek : removeFromWeek}>
+        {/*
+          담기는 누르면 요일 막대가 뜨고, 그대로 끌어서 요일에 놓아도 된다
+          (app/PickDay.tsx). 탭 1·2 처럼 막대가 없는 화면에서는 predefined
+          동작대로 그냥 담긴다 — 그래서 provider 가 없으면 form 으로 돌아간다.
+        */}
+        {pick === "add" && picker && (
+          <button
+            type="button"
+            className={`${styles.pick} ${styles.grab}`}
+            onPointerDown={(e) => picker.start(id, title, e)}
+          >
+            담기
+          </button>
+        )}
+
+        {pick === "add" && !picker && (
+          <form action={addToWeek}>
             <input type="hidden" name="id" value={id} />
-            <button
-              type="submit"
-              className={pick === "add" ? styles.pick : styles.unpick}
-            >
-              {pick === "add" ? "담기" : "뺄게요"}
+            <button type="submit" className={styles.pick}>
+              담기
             </button>
           </form>
         )}
