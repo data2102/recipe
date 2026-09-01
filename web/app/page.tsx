@@ -32,9 +32,18 @@ import {
   ingredientSummary,
   todayInput,
 } from "@/lib/say";
-import { chips as fridgeChips, haveParams, parseHave, weighted } from "@/lib/fridge";
+import {
+  chips as fridgeChips,
+  haveParams,
+  parseHave,
+  weighted,
+} from "@/lib/fridge";
 import type { Chip, Have } from "@/lib/fridge.types";
-import { items as shoppingItems, openList, picked as pickedRecipes } from "@/lib/shopping";
+import {
+  items as shoppingItems,
+  openList,
+  picked as pickedRecipes,
+} from "@/lib/shopping";
 import { plan as weekPlan } from "@/lib/week";
 import type { Planned } from "@/lib/week.types";
 import type { PickedRecipe, ShoppingItem } from "@/lib/shopping.types";
@@ -74,7 +83,8 @@ async function load(tab: TabKey, have: Have): Promise<Loaded> {
     const n = await counts();
     const total = n.wish + n.good;
     if (tab === "want") return { kind: "want", total, list: await listWish() };
-    if (tab === "done") return { kind: "done", total, list: await listCooked() };
+    if (tab === "done")
+      return { kind: "done", total, list: await listCooked() };
     const { old, fresh } = await suggest();
     // 담은 것과 장보기는 같은 목록에서 나온다. 목록이 없으면 만들지 않는다 —
     // 담기 전까지 빈 목록이 쌓이면 "이번 주" 가 뭔지 흐려진다.
@@ -98,8 +108,25 @@ async function load(tab: TabKey, have: Have): Promise<Loaded> {
     const [chips, byFridge] = await Promise.all([
       fridgeChips(basket.map((r) => r.id)),
       have.ids.length + have.names.length > 0
-        ? weighted(have)
+        ? weighted(have, 12)
         : Promise.resolve(null),
+    ]);
+
+    /*
+      "집에 있는 걸로 만들 수 있는 것" 은 아래 두 목록에 **얹는** 것이다.
+      그래서 겹치는 것과 하나도 안 맞는 것은 뺀다.
+
+      - 아래 둘에 이미 있는 요리는 뺀다. 같은 요리가 한 화면에 두 번
+        나오면 왜 두 번인지 설명할 길이 없다. 거기서 담으면 된다.
+      - hit=0 은 뺀다. 눌러둔 재료가 하나도 안 들어가는데 "집에 있는
+        걸로 만들 수 있는 것" 에 넣으면 그건 거짓말이다.
+
+      가중치 쿼리 자체는 여전히 0건이 안 된다 (지시서 8번). 아래 두 목록이
+      항상 나오니 화면이 빌 일도 없다 — 그래서 여기서는 걸러도 된다.
+    */
+    const shownBelow = new Set([
+      ...old.map((r) => r.id),
+      ...fresh.map((r) => r.id),
     ]);
     return {
       kind: "week",
@@ -112,19 +139,25 @@ async function load(tab: TabKey, have: Have): Promise<Loaded> {
       chips,
       have,
       byFridge: byFridge
-        ? byFridge.map((r) => ({
-            id: r.id,
-            title: r.title,
-            status: r.status as Row["status"],
-            source_url: null,
-            last_cooked_on: r.last_cooked_on,
-            cook_count: 0,
-            ingredients: r.ingredients,
-          }))
+        ? byFridge
+            .filter((r) => r.hit > 0 && !shownBelow.has(r.id))
+            .slice(0, 6)
+            .map((r) => ({
+              id: r.id,
+              title: r.title,
+              status: r.status as Row["status"],
+              source_url: null,
+              last_cooked_on: r.last_cooked_on,
+              cook_count: 0,
+              ingredients: r.ingredients,
+            }))
         : null,
     };
   } catch (e) {
-    return { kind: "error", message: e instanceof Error ? e.message : String(e) };
+    return {
+      kind: "error",
+      message: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 
@@ -192,7 +225,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   const params = await searchParams;
   const raw = Array.isArray(params.tab) ? params.tab[0] : params.tab;
-  const tab: TabKey = TABS.some((t) => t.key === raw) ? (raw as TabKey) : "week";
+  const tab: TabKey = TABS.some((t) => t.key === raw)
+    ? (raw as TabKey)
+    : "week";
 
   const have = parseHave(params.have, params.haveRaw);
   const data = await load(tab, have);
@@ -216,11 +251,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={
-              t.key === "week"
-                ? `/?${haveParams(have)}`
-                : `/?tab=${t.key}`
-            }
+            href={t.key === "week" ? `/?${haveParams(have)}` : `/?tab=${t.key}`}
             className={`ds-tab ${t.key === tab ? "on" : ""}`}
             aria-current={t.key === tab ? "page" : undefined}
           >
@@ -258,11 +289,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <h2 className={styles.section}>집에 있는 재료 (선택)</h2>
           <Fridge chips={data.chips} have={data.have} />
 
-          {data.byFridge ? (
+          {/*
+            셋을 **같이** 낸다. 예전에는 재료를 누르면 앞의 둘이 사라지고
+            "집에 있는 걸로 만들 수 있는 것" 이 그 자리를 차지했는데,
+            고르던 목록이 통째로 없어지면 고를 데가 줄어든다. 재료를 넣는
+            건 보기를 좁히자는 게 아니라 하나 더 얹자는 것이다.
+
+            같은 요리가 두 군데 나오지 않게, 겹치는 건 아래 둘에 양보하고
+            여기서는 뺀다 (load 에서 걸러 온다) — 어차피 아래에서 담을 수 있다.
+          */}
+          {data.byFridge && data.byFridge.length > 0 && (
             <>
-              <h2 className={styles.section}>
-                집에 있는 걸로 만들 수 있는 것
-              </h2>
+              <h2 className={styles.section}>집에 있는 걸로 만들 수 있는 것</h2>
               <List
                 list={data.byFridge}
                 today={today}
@@ -272,33 +310,31 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 inBasket={new Set(data.basket.map((r) => r.id))}
               />
               <p className={styles.note}>
-                재료가 안 맞아도 빼지 않아요. 맞는 게 많은 순서로 올려둘 뿐이에요.
+                눌러둔 재료가 많이 들어가는 순서예요.
               </p>
             </>
-          ) : (
-            <>
-              {/* 이미 담은 건 또 담을 게 없다 */}
-              <h2 className={styles.section}>오랜만에 어때요</h2>
-              <List
-                list={data.old}
-                today={today}
-                mode="cooked"
-                empty="만든 이력이 쌓이면 여기에 나와요."
-                pick="add"
-                inBasket={new Set(data.basket.map((r) => r.id))}
-              />
-
-              <h2 className={styles.section}>아직 안 만들어본 것</h2>
-              <List
-                list={data.fresh}
-                today={today}
-                mode="wish"
-                empty="담아둔 게 없어요."
-                pick="add"
-                inBasket={new Set(data.basket.map((r) => r.id))}
-              />
-            </>
           )}
+
+          {/* 이미 담은 건 또 담을 게 없다 */}
+          <h2 className={styles.section}>오랜만에 어때요</h2>
+          <List
+            list={data.old}
+            today={today}
+            mode="cooked"
+            empty="만든 이력이 쌓이면 여기에 나와요."
+            pick="add"
+            inBasket={new Set(data.basket.map((r) => r.id))}
+          />
+
+          <h2 className={styles.section}>아직 안 만들어본 것</h2>
+          <List
+            list={data.fresh}
+            today={today}
+            mode="wish"
+            empty="담아둔 게 없어요."
+            pick="add"
+            inBasket={new Set(data.basket.map((r) => r.id))}
+          />
 
           {/*
             담은 요리를 요일에 배정한다. 요리를 누르면 그 요리에 필요한
