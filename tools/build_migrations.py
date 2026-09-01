@@ -65,6 +65,9 @@ FROZEN = {
         "ae2d84999c2f285b87a75101b2d18c00d683a70e4a33c4e9bd86c768b8f8e565",
     "20260831000002_lock_down.sql":
         "3b252de851062e71a0744db16565a2abe113e15937b21ade76f5d037eef53287",
+    # 2026-09-01 손으로 쓴 첫 델타. 이것도 운영 DB 에 올렸다.
+    "20260901000000_week_plan.sql":
+        "90ff715cee7171614c9e510484eadcf63bfba869c8f1ad7fc43cef4f6176e31a",
 }
 
 
