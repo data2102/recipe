@@ -28,39 +28,36 @@ export type Weighted = {
 };
 
 /**
- * 칩으로 미리 깔아둘 재료.
+ * 칩으로 깔아둘 재료 — **지금 화면에 있는 요리들이 쓰는 것 전부.**
  *
- * 타이핑을 시키지 않는다 (스펙 4장 화면 ②). **새 입력을 만들지 않고**
- * 이미 있는 데이터에서 뽑는다 (원칙 ③) — 최근에 산 것과 내 레시피에
- * 자주 나오는 것.
+ * 타이핑을 시키지 않는다 (스펙 4장 화면 ②). 새 입력을 만들지 않고 이미
+ * 있는 데이터에서 뽑는다 (원칙 ③).
+ *
+ * 예전에는 사전 전체에서 "자주 쓰는 것 18개" 를 뽑았다. 그러면 지금
+ * 눈앞의 요리에 들어가는데 칩에는 없는 재료가 생긴다 — 있는지 물어볼
+ * 방법이 없으니 그건 무조건 사야 할 것으로 남는다. 화면에 있는 요리에서
+ * 뽑으면 그 구멍이 없어진다.
+ *
+ * 개수를 자르지 않는다. 몇 개가 되든 그 요리들에 필요한 만큼이고, 자르는
+ * 순간 잘린 재료를 물어볼 길이 사라진다. 대신 **여러 요리에 겹치는 것부터**
+ * 낸다 — 하나만 눌러도 여러 요리에 걸리는 게 앞에 온다.
+ *
+ * 이름은 표준명이다 ('간장' 이 아니라 '진간장'). 칩은 재료 하나를 가리키는
+ * 것이라 요리마다 다른 원문 표기를 쓸 수 없다 — 같은 재료가 표기별로
+ * 여러 칩이 되면 중복을 없앤 의미가 없다.
  */
-export async function chips(limit = 18): Promise<Chip[]> {
+export async function chips(recipeIds: number[]): Promise<Chip[]> {
+  if (recipeIds.length === 0) return [];
   return query<Chip>(
-    `WITH recent AS (
-         SELECT ingredient_id, MAX(purchased_on) AS at
-           FROM purchase
-          WHERE purchased_on > CURRENT_DATE - 30
-          GROUP BY ingredient_id
-     ),
-     used AS (
-         SELECT ri.ingredient_id, COUNT(*) AS n
-           FROM recipe_ingredient ri
-           JOIN recipe r ON r.id = ri.recipe_id
-          WHERE ri.ingredient_id IS NOT NULL
-            AND r.status IN ('GOOD','WISH')
-          GROUP BY ri.ingredient_id
-     )
-     SELECT i.id, i.canonical_name AS name
-       FROM ingredient i
-       LEFT JOIN recent ON recent.ingredient_id = i.id
-       LEFT JOIN used   ON used.ingredient_id = i.id
-      WHERE i.purchasable
-        AND (recent.at IS NOT NULL OR used.n IS NOT NULL)
-      ORDER BY (recent.at IS NOT NULL) DESC,
-               COALESCE(used.n, 0) DESC,
-               i.canonical_name
-      LIMIT $1`,
-    [limit],
+    `SELECT i.id, i.canonical_name AS name
+       FROM recipe_ingredient ri
+       JOIN ingredient i ON i.id = ri.ingredient_id
+      WHERE ri.recipe_id = ANY($1::bigint[])
+        AND (ri.origin <> 'BODY' OR ri.confirmed)  -- 미확인 BODY 는 제외
+        AND i.purchasable                          -- 물 같은 건 빼고
+      GROUP BY i.id, i.canonical_name
+      ORDER BY COUNT(DISTINCT ri.recipe_id) DESC, i.canonical_name`,
+    [recipeIds],
   );
 }
 

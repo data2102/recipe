@@ -86,8 +86,21 @@ async function load(tab: TabKey, have: number[]): Promise<Loaded> {
       // 저장하지 않는다 — 주소에만 산다 (지시서 6장).
       shoppingItems(listId, have),
     ]);
+    /*
+      칩은 **이 화면에 있는 요리들이 쓰는 재료 전부**다.
+      추천으로 낸 것 + 이번 주에 담은 것. `have` 로 순서가 바뀌는
+      byFridge 는 넣지 않는다 — 하나 누를 때마다 칩이 통째로 갈리면
+      손가락 밑에서 칩이 움직인다.
+    */
+    const onScreen = [
+      ...new Set([
+        ...old.map((r) => r.id),
+        ...fresh.map((r) => r.id),
+        ...basket.map((r) => r.id),
+      ]),
+    ];
     const [chips, byFridge] = await Promise.all([
-      fridgeChips(),
+      fridgeChips(onScreen),
       have.length > 0 ? weighted(have) : Promise.resolve(null),
     ]);
     return {
