@@ -15,6 +15,7 @@ import Link from "next/link";
 import Fridge from "./Fridge";
 import RecipeRow from "./RecipeRow";
 import Shopping from "./Shopping";
+import Week from "./Week";
 import { dbUrl } from "@/lib/db";
 import {
   counts,
@@ -33,6 +34,8 @@ import {
 import { chips as fridgeChips, parseHave, weighted } from "@/lib/fridge";
 import type { Chip } from "@/lib/fridge.types";
 import { items as shoppingItems, openList, picked as pickedRecipes } from "@/lib/shopping";
+import { plan as weekPlan } from "@/lib/week";
+import type { Planned } from "@/lib/week.types";
 import type { PickedRecipe, ShoppingItem } from "@/lib/shopping.types";
 import styles from "./page.module.css";
 
@@ -56,6 +59,7 @@ type Loaded =
       old: Row[];
       fresh: Row[];
       basket: PickedRecipe[];
+      plan: Planned[];
       cart: ShoppingItem[];
       chips: Chip[];
       have: number[];
@@ -74,9 +78,12 @@ async function load(tab: TabKey, have: number[]): Promise<Loaded> {
     // 담은 것과 장보기는 같은 목록에서 나온다. 목록이 없으면 만들지 않는다 —
     // 담기 전까지 빈 목록이 쌓이면 "이번 주" 가 뭔지 흐려진다.
     const listId = await openList();
-    const [basket, cart] = await Promise.all([
+    const [basket, plan, cart] = await Promise.all([
       pickedRecipes(listId),
-      shoppingItems(listId),
+      weekPlan(listId),
+      // 집에 있다고 눌러둔 재료는 "집에 있을 거예요" 로 내려간다.
+      // 저장하지 않는다 — 주소에만 산다 (지시서 6장).
+      shoppingItems(listId, have),
     ]);
     const [chips, byFridge] = await Promise.all([
       fridgeChips(),
@@ -88,6 +95,7 @@ async function load(tab: TabKey, have: number[]): Promise<Loaded> {
       old,
       fresh,
       basket,
+      plan,
       cart,
       chips,
       have,
@@ -277,24 +285,13 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </>
           )}
 
-          <h2 className={styles.section}>담은 것</h2>
-          {data.basket.length > 0 ? (
-            <ul className={styles.list}>
-              {data.basket.map((r) => (
-                <RecipeRow
-                  key={r.id}
-                  id={r.id}
-                  title={r.title}
-                  meta={r.status === "WISH" ? "아직 안 만들어봤어요" : "만들어봤어요"}
-                  sourceUrl={null}
-                  today={today}
-                  pick="remove"
-                />
-              ))}
-            </ul>
-          ) : (
-            <Empty>위에서 담으면 여기 모이고, 재료가 아래에 합쳐져요.</Empty>
-          )}
+          {/*
+            담은 요리를 요일에 배정한다. 요리를 누르면 그 요리에 필요한
+            재료가 펼쳐지고, 집에 있다고 눌러둔 건 체크된 채로 나온다 —
+            마트에서 두 번 사지 않으려고.
+          */}
+          <h2 className={styles.section}>이번 주 식단</h2>
+          <Week plan={data.plan} have={data.have} />
 
           <h2 className={styles.section}>장보기</h2>
           {data.cart.length > 0 ? (

@@ -11,6 +11,7 @@
 import { revalidatePath } from "next/cache";
 import { tx } from "@/lib/db";
 import * as shopping from "@/lib/shopping";
+import * as week from "@/lib/week";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -97,6 +98,18 @@ export async function addToWeek(formData: FormData) {
 
 export async function removeFromWeek(formData: FormData) {
   await shopping.removeRecipe(recipeId(formData));
+  revalidatePath("/");
+}
+
+/**
+ * 무슨 요일에 먹을지 정한다. 빈 값이면 "미정" 으로 되돌린다.
+ *
+ * 담기와는 별개다 — 담아만 두고 요일은 안 정해도 된다 (lib/week.ts).
+ */
+export async function setDayOfWeek(formData: FormData) {
+  const raw = String(formData.get("day") ?? "").trim();
+  const day = raw === "" ? null : Number(raw);
+  await week.setDay(recipeId(formData), day);
   revalidatePath("/");
 }
 

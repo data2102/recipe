@@ -73,6 +73,10 @@ export async function removeRecipe(recipeId: number): Promise<void> {
  * SQL 은 db/schema.sql 끝의 "핵심 쿼리 3개" 중 (3)번 그대로다.
  * 거기가 원본이고 여기가 복사본이다 — 컬럼을 바꾸면 양쪽을 같이 고쳐라
  * (tools/verify_migration.py 가 그쪽을 실제 스키마에 대고 파싱시킨다).
+ *
+ * "집에 있는 재료" 는 이 SQL 에 없다. 그건 DB 에 없고 주소에만 있어서
+ * (지시서 6장) 질의로는 못 본다 — 결과를 받은 뒤 아래에서 덮는다.
+ * 그래서 이 SQL 은 schema.sql 의 (3)번과 계속 같은 모양으로 남는다.
  */
 const NEED_SQL = `
 WITH picked AS (
@@ -134,8 +138,20 @@ SELECT n.ingredient_id, n.raw_key, n.label,
  * 담은 요리가 바뀌면 필요한 재료도 바뀐다. 굳혀두면 틀린 걸 보여준다.
  * 사용자가 체크해둔 것만 이름으로 물려준다.
  */
-export async function items(listId: number | null): Promise<ShoppingItem[]> {
+export async function items(
+  listId: number | null,
+  /**
+   * 집에 있다고 눌러둔 재료 (`?have=`). 저장하지 않는다 — 주소에만 산다
+   * (지시서 6장). 상시 재고를 만들면 갱신을 안 해서 어긋난다.
+   *
+   * 여기 있는 재료는 "집에 있을 거예요" 로 내린다. 구매 기록을 만들지는
+   * **않는다** — 집에 있다는 건 오늘 샀다는 뜻이 아니다. 없는 날짜를
+   * 지어내면 다음 주에 "3일 전에 샀어요" 같은 거짓말이 나온다.
+   */
+  have: number[] = [],
+): Promise<ShoppingItem[]> {
   if (!listId) return [];
+  const athome = new Set(have);
 
   return tx(async (q) => {
     // 이미 체크한 것은 있던 칸에 그대로 둔다.
@@ -162,11 +178,18 @@ export async function items(listId: number | null): Promise<ShoppingItem[]> {
     const rows: ShoppingItem[] = [];
     for (const r of fresh) {
       const kept = frozen.get(r.label);
+      // 집에 있다고 한 것은 살 것에서 내린다. 이미 체크한 항목은 그대로
+      // 둔다 — 마트에서 칸이 바뀌면 어디까지 샀는지 놓친다.
+      const athomeNow = r.ingredient_id !== null && athome.has(r.ingredient_id);
       const row: ShoppingItem = {
         ingredient_id: r.ingredient_id,
         label: r.label,
-        bucket: kept ? kept.bucket : r.bucket,
-        reason: kept ? kept.reason : r.reason,
+        bucket: kept ? kept.bucket : athomeNow ? "HAVE" : r.bucket,
+        reason: kept
+          ? kept.reason
+          : athomeNow
+            ? "집에 있다고 하셨어요"
+            : r.reason,
         checked: Boolean(kept),
       };
       await q(

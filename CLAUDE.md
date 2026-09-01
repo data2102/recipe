@@ -58,7 +58,7 @@ LLM 자리에 가짜 응답을 넣어 배관만 잰다 (파서 정확도는 accu
 | `db/seed_dictionary.sql` | **자동 생성물.** 직접 고치지 말고 CSV 를 고친 뒤 재생성한다. `verify_seed.py` 가 어긋남을 잡는다 |
 | `data/ingredient-dictionary.csv` | **실측 기록.** 추론으로 행을 채우지 마라. 문서에 있다는 이유로 넣지도 마라 |
 | `db/schema.sql` | PostgreSQL 기준. SQLite 치환 규칙이 머리말에 있고 `verify_seed.py` 가 그 규칙을 쓴다. 끝의 "핵심 쿼리 3개" 주석은 `verify_migration.py` 가 실제로 파싱시킨다 — 컬럼을 바꾸면 같이 고쳐라 |
-| `supabase/migrations/*.sql` | **셋 다 얼렸다** (2026-08-31 운영 DB 적용). 스키마를 바꾸려면 `db/schema.sql` 을 고치고 **델타 파일을 손으로 새로 쓴다.** 재생성하려 하면 `build_migrations.py` 가 막는다 |
+| `supabase/migrations/*.sql` | **올린 것은 얼린다** (`build_migrations.py` 의 FROZEN 에 이름+해시). 스키마를 바꾸려면 `db/schema.sql` 을 고치고 **델타 파일을 손으로 새로 쓴다.** 얼린 파일은 원본과 대조하지 않는다 — 갈라짐은 `verify_migration.py` 가 두 DB 를 만들어 컬럼으로 잰다 |
 | `web/app/yeobaek/*.css` | **복사본.** 여백 디자인 시스템 원본 저장소를 고치고 다시 복사한다 (`web/app/yeobaek/README.md`) |
 | `web/lib/db.ts` | 서버 전용. Client Component 에서 import 하면 접속 문자열이 번들에 실린다 |
 | `db/seed_dev.sql` | **예시 데이터.** 마이그레이션이 아니다. 실제 DB 에 넣지 마라 |
@@ -105,6 +105,11 @@ LLM 자리에 가짜 응답을 넣어 배관만 잰다 (파서 정확도는 accu
   같은 모양을 모듈에서 다시 그리면 디자인 시스템이 좋아져도 앱은 안 바뀐다.
   시스템 기본값을 덮어쓸 일이 있으면 `globals.css` 아래쪽 한 군데에 모은다
 - **탭 2 의 오래된 순 정렬을 뒤집지 마라.** 그 정렬이 곧 추천이다
+- **요일은 안 정해도 된다.** 담기(`shopping_list_recipe`)와 요일
+  (`day_of_week`)은 다른 행동이다. 요일을 필수로 만들면 담기가 무거워진다
+- **식단에서 펼친 재료의 체크는 구매 기록을 만들지 않는다.** 집에 있다는
+  건 오늘 샀다는 뜻이 아니다. 없는 날짜를 지어내면 다음 주에 "3일 전에
+  샀어요" 라는 거짓말이 나온다. 구매 기록은 마트에서 장보기 체크로만 생긴다
 - **같은 초안을 두 번 저장하지 않는다.** `save()` 가 `source_asset.recipe_id`
   를 `FOR UPDATE` 로 잡고 이미 붙어 있으면 그 id 를 돌려준다. 화면에서 버튼을
   막는 것만으로는 못 막는다 — 폰이 잠기면 서버는 저장을 끝냈는데 응답만

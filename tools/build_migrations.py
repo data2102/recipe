@@ -24,30 +24,52 @@ include 가 없어서 파일이 스스로 완결돼 있어야 한다. 그렇다�
 **아직 아무 DB 에도 안 올렸을 때까지만.** 실제 DB 에 한 번 올라간 뒤에는
 그 파일이 이미 적용된 과거라서 고칠 수 없다. 그때부터는
 
-  - 이 두 파일을 얼린다 (아래 FROZEN 목록에 넣는다)
+  - 그 파일을 얼린다 (아래 FROZEN 에 이름과 해시를 넣는다)
   - 스키마 변경은 supabase/migrations/ 에 델타 파일을 손으로 새로 쓴다
   - db/schema.sql 도 같이 고친다 (여전히 '현재 상태'의 원본이다)
 
-얼린 뒤에도 --check 는 계속 돈다. 원본과 어긋나면 델타를 빠뜨린 것이다.
+얼린 파일은 무엇과 비교하나
+--------------------------
+**자기 자신의 해시와 비교한다. db/schema.sql 과는 비교하지 않는다.**
+
+처음에는 얼린 파일도 원본과 대조했는데, 그러면 델타를 쓰는 순간 영구히
+빨간불이 된다 — db/schema.sql 은 '현재 상태'라 앞으로 가고 얼린 파일은
+'그때의 과거'라 그대로 있으니, 둘이 다른 게 정상이다. 여기서 막아야 할
+것은 원본과의 차이가 아니라 **과거 파일이 손대어지는 것**이다. 그래서
+해시를 박아두고 그것만 본다.
+
+그럼 db/schema.sql 과 마이그레이션이 갈라지는 건 누가 잡나 →
+tools/verify_migration.py 다. 마이그레이션을 다 올린 DB 와 schema.sql 만
+올린 DB 를 만들어 컬럼을 하나씩 대조한다. 글자가 아니라 결과를 본다.
 """
 
 import argparse
+import hashlib
 import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 MIG_DIR = ROOT / "supabase" / "migrations"
 
-# 실제 DB 에 올라가서 더는 재생성하면 안 되는 파일. 위 설명 참조.
-# (여기 이름을 넣으면 --check 는 계속 비교하되 파일은 안 쓴다)
+# 실제 DB 에 올라가서 더는 손대면 안 되는 파일 -> 그때의 sha256.
 #
 # 2026-08-31 Supabase 운영 DB 에 셋 다 올렸다. 여기부터는 과거다 —
 # db/schema.sql 을 고치면 델타 마이그레이션을 새로 써야 한다.
+#
+# 손으로 쓴 델타도 올린 뒤에는 여기 넣는다. 해시는 이렇게 뽑는다:
+#   sha256sum supabase/migrations/<파일>.sql
 FROZEN = {
-    "20260831000000_init_schema.sql",
-    "20260831000001_seed_dictionary.sql",
-    "20260831000002_lock_down.sql",
+    "20260831000000_init_schema.sql":
+        "94d81d091e5d5c1f198386accb4e43e90798f456c1a01c68dbc836185c43fea7",
+    "20260831000001_seed_dictionary.sql":
+        "ae2d84999c2f285b87a75101b2d18c00d683a70e4a33c4e9bd86c768b8f8e565",
+    "20260831000002_lock_down.sql":
+        "3b252de851062e71a0744db16565a2abe113e15937b21ade76f5d037eef53287",
 }
+
+
+def digest(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 # ---------------------------------------------------------------------
@@ -134,7 +156,8 @@ def main():
     print("마이그레이션 " + ("확인" if args.check else "생성"))
     print("=" * W)
 
-    stale = []
+    stale = []          # 다시 만들어야 하는 것 (안 얼린 것만)
+    touched = []        # 얼린 건데 내용이 바뀐 것
     missing_src = []
 
     for item in PLAN:
@@ -144,24 +167,54 @@ def main():
             continue
 
         out = MIG_DIR / item["out"]
-        want = render(item)
         have = out.read_text(encoding="utf-8") if out.exists() else None
+        frozen = FROZEN.get(item["out"])
 
-        if have == want:
-            state = "그대로"
-        elif have is None:
-            state = "없음 -> 생성"
-            stale.append(item)
+        if frozen:
+            # 얼린 파일은 원본과 비교하지 않는다 (머리말 참조).
+            # 이미 올라간 과거라, db/schema.sql 이 앞서 가는 게 정상이다.
+            if have is None:
+                state = "없음 — 지워졌다"
+                touched.append(item["out"])
+            elif digest(have) == frozen:
+                state = "그대로  [얼림]"
+            else:
+                state = "바뀜 — 과거를 고쳤다  [얼림]"
+                touched.append(item["out"])
+            n = len(have.splitlines()) if have else 0
         else:
-            state = "어긋남 -> 재생성"
-            stale.append(item)
-
-        if item["out"] in FROZEN:
-            state += "  [얼림]"
+            want = render(item)
+            if have == want:
+                state = "그대로"
+            elif have is None:
+                state = "없음 -> 생성"
+                stale.append(item)
+            else:
+                state = "어긋남 -> 재생성"
+                stale.append(item)
+            n = len(want.splitlines())
 
         print(f"\n  {item['src']}")
         print(f"    -> supabase/migrations/{item['out']}   {state}")
-        print(f"       {len(want.splitlines())}줄")
+        print(f"       {n}줄")
+
+    # PLAN 에 없는 파일 = 손으로 쓴 델타. 목록만 보여준다.
+    extra = sorted(
+        p.name for p in MIG_DIR.glob("*.sql")
+        if p.name not in {i["out"] for i in PLAN})
+    for name in extra:
+        body = (MIG_DIR / name).read_text(encoding="utf-8")
+        frozen = FROZEN.get(name)
+        if frozen is None:
+            state = "손으로 쓴 델타 — 아직 안 얼렸다"
+        elif digest(body) == frozen:
+            state = "그대로  [얼림]"
+        else:
+            state = "바뀜 — 과거를 고쳤다  [얼림]"
+            touched.append(name)
+        print(f"\n  (손으로 씀)")
+        print(f"    -> supabase/migrations/{name}   {state}")
+        print(f"       {len(body.splitlines())}줄")
 
     if missing_src:
         print("\n원본이 없다:")
@@ -172,21 +225,21 @@ def main():
 
     print("\n" + "-" * W)
 
+    if touched:
+        print("실패 — 얼린 마이그레이션이 바뀌었다")
+        for name in touched:
+            print(f"  {name}")
+        print()
+        print("이 파일은 이미 실제 DB 에 올라가서 고칠 수 없다.")
+        print("되돌리고, 바꾸고 싶은 게 있으면 델타를 새로 써라.")
+        print("-" * W)
+        return 1
+
     if not stale:
         print("통과 — 마이그레이션이 db/ 원본과 일치한다")
         print("-" * W)
         return 0
 
-    frozen_stale = [i for i in stale if i["out"] in FROZEN]
-    if frozen_stale:
-        print("실패 — 얼린 마이그레이션이 원본과 어긋난다")
-        for i in frozen_stale:
-            print(f"  {i['out']}")
-        print()
-        print("이 파일은 이미 실제 DB 에 올라가서 고칠 수 없다.")
-        print("db/schema.sql 을 고쳤다면 델타 마이그레이션을 새로 써라.")
-        print("-" * W)
-        return 1
 
     if args.check:
         print("실패 — 마이그레이션이 db/ 원본보다 낡았다")

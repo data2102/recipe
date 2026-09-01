@@ -43,7 +43,11 @@ CDN 이나 서브모듈로 걸면 디자인 시스템이 바뀔 때 앱 화면�
    못 미친다.** `foundations.md` 의 "진한 텍스트 토큰" 규칙대로
    `--accent-strong`(5.71:1)이어야 한다. `a11y_check.py` 는 이 쌍을 UI
    기준으로만 재서 안 걸린다.
-2. **무채색 배지.** `.ds-badge` 에는 success/warning/danger 만 있다. "담아뒀어요"
+2. **`.ds-check` 의 체크 + 잠김.** `:disabled` 규칙이 `:checked` 뒤에 있어서
+   둘 다 걸리면 회색이 이긴다. "이미 됐으니 못 누른다" 를 보여주려고 잠가둔
+   칸이 "안 됐고 누를 수도 없다" 로 읽힌다. 순서를 바꾸거나
+   `input:checked:disabled` 를 따로 두면 된다.
+3. **무채색 배지.** `.ds-badge` 에는 success/warning/danger 만 있다. "담아뒀어요"
    처럼 성공도 경고도 아닌 그냥 사실을 알릴 자리가 없어서 앱에서 만들어 썼다
    (`RecipeRow.module.css` 의 `.quietBadge`). `.ds-badge-quiet` 로 올릴 만하다.
 

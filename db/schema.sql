@@ -189,6 +189,18 @@ CREATE TABLE shopping_list (
 CREATE TABLE shopping_list_recipe (
     list_id         BIGINT NOT NULL REFERENCES shopping_list(id) ON DELETE CASCADE,
     recipe_id       BIGINT NOT NULL REFERENCES recipe(id),
+
+    -- 무슨 요일에 먹을지. 0=월 … 6=일. NULL = 아직 안 정함.
+    --
+    -- 담기와 요일 정하기는 다른 행동이다. 장 볼 때는 "이번 주에 이거 먹자"
+    -- 까지만 정하고, 요일은 나중에 (또는 영영) 안 정할 수도 있다. 그래서
+    -- NULL 을 허용한다 — 요일을 강제하면 담는 것 자체가 무거워진다.
+    --
+    -- 날짜가 아니라 요일인 이유: 목록이 곧 "이번 주"라서 (shopping_list 가
+    -- 한 번에 하나만 OPEN) 어느 주인지는 목록이 이미 안다. 날짜로 두면
+    -- 목록이 다음 주까지 열려 있을 때 어긋난다.
+    day_of_week     SMALLINT CHECK (day_of_week BETWEEN 0 AND 6),
+
     PRIMARY KEY (list_id, recipe_id)
 );
 

@@ -83,6 +83,24 @@ def with_db(url, dbname):
 #  schema.sql 이 스스로 적어둔 것을 그대로 기대값으로 쓴다
 # ---------------------------------------------------------------------
 
+COLUMNS_SQL = """
+SELECT table_name || '.' || column_name || ' :: ' || data_type
+       || ' null=' || is_nullable
+       || ' default=' || COALESCE(column_default, '-')
+  FROM information_schema.columns
+ WHERE table_schema = 'public'
+ ORDER BY table_name, column_name
+"""
+
+
+def columns_of(url):
+    """실제로 만들어진 컬럼 목록. 글자가 아니라 결과를 본다."""
+    out = psql(url, "-t", "-A", sql=COLUMNS_SQL)
+    if out.returncode != 0:
+        return None
+    return [l.strip() for l in out.stdout.splitlines() if l.strip()]
+
+
 def tables_in_schema():
     text = SCHEMA.read_text(encoding="utf-8")
     return re.findall(r"^CREATE TABLE (\w+)", text, flags=re.M)
@@ -252,6 +270,46 @@ def main():
         if n_policy:
             bad.append(f"정책이 {n_policy}개 있다 — v1 은 정책 없이 잠가둔다")
         row("  모든 테이블 RLS 잠김 · 정책 0개", ok_rls)
+
+        # --- 7. 마이그레이션을 다 올린 결과 == db/schema.sql 인가 ----
+        #
+        #  얼린 마이그레이션은 '그때의 과거'라 db/schema.sql 과 글자가
+        #  다른 게 정상이다 (build_migrations.py 머리말). 그래서 글자
+        #  대신 **결과**를 본다 — 마이그레이션을 다 올린 DB 와 schema.sql
+        #  만 올린 DB 의 컬럼을 하나씩 맞춰본다. 델타를 빠뜨리면 여기서
+        #  걸린다. 이게 앞으로 스키마를 고칠 때의 유일한 안전망이다.
+        mirror = f"recipe_schema_{os.getpid()}"
+        psql(base, sql=f'DROP DATABASE IF EXISTS "{mirror}" WITH (FORCE)')
+        rm = psql(base, sql=f'CREATE DATABASE "{mirror}"')
+        if rm.returncode != 0:
+            bad.append("대조용 DB 를 못 만들었다")
+        else:
+            murl = with_db(base, mirror)
+            try:
+                rs = psql(murl, path=SCHEMA)
+                if rs.returncode != 0:
+                    bad.append("db/schema.sql 이 PostgreSQL 에서 안 돈다")
+                    print()
+                    for line in rs.stderr.strip().splitlines()[:8]:
+                        print(f"     {line}")
+                    row("  db/schema.sql == 마이그레이션 결과", False)
+                else:
+                    a = columns_of(url) or []
+                    b = columns_of(murl) or []
+                    only_mig = [x for x in a if x not in set(b)]
+                    only_sch = [x for x in b if x not in set(a)]
+                    same = not only_mig and not only_sch
+                    if not same:
+                        bad.append("db/schema.sql 과 마이그레이션 결과가 다르다"
+                                   " — 델타를 빠뜨렸거나 schema.sql 을 안 고쳤다")
+                    row(f"  db/schema.sql == 마이그레이션 결과"
+                        f" (컬럼 {len(b)}개)", same)
+                    for x in only_sch[:8]:
+                        print(f"     schema.sql 에만: {x}")
+                    for x in only_mig[:8]:
+                        print(f"     마이그레이션에만: {x}")
+            finally:
+                psql(base, sql=f'DROP DATABASE IF EXISTS "{mirror}" WITH (FORCE)')
 
         r = psql(url, sql="INSERT INTO recipe (title) VALUES ('검증용')")
         status = scalar(url, "SELECT status FROM recipe LIMIT 1")
