@@ -223,11 +223,20 @@ CREATE TABLE shopping_item (
 -- (1) 홈 : 오랜만에 어때요  — 입력 0으로 나오는 추천
 --     GOOD 만 쓴다. WISH/BAD 는 여기 안 나온다.
 --
+--     **만든 적이 있어야 한다** (last_cooked_on IS NOT NULL).
+--     만든 적 없는 건 아무리 GOOD 이어도 "오랜만" 이 성립하지 않는다 —
+--     그건 '아직 안 만들어본 것' 이 가져간다.
+--
+--     30일이 기준선이다. 그 전에는 아직 질리지 않았고, 넘으면 슬슬
+--     생각날 때다. 60일을 넘기면 화면에서 글자색이 warm 으로 바뀐다
+--     (web/lib/say.ts 의 OLD_DAYS) — 나오는 기준과 눈에 띄는 기준은 다르다.
+--
 -- SELECT r.id, r.title,
 --        CURRENT_DATE - r.last_cooked_on AS days_ago
 --   FROM recipe r
 --  WHERE r.status = 'GOOD'
 --    AND r.last_cooked_on IS NOT NULL
+--    AND CURRENT_DATE - r.last_cooked_on >= 30
 --  ORDER BY days_ago DESC
 --  LIMIT 5;
 

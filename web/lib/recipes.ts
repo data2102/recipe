@@ -6,6 +6,7 @@
  */
 
 import { query } from "./db";
+import { SUGGEST_AFTER_DAYS } from "./say";
 
 export type RecipeRow = {
   id: number;
@@ -62,22 +63,38 @@ export function listCooked(limit = 100) {
 }
 
 /**
- * 탭 3 — 이번 주 추천.
- * 오래된 것 2~3개 + 아직 안 만든 것 1~2개를 섞어 낸다 (지시서 3장).
- * 추천 풀은 GOOD 만 쓴다 — 별로였던 걸 60일 뒤 다시 밀면 앱이 바보처럼 보인다.
- * **빈 화면이 절대 없어야 한다**: 한쪽이 비어도 다른 쪽은 나온다.
+ * 탭 3 — 이번 주 추천. 두 갈래로 낸다 (지시서 3장).
+ *
+ * 가르는 기준은 상태가 아니라 **만든 적이 있는가**다.
+ *
+ *   오랜만에 어때요    만든 적 있고 + 30일 지남
+ *   아직 안 만들어본 것 만든 적 없음 (GOOD 이든 WISH 든)
+ *
+ * 만든 적 없는 건 아무리 GOOD 이어도 "오랜만" 이 성립하지 않는다. 노션에서
+ * "괜찮았다" 로 옮겨왔지만 날짜가 없는 것들이 그렇다 — 예전에는 그게
+ * 오랜만에 어때요 맨 위에 "아직 안 만들어봤어요" 라고 붙어 나왔다.
+ *
+ * BAD 는 양쪽 다 안 나온다. 별로였던 걸 30일 뒤 다시 밀면 앱이 바보처럼
+ * 보인다 (지시서 3장).
+ *
+ * 30일이 안 된 게 없으면 위쪽은 빈다. 아래 목록과 이번 주 식단이 항상
+ * 있으니 화면이 통째로 비지는 않는다.
  */
 export async function suggest() {
   const [old, fresh] = await Promise.all([
     query<RecipeRow>(
       `${SELECT_ROW}
         WHERE r.status = 'GOOD'
-        ORDER BY r.last_cooked_on ASC NULLS FIRST, r.id ASC
+          AND r.last_cooked_on IS NOT NULL
+          AND CURRENT_DATE - r.last_cooked_on >= $1
+        ORDER BY r.last_cooked_on ASC, r.id ASC
         LIMIT 3`,
+      [SUGGEST_AFTER_DAYS],
     ),
     query<RecipeRow>(
       `${SELECT_ROW}
-        WHERE r.status = 'WISH'
+        WHERE r.last_cooked_on IS NULL
+          AND r.status <> 'BAD'
         ORDER BY r.created_at DESC
         LIMIT 2`,
     ),

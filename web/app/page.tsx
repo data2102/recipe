@@ -321,7 +321,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             list={data.old}
             today={today}
             mode="cooked"
-            empty="만든 이력이 쌓이면 여기에 나와요."
+            empty="만든 지 30일 지난 요리가 여기 나와요."
             pick="add"
             inBasket={new Set(data.basket.map((r) => r.id))}
           />
@@ -331,7 +331,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             list={data.fresh}
             today={today}
             mode="wish"
-            empty="담아둔 게 없어요."
+            empty="아직 안 만들어본 게 없어요."
             pick="add"
             inBasket={new Set(data.basket.map((r) => r.id))}
           />
