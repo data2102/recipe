@@ -214,3 +214,36 @@
 .linkGo {
   margin-top: var(--sp-3);
 }
+
+/* --- 링크 붙여넣기 ------------------------------------------------ */
+
+.urlField {
+  margin-top: var(--sp-4);
+}
+
+.urlRow {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+/* 칸이 줄어들 수 있어야 버튼이 밀려나지 않는다 */
+.urlRow > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.paste {
+  flex: none;
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-4);
+}
+
+/* 한 줄 안내라 배너까지 쓰지 않는다. 조르는 말투가 되면 안 된다 */
+.install {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1.6;
+  margin: var(--sp-5) 0 0;
+}

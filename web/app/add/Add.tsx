@@ -11,7 +11,13 @@
  *            재료 16개를 다 펼치면 화면이 빽빽해서 그냥 저장을 누르게 된다.
  */
 
-import { useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   commit,
@@ -30,6 +36,48 @@ const MAPPED = "MAPPED";
 const CHECK = "CHECK";
 const UNMAPPED = "UNMAPPED";
 
+const INSTAGRAM = /instagram\.com/i;
+const URL_IN_TEXT = /https?:\/\/\S+/;
+
+/**
+ * 공유로 넘어온 글이 이만큼 되면 본문이 통째로 온 것으로 본다.
+ * lib/parse/link.ts 의 MIN_BODY_CHARS 와 같은 눈금이다 — 그보다 짧으면
+ * 안드로이드가 붙여준 "제목 + 주소" 한 줄이지 레시피가 아니다.
+ */
+const BODY_ENOUGH = 200;
+
+/**
+ * 바뀌지 않는 것을 읽는다 (클립보드가 되는가, 설치돼 있는가).
+ * 구독할 게 없어서 해지 함수만 돌려준다 — 첫 그림에서 서버/브라우저가
+ * 다른 값을 내야 해서 useState + useEffect 대신 이걸 쓴다.
+ */
+const noSubscribe = () => () => {};
+
+type Auto = "assets" | "text" | "link" | null;
+
+/**
+ * 공유로 들어왔을 때 **버튼을 기다리지 않고 바로 시작할 것인가.**
+ *
+ * 공유 시트에서 이 앱을 고른 것 자체가 "이거 정리해줘" 다. 넘어와서
+ * 한 번 더 누르게 하면 공유가 지름길이 아니게 된다 (지시서 9장 —
+ * 공유가 이 제품의 핵심 유입 경로다).
+ *
+ * /share 는 그대로 파싱하지 않는다. 원본만 보관하고 넘긴다 — 시작은
+ * 여기서 하니까 사용자는 흰 화면이 아니라 "읽는 중" 을 본다.
+ *
+ * 안 시작하는 경우가 둘 있다.
+ *   인스타 링크만  링크로는 못 읽는 걸 이미 안다. 8초 태우고 실패를
+ *                 보여주느니 캡처를 부탁하는 화면을 바로 낸다 (지시서 4장)
+ *   problem 있음   /share 가 이미 실패했다. 직접 올리라고 안내 중이다
+ */
+function autoStart(shared?: Shared | null): Auto {
+  if (!shared || shared.problem) return null;
+  if (shared.assetIds.length > 0) return "assets";
+  if ((shared.text?.trim().length ?? 0) >= BODY_ENOUGH) return "text";
+  if (shared.url && !INSTAGRAM.test(shared.url)) return "link";
+  return null;
+}
+
 type Fail = Extract<IngestResult, { ok: false }>;
 
 type Phase =
@@ -41,7 +89,19 @@ type Phase =
 
 export default function Add({ shared }: { shared?: Shared | null }) {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>({ at: "pick" });
+  const auto = autoStart(shared);
+  /*
+   * 자동으로 시작할 게 있으면 **첫 화면부터** 읽는 중이다. effect 가 돈
+   * 뒤에 바꾸면 올리기 화면이 한 번 번쩍인다 — 공유를 눌렀는데 폼이
+   * 스쳐 지나가면 잘못 온 줄 안다.
+   */
+  const [phase, setPhase] = useState<Phase>(
+    auto === null
+      ? { at: "pick" }
+      : auto === "link"
+        ? { at: "linking" }
+        : { at: "reading" },
+  );
   const [pending, startTransition] = useTransition();
 
   /*
@@ -52,6 +112,27 @@ export default function Add({ shared }: { shared?: Shared | null }) {
    * 지시서 4장은 원문 주소를 항상 같이 남기라고 한다).
    */
   const [url, setUrl] = useState(shared?.url ?? "");
+
+  /* 자동 시작은 딱 한 번이다. 두 번 돌면 원본도 파싱도 두 벌이 된다 */
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || auto === null || !shared) return;
+    started.current = true;
+    if (auto === "assets") {
+      onShared();
+    } else if (auto === "link") {
+      onLink(shared.url!);
+    } else {
+      // 붙여넣기 공유 — 넘어온 글을 그대로 파서에 준다. 주소도 같이
+      // 넘겨야 source_url 이 남는다 (저작권 — 지시서 4장)
+      const form = new FormData();
+      form.set("text", shared.text!);
+      if (shared.url) form.set("sourceUrl", shared.url);
+      startTransition(async () => land(await ingest(form)));
+    }
+    // 주소에서 온 값이라 화면이 사는 동안 바뀌지 않는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function land(result: IngestResult) {
     setPhase(
@@ -135,8 +216,9 @@ export default function Add({ shared }: { shared?: Shared | null }) {
     });
   }
 
-  if (phase.at === "linking") return <Linking />;
-  if (phase.at === "reading") return <Reading />;
+  if (phase.at === "linking")
+    return <Linking url={url} fromShare={auto !== null} />;
+  if (phase.at === "reading") return <Reading fromShare={auto !== null} />;
   if (phase.at === "confirm" || phase.at === "saving") {
     return (
       <Confirm
@@ -222,7 +304,47 @@ function Pick({
 
   // 인스타는 링크로 본문을 못 읽는다. 넣어놓고 안 될 걸 알면서
   // 시도하게 만들지 않는다 (지시서 4장).
-  const instagram = /instagram\.com/i.test(url);
+  const instagram = INSTAGRAM.test(url);
+
+  /*
+   * 클립보드에서 바로 받는다.
+   *
+   * 링크는 거의 다 **다른 앱에서 복사해온 것**이다. 칸을 길게 눌러
+   * 붙여넣기 메뉴를 띄우는 것보다 한 번에 끝난다.
+   *
+   * 되는 브라우저에서만 낸다. 눌러서 거절당하면 칸은 그대로 있으니
+   * 손으로 붙여넣으면 된다 — 막다른 길이 되지 않는다.
+   */
+  const canPaste = useSyncExternalStore(
+    noSubscribe,
+    () => Boolean(navigator.clipboard?.readText),
+    () => false, // 서버는 모른다. 안 내는 쪽으로 그린다
+  );
+  const [missed, setMissed] = useState(false);
+
+  async function paste() {
+    try {
+      const hit = (await navigator.clipboard.readText()).match(URL_IN_TEXT);
+      setMissed(!hit);
+      if (hit) setUrl(hit[0]);
+    } catch {
+      // 거절했거나 안 되는 브라우저다. 손으로 붙여넣으면 된다
+      setMissed(false);
+    }
+  }
+
+  /*
+   * 설치하면 공유 시트에 뜬다 (manifest.ts). 그게 제일 짧은 길인데
+   * 설치하기 전에는 그런 길이 있는 줄 모른다. 이미 설치했으면 안 낸다.
+   *
+   * 처음 그릴 때는 없는 쪽으로 둔다 — 서버는 알 수 없어서, 켰다 껐다
+   * 하면 화면이 한 번 튄다.
+   */
+  const installed = useSyncExternalStore(
+    noSubscribe,
+    () => window.matchMedia("(display-mode: standalone)").matches,
+    () => true, // 서버는 모른다. 안 내는 쪽으로 그린다
+  );
 
   /** 주소만 넣었다 — 누르면 링크를 읽으러 간다 (onIngest 참조) */
   const linkOnly = url.trim().length > 0 && count === 0 && !hasText;
@@ -250,6 +372,51 @@ function Pick({
           아래에서 직접 올려주세요.
         </Notice>
       )}
+
+      {/*
+        링크가 맨 위다.
+        복사해온 주소 한 줄이면 끝나는 게 제일 짧은 길이라 먼저 묻는다.
+        캡처는 그 아래 — 인스타처럼 링크로 못 읽는 곳에서 쓰는 길이다.
+      */}
+      <section className="ds-card">
+        <h2 className={styles.cardTitle}>링크를 붙여넣어 주세요</h2>
+        <p className={styles.body}>
+          읽을 수 있으면 읽고, 안 되면 캡처를 올려달라고 알려드려요.
+        </p>
+        <div className={`ds-field ${styles.urlField} ${styles.lastField}`}>
+          <div className={styles.urlRow}>
+            <input
+              id="sourceUrl"
+              className="ds-input"
+              type="url"
+              name="sourceUrl"
+              aria-label="레시피 링크"
+              value={url}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setMissed(false);
+              }}
+              placeholder="인스타·유튜브·블로그 주소"
+            />
+            {canPaste && (
+              <button
+                type="button"
+                className={`ds-btn ds-btn-secondary ${styles.paste}`}
+                onClick={paste}
+              >
+                붙여넣기
+              </button>
+            )}
+          </div>
+          <span className="ds-help">
+            {instagram
+              ? "인스타는 링크로는 못 읽어요. 캡처를 올려주세요 — 주소는 같이 보관할게요."
+              : missed
+                ? "복사해둔 링크가 없어요. 캡처를 올려도 돼요."
+                : "유튜브·블로그 주소를 그대로 붙여넣으면 돼요."}
+          </span>
+        </div>
+      </section>
 
       <section className="ds-card">
         <h2 className={styles.cardTitle}>
@@ -284,28 +451,6 @@ function Pick({
           onChange={(e) => setHasText(e.target.value.trim().length > 0)}
           placeholder="레시피 본문을 그대로 붙여넣으세요"
         />
-      </section>
-
-      <section className="ds-card">
-        <div className={`ds-field ${styles.lastField}`}>
-          <label className="ds-label" htmlFor="sourceUrl">
-            링크가 있으면 붙여넣어 주세요
-          </label>
-          <input
-            id="sourceUrl"
-            className="ds-input"
-            type="url"
-            name="sourceUrl"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="인스타·유튜브·블로그 주소"
-          />
-          <span className="ds-help">
-            {instagram
-              ? "인스타는 링크로는 못 읽어요. 캡처를 올려주세요 — 주소는 같이 보관할게요."
-              : "읽을 수 있으면 읽고, 안 되면 캡처를 올려달라고 알려드려요."}
-          </span>
-        </div>
       </section>
 
       {error && (
@@ -362,25 +507,41 @@ function Pick({
             ? "링크 읽어볼게요"
             : "정리해줄게요"}
       </button>
+
+      {/* 더 짧은 길이 있다는 것만 알려준다. 설치를 조르지 않는다 */}
+      {!installed && (
+        <p className={styles.install}>
+          홈 화면에 추가해두면 인스타·유튜브에서 공유 버튼만 눌러도 여기로 와요.
+        </p>
+      )}
     </form>
   );
 }
 
-function Linking() {
+/**
+ * 공유로 들어와 자동으로 시작했으면 그렇다고 말한다. 누른 적 없는데
+ * 뭔가 돌고 있으면 "내가 보낸 게 맞나" 싶다 — 주소를 같이 보여준다.
+ */
+function Linking({ url, fromShare }: { url: string; fromShare: boolean }) {
   return (
     <section className="ds-card">
-      <h2 className={styles.cardTitle}>링크를 열어보는 중이에요</h2>
+      <h2 className={styles.cardTitle}>
+        {fromShare ? "공유받은 링크를 열어보는 중이에요" : "링크를 열어보는 중이에요"}
+      </h2>
       <p className={styles.body}>
         읽어도 되는 페이지인지 먼저 확인하고, 본문이 있으면 가져와요.
       </p>
+      {url && <p className={styles.hint}>{url}</p>}
     </section>
   );
 }
 
-function Reading() {
+function Reading({ fromShare }: { fromShare: boolean }) {
   return (
     <section className="ds-card">
-      <h2 className={styles.cardTitle}>읽는 중이에요</h2>
+      <h2 className={styles.cardTitle}>
+        {fromShare ? "공유받은 걸 읽는 중이에요" : "읽는 중이에요"}
+      </h2>
       <p className={styles.body}>
         재료를 먼저 옮기고, 만드는 법에만 나오는 재료가 있는지 한 번 더 봐요.
       </p>
