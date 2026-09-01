@@ -307,6 +307,24 @@ function Pick({
   const instagram = INSTAGRAM.test(url);
 
   /*
+   * 인스타 주소만 있으면 **남은 길은 캡처뿐이다.**
+   *
+   * 공유로 들어온 쪽은 이미 시도하지 않게 해뒀는데, 손으로 붙여넣은
+   * 쪽은 주 버튼을 누르면 링크를 읽으러 갔다가 실패했다. 안 될 걸 아는
+   * 일을 시키느니 버튼이 캡처 고르기를 연다 — 버튼 글자도 그렇게 적는다.
+   */
+  const needCapture = instagram && !gotShared && count === 0 && !hasText;
+
+  function submit(e: React.FormEvent<HTMLFormElement>) {
+    if (needCapture) {
+      e.preventDefault();
+      fileRef.current?.click();
+      return;
+    }
+    onSubmit(e);
+  }
+
+  /*
    * 클립보드에서 바로 받는다.
    *
    * 링크는 거의 다 **다른 앱에서 복사해온 것**이다. 칸을 길게 눌러
@@ -350,7 +368,7 @@ function Pick({
   const linkOnly = url.trim().length > 0 && count === 0 && !hasText;
 
   return (
-    <form onSubmit={onSubmit}>
+    <form onSubmit={submit}>
       {/* 공유 시트로 넘어온 것. 여기서 바로 이어가면 다시 고를 필요가 없다 */}
       {gotShared && (
         <section className="ds-card">
@@ -410,7 +428,7 @@ function Pick({
           </div>
           <span className="ds-help">
             {instagram
-              ? "인스타는 링크로는 못 읽어요. 캡처를 올려주세요 — 주소는 같이 보관할게요."
+              ? "인스타는 링크로 못 읽어요. 주소는 그대로 두고 아래에서 캡처를 올려주세요 — 주소도 같이 저장돼요."
               : missed
                 ? "복사해둔 링크가 없어요. 캡처를 올려도 돼요."
                 : "유튜브·블로그 주소를 그대로 붙여넣으면 돼요."}
@@ -503,9 +521,11 @@ function Pick({
       >
         {gotShared
           ? "올린 걸로 정리해줄게요"
-          : linkOnly && !instagram
-            ? "링크 읽어볼게요"
-            : "정리해줄게요"}
+          : needCapture
+            ? "캡처 고르기"
+            : linkOnly && !instagram
+              ? "링크 읽어볼게요"
+              : "정리해줄게요"}
       </button>
 
       {/* 더 짧은 길이 있다는 것만 알려준다. 설치를 조르지 않는다 */}

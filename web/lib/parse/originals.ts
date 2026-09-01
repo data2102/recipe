@@ -70,8 +70,13 @@ export async function keepOriginal(
       body: new Uint8Array(bytes),
     });
     if (!res.ok && res.status !== 409) {
+      // 왜 막혔는지는 Supabase 가 본문에 적어 보낸다 ("Bucket not found",
+      // "Invalid JWT" …). 숫자만 보여주면 버킷이 없는 건지 키가 틀린 건지
+      // 구별할 수 없어서, 받은 말을 그대로 붙인다.
+      const why = await res.text().catch(() => "");
       throw new Error(
-        `원본을 못 올렸어요 (${res.status}). 버킷 '${BUCKET}' 이 있는지 봐주세요.`,
+        `원본을 못 올렸어요 (${res.status}). 버킷 '${BUCKET}' 이 있는지 봐주세요.` +
+          (why ? ` — ${why.slice(0, 200)}` : ""),
       );
     }
     return `${BUCKET}/${name}`;
@@ -123,6 +128,12 @@ export async function readOriginal(
     `${url.replace(/\/+$/, "")}/storage/v1/object/${storageKey}`,
     { headers: { Authorization: `Bearer ${key}` } },
   );
-  if (!res.ok) throw new Error(`보관해둔 원본을 못 읽었어요 (${res.status})`);
+  if (!res.ok) {
+    const why = await res.text().catch(() => "");
+    throw new Error(
+      `보관해둔 원본을 못 읽었어요 (${res.status})` +
+        (why ? ` — ${why.slice(0, 200)}` : ""),
+    );
+  }
   return { bytes: Buffer.from(await res.arrayBuffer()), mediaType };
 }
