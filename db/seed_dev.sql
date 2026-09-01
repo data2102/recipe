@@ -92,11 +92,18 @@ SELECT r.id, v.raw_name, v.raw_qty, v.section,
   LEFT JOIN ingredient i ON i.canonical_name = v.raw_name;
 
 -- 사전 별칭으로 걸리는 표기도 붙여준다 (고추가루 -> 고춧가루 등).
+--
+-- **AMBIGUOUS 는 빼야 한다.** '간장' 은 사전에 있지만 국간장인지 진간장인지
+-- 모르는 표기라, 앱은 일부러 id 를 안 붙이고 확인 화면에서 물어본다
+-- (web/lib/parse/normalize.ts). 여기서 말없이 붙여버리면 예시 데이터가
+-- 앱보다 후해져서, 로컬에서는 멀쩡한데 운영에서는 안 되는 일이 생긴다
+-- (실제로 냉장고 칩에 '간장' 이 안 나오는 걸 여기서 놓쳤다).
 UPDATE recipe_ingredient ri
    SET ingredient_id = a.ingredient_id
   FROM ingredient_alias a
  WHERE ri.ingredient_id IS NULL
-   AND a.alias = ri.raw_name;
+   AND a.alias = ri.raw_name
+   AND a.kind <> 'AMBIGUOUS';
 
 -- 요리 이력. recipe.last_cooked_on 은 이 로그의 캐시다.
 INSERT INTO cook_log (recipe_id, cooked_on)

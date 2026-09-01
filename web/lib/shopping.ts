@@ -14,6 +14,7 @@
  */
 
 import { one, query, tx } from "./db";
+import { NO_HAVE, atHome, type Have } from "./fridge.types";
 import type { Bucket, PickedRecipe, ShoppingItem } from "./shopping.types";
 
 export type { Bucket, PickedRecipe, ShoppingItem };
@@ -141,17 +142,20 @@ SELECT n.ingredient_id, n.raw_key, n.label,
 export async function items(
   listId: number | null,
   /**
-   * 집에 있다고 눌러둔 재료 (`?have=`). 저장하지 않는다 — 주소에만 산다
-   * (지시서 6장). 상시 재고를 만들면 갱신을 안 해서 어긋난다.
+   * 집에 있다고 눌러둔 재료. 저장하지 않는다 — 주소에만 산다 (지시서 6장).
+   * 상시 재고를 만들면 갱신을 안 해서 어긋난다.
+   *
+   * 사전에 붙은 것은 id 로, 안 붙은 것은 레시피에 적힌 표기로 맞춘다
+   * (lib/fridge.types.ts). 사전에 없는 재료가 더 많아서, id 만 보면
+   * 대부분을 "집에 있어요" 라고 말할 수가 없다.
    *
    * 여기 있는 재료는 "집에 있을 거예요" 로 내린다. 구매 기록을 만들지는
    * **않는다** — 집에 있다는 건 오늘 샀다는 뜻이 아니다. 없는 날짜를
    * 지어내면 다음 주에 "3일 전에 샀어요" 같은 거짓말이 나온다.
    */
-  have: number[] = [],
+  have: Have = NO_HAVE,
 ): Promise<ShoppingItem[]> {
   if (!listId) return [];
-  const athome = new Set(have);
 
   return tx(async (q) => {
     // 이미 체크한 것은 있던 칸에 그대로 둔다.
@@ -180,7 +184,7 @@ export async function items(
       const kept = frozen.get(r.label);
       // 집에 있다고 한 것은 살 것에서 내린다. 이미 체크한 항목은 그대로
       // 둔다 — 마트에서 칸이 바뀌면 어디까지 샀는지 놓친다.
-      const athomeNow = r.ingredient_id !== null && athome.has(r.ingredient_id);
+      const athomeNow = atHome(have, r.ingredient_id, r.label);
       const row: ShoppingItem = {
         ingredient_id: r.ingredient_id,
         label: r.label,

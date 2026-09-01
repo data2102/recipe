@@ -18,6 +18,7 @@ import { useState } from "react";
 import { useTransition } from "react";
 import { removeFromWeek, setDayOfWeek } from "./actions";
 import { DAYS, type Planned } from "@/lib/week.types";
+import { atHome, type Have } from "@/lib/fridge.types";
 import styles from "./Week.module.css";
 
 export default function Week({
@@ -25,12 +26,11 @@ export default function Week({
   have,
 }: {
   plan: Planned[];
-  /** 집에 있다고 눌러둔 재료 id. 주소(?have=)에서 온다 */
-  have: number[];
+  /** 집에 있다고 눌러둔 재료. 주소에서 온다 (lib/fridge.types.ts) */
+  have: Have;
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const [, startTransition] = useTransition();
-  const athome = new Set(have);
 
   if (plan.length === 0) {
     return (
@@ -57,7 +57,7 @@ export default function Week({
 
   function Dish({ p }: { p: Planned }) {
     const isOpen = open === p.recipe_id;
-    const need = p.items.filter((i) => !athome.has(i.ingredient_id ?? -1));
+    const need = p.items.filter((i) => !atHome(have, i.ingredient_id, i.raw_name));
     return (
       <li className={styles.dish}>
         <div className={styles.dishHead}>
@@ -101,7 +101,7 @@ export default function Week({
           <>
             <ul className={styles.items}>
               {p.items.map((it) => {
-                const hasIt = athome.has(it.ingredient_id ?? -1);
+                const hasIt = atHome(have, it.ingredient_id, it.raw_name);
                 return (
                   <li key={it.id}>
                     <label className={`ds-check ${styles.item}`}>

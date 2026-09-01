@@ -14,7 +14,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
-import type { Chip } from "@/lib/fridge.types";
+import { atHome, type Chip, type Have } from "@/lib/fridge.types";
 import styles from "./Fridge.module.css";
 
 export default function Fridge({
@@ -22,27 +22,41 @@ export default function Fridge({
   have,
 }: {
   chips: Chip[];
-  have: number[];
+  have: Have;
 }) {
   const router = useRouter();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
-  const picked = new Set(have);
 
-  function toggle(id: number) {
-    const next = new Set(picked);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+  /**
+   * 사전에 붙은 재료는 id 로, 안 붙은 재료는 레시피에 적힌 표기로 담는다.
+   * 사전에 없는 재료가 더 많아서, id 만 쓰면 대부분을 못 누른다.
+   */
+  function toggle(chip: Chip) {
+    const ids = new Set(have.ids);
+    const names = new Set(have.names);
+
+    if (chip.id !== null) {
+      if (ids.has(chip.id)) ids.delete(chip.id);
+      else ids.add(chip.id);
+    } else if (names.has(chip.name)) {
+      names.delete(chip.name);
+    } else {
+      names.add(chip.name);
+    }
 
     const q = new URLSearchParams(params.toString());
-    if (next.size > 0) q.set("have", [...next].join(","));
+    if (ids.size > 0) q.set("have", [...ids].join(","));
     else q.delete("have");
+    if (names.size > 0) q.set("haveRaw", [...names].join(","));
+    else q.delete("haveRaw");
     startTransition(() => router.replace(`/?${q}`, { scroll: false }));
   }
 
   function clear() {
     const q = new URLSearchParams(params.toString());
     q.delete("have");
+    q.delete("haveRaw");
     startTransition(() => router.replace(`/?${q}`, { scroll: false }));
   }
 
@@ -57,20 +71,23 @@ export default function Fridge({
       </p>
 
       <div className={styles.chips}>
-        {chips.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            className={`ds-chip ${picked.has(c.id) ? "on" : ""}`}
-            aria-pressed={picked.has(c.id)}
-            onClick={() => toggle(c.id)}
-          >
-            {c.name}
-          </button>
-        ))}
+        {chips.map((c) => {
+          const on = atHome(have, c.id, c.name);
+          return (
+            <button
+              key={c.id === null ? `raw:${c.name}` : `id:${c.id}`}
+              type="button"
+              className={`ds-chip ${on ? "on" : ""}`}
+              aria-pressed={on}
+              onClick={() => toggle(c)}
+            >
+              {c.name}
+            </button>
+          );
+        })}
       </div>
 
-      {have.length > 0 && (
+      {have.ids.length + have.names.length > 0 && (
         <button type="button" className={styles.clear} onClick={clear}>
           다 지울게요
         </button>

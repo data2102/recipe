@@ -32,8 +32,8 @@ import {
   ingredientSummary,
   todayInput,
 } from "@/lib/say";
-import { chips as fridgeChips, parseHave, weighted } from "@/lib/fridge";
-import type { Chip } from "@/lib/fridge.types";
+import { chips as fridgeChips, haveParams, parseHave, weighted } from "@/lib/fridge";
+import type { Chip, Have } from "@/lib/fridge.types";
 import { items as shoppingItems, openList, picked as pickedRecipes } from "@/lib/shopping";
 import { plan as weekPlan } from "@/lib/week";
 import type { Planned } from "@/lib/week.types";
@@ -63,13 +63,13 @@ type Loaded =
       plan: Planned[];
       cart: ShoppingItem[];
       chips: Chip[];
-      have: number[];
+      have: Have;
       /** 냉장고 재료를 넣었을 때만. 필터가 아니라 가중치다 */
       byFridge: Row[] | null;
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
-async function load(tab: TabKey, have: number[]): Promise<Loaded> {
+async function load(tab: TabKey, have: Have): Promise<Loaded> {
   try {
     const n = await counts();
     const total = n.wish + n.good;
@@ -101,7 +101,9 @@ async function load(tab: TabKey, have: number[]): Promise<Loaded> {
     ];
     const [chips, byFridge] = await Promise.all([
       fridgeChips(onScreen),
-      have.length > 0 ? weighted(have) : Promise.resolve(null),
+      have.ids.length + have.names.length > 0
+        ? weighted(have)
+        : Promise.resolve(null),
     ]);
     return {
       kind: "week",
@@ -196,7 +198,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const raw = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const tab: TabKey = TABS.some((t) => t.key === raw) ? (raw as TabKey) : "week";
 
-  const have = parseHave(params.have);
+  const have = parseHave(params.have, params.haveRaw);
   const data = await load(tab, have);
   if (data.kind === "error") return <Broken message={data.message} />;
 
@@ -220,9 +222,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             key={t.key}
             href={
               t.key === "week"
-                ? have.length > 0
-                  ? `/?have=${have.join(",")}`
-                  : "/"
+                ? `/?${haveParams(have)}`
                 : `/?tab=${t.key}`
             }
             className={`ds-tab ${t.key === tab ? "on" : ""}`}

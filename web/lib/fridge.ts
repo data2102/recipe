@@ -14,9 +14,9 @@
  */
 
 import { query } from "./db";
-import type { Chip } from "./fridge.types";
+import { NO_HAVE, nameKey, type Chip, type Have } from "./fridge.types";
 
-export type { Chip };
+export type { Chip, Have };
 
 export type Weighted = {
   id: number;
@@ -49,14 +49,26 @@ export type Weighted = {
 export async function chips(recipeIds: number[]): Promise<Chip[]> {
   if (recipeIds.length === 0) return [];
   return query<Chip>(
-    `SELECT i.id, i.canonical_name AS name
-       FROM recipe_ingredient ri
-       JOIN ingredient i ON i.id = ri.ingredient_id
-      WHERE ri.recipe_id = ANY($1::bigint[])
-        AND (ri.origin <> 'BODY' OR ri.confirmed)  -- 미확인 BODY 는 제외
-        AND i.purchasable                          -- 물 같은 건 빼고
-      GROUP BY i.id, i.canonical_name
-      ORDER BY COUNT(DISTINCT ri.recipe_id) DESC, i.canonical_name`,
+    `SELECT
+         -- 사전이 붙인 것끼리는 id 로 합친다 ('고추가루'와 '고춧가루'가
+         -- 한 칩이 된다). 사전에 없는 것은 표기로 합친다.
+         MIN(ri.ingredient_id) AS id,
+         -- 보여줄 이름은 레시피에 적힌 표기다 (원칙 ①). 여러 표기가 한
+         -- 재료로 합쳐졌으면 제일 많이 쓴 표기를 쓴다.
+         (array_agg(ri.raw_name ORDER BY ri.n DESC, ri.raw_name))[1] AS name
+       FROM (
+         SELECT ri.ingredient_id, ri.raw_name, ri.recipe_id,
+                COUNT(*) OVER (PARTITION BY ri.raw_name) AS n
+           FROM recipe_ingredient ri
+           LEFT JOIN ingredient i ON i.id = ri.ingredient_id
+          WHERE ri.recipe_id = ANY($1::bigint[])
+            AND (ri.origin <> 'BODY' OR ri.confirmed)  -- 미확인 BODY 는 제외
+            AND COALESCE(i.purchasable, TRUE)          -- 물 같은 건 빼고
+       ) ri
+      GROUP BY COALESCE(ri.ingredient_id::text,
+                        'raw:' || replace(ri.raw_name, ' ', ''))
+      ORDER BY COUNT(DISTINCT ri.recipe_id) DESC,
+               (array_agg(ri.raw_name ORDER BY ri.n DESC, ri.raw_name))[1]`,
     [recipeIds],
   );
 }
@@ -67,10 +79,16 @@ export async function chips(recipeIds: number[]): Promise<Chip[]> {
  * SQL 은 db/schema.sql 의 "핵심 쿼리 3개" 중 (2)번과 같은 모양이다.
  * `LEFT JOIN` + `ORDER BY` 라서 **결과가 0건이 되지 않는다.**
  */
-export async function weighted(haveIds: number[], limit = 6) {
+export async function weighted(have: Have = NO_HAVE, limit = 6) {
+  // 사전에 안 붙은 재료도 가중치에 넣는다. 안 그러면 '멸치액젓' 을 눌러도
+  // 아무 요리도 안 올라와서 눌러본 사람이 고장난 줄 안다.
+  const names = have.names.map(nameKey);
   return query<Weighted>(
     `SELECT r.id, r.title, r.status,
-            COUNT(ri.id) FILTER (WHERE ri.ingredient_id = ANY($1::bigint[])) AS hit,
+            COUNT(ri.id) FILTER (
+              WHERE ri.ingredient_id = ANY($1::bigint[])
+                 OR replace(ri.raw_name, ' ', '') = ANY($3::text[])
+            ) AS hit,
             r.last_cooked_on::text AS last_cooked_on,
             COALESCE((
               SELECT array_agg(x.raw_name ORDER BY x.id)
@@ -88,20 +106,45 @@ export async function weighted(haveIds: number[], limit = 6) {
       ORDER BY hit DESC,
                r.last_cooked_on ASC NULLS FIRST
       LIMIT $2`,
-    [haveIds, limit],
+    [have.ids, limit, names],
   );
 }
 
-/** 주소에 실린 `?have=` 를 읽는다. 저장된 게 아니라 지금 화면의 상태다. */
-export function parseHave(raw: string | string[] | undefined): number[] {
-  const s = Array.isArray(raw) ? raw[0] : raw;
-  if (!s) return [];
-  return [
-    ...new Set(
-      s
-        .split(",")
-        .map((n) => Number(n))
-        .filter((n) => Number.isInteger(n) && n > 0),
-    ),
-  ].slice(0, 40);
+/**
+ * 주소에 실린 `?have=` · `?haveRaw=` 를 읽는다.
+ * 저장된 게 아니라 지금 화면의 상태다 (지시서 6장).
+ */
+export function parseHave(
+  ids: string | string[] | undefined,
+  names: string | string[] | undefined,
+): Have {
+  const one = (v: string | string[] | undefined) =>
+    (Array.isArray(v) ? v[0] : v) || "";
+
+  return {
+    ids: [
+      ...new Set(
+        one(ids)
+          .split(",")
+          .map((n) => Number(n))
+          .filter((n) => Number.isInteger(n) && n > 0),
+      ),
+    ].slice(0, 60),
+    names: [
+      ...new Set(
+        one(names)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ].slice(0, 60),
+  };
+}
+
+/** 주소로 되돌린다. 칩을 누를 때마다 이걸로 주소를 다시 쓴다 */
+export function haveParams(have: Have): URLSearchParams {
+  const q = new URLSearchParams();
+  if (have.ids.length) q.set("have", have.ids.join(","));
+  if (have.names.length) q.set("haveRaw", have.names.join(","));
+  return q;
 }
