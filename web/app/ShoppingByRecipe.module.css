@@ -1,0 +1,87 @@
+/*
+ * 요리별 장보기. 카드·체크박스는 여백의 .ds-* 를 쓴다 — 여기는 배치만.
+ */
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 44px;
+  text-align: left;
+}
+
+.caret {
+  flex: none;
+  width: 14px;
+  color: var(--text-tertiary);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-subhead);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+
+/* 요일은 정보다. 액션색을 안 쓴다 (지시서 5장) */
+.day {
+  flex: none;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
+.count {
+  flex: none;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+}
+
+.list {
+  list-style: none;
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.line {
+  border-bottom: 1px solid var(--border);
+}
+
+/* 마트에서 한 손으로 누른다. 줄 어디를 눌러도 체크되게 (foundations.md 44px) */
+.line label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) 0;
+  min-height: 52px;
+}
+
+.name {
+  flex: 1;
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+}
+
+/* 담은 것은 조용해진다. 색만으로 알리지 않는다 — 줄이 그어진다 */
+.line label input:checked ~ .name {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.why {
+  flex: none;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+}
+
+.empty {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin: var(--sp-3) 0 0;
+}

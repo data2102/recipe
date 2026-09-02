@@ -11,13 +11,16 @@
  * 같은 값을 읽어서 "다 있어요" 를 낸다.
  */
 
+import Link from "next/link";
 import Fridge from "../Fridge";
 import Shopping from "../Shopping";
+import ShoppingByRecipe from "../ShoppingByRecipe";
 import { Empty } from "../RecipeList";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
 import { chips as fridgeChips, parseHave } from "@/lib/fridge";
 import {
+  groups as recipeGroups,
   items as shoppingItems,
   openList,
   picked as pickedRecipes,
@@ -35,16 +38,20 @@ type Loaded =
       chips: Awaited<ReturnType<typeof fridgeChips>>;
       cart: Awaited<ReturnType<typeof shoppingItems>>;
       basket: Awaited<ReturnType<typeof pickedRecipes>>;
+      groups: Awaited<ReturnType<typeof recipeGroups>>;
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
 async function load(have: ReturnType<typeof parseHave>): Promise<Loaded> {
   try {
     const listId = await openList();
-    const [basket, cart] = await Promise.all([
+    // items() 가 shopping_item 을 다시 쓴다. groups() 는 그 결과를 읽는
+    // 게 아니라 같은 이름을 따로 만들 뿐이라 순서는 상관없다.
+    const [basket, cart, groups] = await Promise.all([
       pickedRecipes(listId),
       // 집에 있다고 눌러둔 재료는 "집에 있을 거예요" 로 내려간다.
       shoppingItems(listId, have),
+      recipeGroups(listId),
     ]);
     /*
       칩은 **이번 주에 담은 요리들이 쓰는 재료**다. 담은 것 기준이면
@@ -52,7 +59,7 @@ async function load(have: ReturnType<typeof parseHave>): Promise<Loaded> {
       집에 있나" 를 묻는 것이니 그게 맞다. 담거나 빼면 칩도 따라 바뀐다.
     */
     const chips = await fridgeChips(basket.map((r) => r.id));
-    return { kind: "ok", chips, cart, basket };
+    return { kind: "ok", chips, cart, basket, groups };
   } catch (e) {
     return {
       kind: "error",
@@ -68,10 +75,24 @@ export default async function ShoppingPage({
 
   const params = await searchParams;
   const have = parseHave(params.have, params.haveRaw);
+  /*
+    보는 방식은 주소에 둔다. 요리별이 기본이다 — 왜 사는지가 같이
+    보이는 쪽이 고르기 쉽다. 합친 목록은 한 번 눌러 갈 수 있게 남긴다:
+    진열대를 돌 때는 합친 게 낫고, **두 번 사지 않으려면 그 화면이 답이다.**
+  */
+  const raw = Array.isArray(params.view) ? params.view[0] : params.view;
+  const merged = raw === "merged";
+  const q = new URLSearchParams();
+  if (params.have) q.set("have", String(params.have));
+  if (params.haveRaw) q.set("haveRaw", String(params.haveRaw));
+
   const data = await load(have);
   if (data.kind === "error") return <Broken message={data.message} />;
 
   const buy = data.cart.filter((i) => !i.checked).length;
+  const byRecipe = new URLSearchParams(q);
+  const flat = new URLSearchParams(q);
+  flat.set("view", "merged");
 
   return (
     <main className="shell">
@@ -89,10 +110,32 @@ export default async function ShoppingPage({
       <h2 className={styles.section}>집에 있는 재료 (선택)</h2>
       <Fridge chips={data.chips} have={have} />
 
-      {/* 섹션 제목을 따로 두지 않는다 — 바로 아래 "사야 해요 / 있는지
-          봐주세요 / 집에 있을 거예요" 가 그 자리를 한다 */}
+      {data.cart.length > 0 && (
+        <nav className={`ds-tabs ${styles.tabs}`}>
+          <Link
+            href={`/shopping?${byRecipe}`}
+            className={`ds-tab ${merged ? "" : "on"}`}
+            aria-current={merged ? undefined : "page"}
+          >
+            요리별
+          </Link>
+          <Link
+            href={`/shopping?${flat}`}
+            className={`ds-tab ${merged ? "on" : ""}`}
+            aria-current={merged ? "page" : undefined}
+          >
+            합쳐서
+          </Link>
+        </nav>
+      )}
+
+      {/* 섹션 제목을 따로 두지 않는다 — 칸 이름이 그 자리를 한다 */}
       {data.cart.length > 0 ? (
-        <Shopping items={data.cart} />
+        merged ? (
+          <Shopping items={data.cart} />
+        ) : (
+          <ShoppingByRecipe groups={data.groups} items={data.cart} />
+        )
       ) : (
         <Empty>
           {data.basket.length > 0

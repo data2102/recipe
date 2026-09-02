@@ -15,7 +15,12 @@
 
 import { one, query, tx } from "./db";
 import { NO_HAVE, atHome, type Have } from "./fridge.types";
-import type { Bucket, PickedRecipe, ShoppingItem } from "./shopping.types";
+import type {
+  Bucket,
+  PickedRecipe,
+  RecipeGroup,
+  ShoppingItem,
+} from "./shopping.types";
 
 export type { Bucket, PickedRecipe, ShoppingItem };
 
@@ -206,6 +211,64 @@ export async function items(
     }
     return rows;
   });
+}
+
+/**
+ * 같은 목록을 **요리별로** 묶어서 낸다.
+ *
+ * 합친 목록은 마트에서 훑기 좋지만 "이게 왜 필요한지" 가 안 보인다.
+ * 요리별로 접어두면 김치삼겹살찜을 눌러 그 요리에 살 것만 볼 수 있다.
+ *
+ * **재료를 새로 계산하지 않는다.** 합친 목록(items)이 쓰는 것과 같은
+ * 이름(label)만 요리별로 모아 온다 — 화면은 그 이름으로 합친 목록의
+ * 상태(칸·체크·근거)를 그대로 읽는다. 그래서 대파가 세 요리에 들어가도
+ * **항목은 하나**고, 한 군데서 체크하면 세 군데가 다 체크된다.
+ * 따로 계산하면 두 벌이 생기고, 두 벌은 반드시 갈라진다.
+ */
+export async function groups(listId: number | null): Promise<RecipeGroup[]> {
+  if (!listId) return [];
+  return query<RecipeGroup>(
+    `WITH picked AS (
+         SELECT DISTINCT ON (ri.recipe_id, ri.choice_group) ri.id
+           FROM recipe_ingredient ri
+           JOIN shopping_list_recipe slr ON slr.recipe_id = ri.recipe_id
+          WHERE slr.list_id = $1
+            AND ri.choice_group IS NOT NULL
+          ORDER BY ri.recipe_id, ri.choice_group, ri.confirmed DESC, ri.id
+     ),
+     need AS (
+         SELECT ri.recipe_id, ri.ingredient_id, ri.raw_name,
+                CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END AS raw_key
+           FROM recipe_ingredient ri
+           JOIN shopping_list_recipe slr ON slr.recipe_id = ri.recipe_id
+           LEFT JOIN ingredient i ON i.id = ri.ingredient_id
+          WHERE slr.list_id = $1
+            AND (ri.origin <> 'BODY' OR ri.confirmed)
+            AND (ri.choice_group IS NULL OR ri.id IN (SELECT id FROM picked))
+            AND COALESCE(i.purchasable, TRUE)
+     ),
+     -- 합친 목록이 쓰는 것과 **같은 이름**을 만든다 (NEED_SQL 의 label)
+     merged AS (
+         SELECT ingredient_id, raw_key, MIN(raw_name) AS label
+           FROM need
+          GROUP BY ingredient_id, raw_key
+     )
+     SELECT slr.recipe_id, r.title, slr.day_of_week AS day,
+            COALESCE(
+              array_agg(DISTINCT m.label) FILTER (WHERE m.label IS NOT NULL),
+              '{}'
+            ) AS labels
+       FROM shopping_list_recipe slr
+       JOIN recipe r ON r.id = slr.recipe_id
+       LEFT JOIN need n ON n.recipe_id = slr.recipe_id
+       LEFT JOIN merged m
+              ON m.ingredient_id IS NOT DISTINCT FROM n.ingredient_id
+             AND m.raw_key IS NOT DISTINCT FROM n.raw_key
+      WHERE slr.list_id = $1
+      GROUP BY slr.recipe_id, r.title, slr.day_of_week
+      ORDER BY slr.day_of_week NULLS LAST, r.title`,
+    [listId],
+  );
 }
 
 /**

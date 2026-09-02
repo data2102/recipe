@@ -16,6 +16,21 @@ export type ShoppingItem = {
   checked: boolean;
 };
 
+/**
+ * 요리 하나와 그 요리가 쓰는 재료 이름들.
+ *
+ * `labels` 는 **합친 목록(ShoppingItem)의 label 과 같은 값**이다.
+ * 화면은 이 이름으로 합친 목록의 상태를 읽는다 — 항목은 한 벌뿐이라
+ * 대파가 세 요리에 들어가도 한 번만 사고, 한 군데서 체크하면 다 체크된다.
+ */
+export type RecipeGroup = {
+  recipe_id: number;
+  title: string;
+  /** 0=월 … 6=일. 안 정했으면 null */
+  day: number | null;
+  labels: string[];
+};
+
 export type PickedRecipe = {
   id: number;
   title: string;
