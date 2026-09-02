@@ -76,7 +76,9 @@
 /* 정보는 텍스트 3단계로만 구분한다. 파랑은 누를 수 있는 것에만 (지시서 5장) */
 .meta {
   font-size: var(--fs-caption);
-  color: var(--text-tertiary);
+  /* 힌트가 아니라 그 행의 내용이다 (재료 요약·마지막에 만든 날).
+     tertiary 로 두면 폰에서 안 읽힌다 */
+  color: var(--text-secondary);
 }
 
 .warm {
@@ -165,18 +167,22 @@
 
 /* 담기는 이 화면에서 하는 유일한 행동이라 액션색을 쓴다 (지시서 5장).
    빼기는 여기 없다 — 담은 뒤에는 이번 주 식단에서 뺀다 */
+/*
+ * 글자만 파랗게 두면 링크처럼 보여서 "눌러도 되나" 를 한 번 생각하게
+ * 된다. 이 화면에서 제일 많이 누르는 것이라 테두리를 줘서 버튼으로
+ * 읽히게 한다 (여백의 secondary 버튼과 같은 모양).
+ */
 .pick {
-  height: 100%;
-  border: 0;
-  background: none;
+  align-self: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
   padding: 0 var(--sp-4);
-  min-width: 56px;
-  min-height: 44px;
+  margin-right: var(--sp-3);
+  min-width: 60px;
+  min-height: 40px;
   font-size: var(--fs-caption);
   font-weight: var(--fw-medium);
-}
-
-.pick {
   color: var(--accent-strong);
 }
 

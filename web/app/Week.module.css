@@ -17,7 +17,14 @@
   margin: 0 0 var(--sp-2);
 }
 
-/* 빈 요일은 조용히. 안 정한 게 흠이 아니다 */
+/* 빈 요일은 한 줄로 모아서 조용히. 안 정한 게 흠이 아니다 */
+.blankDays {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--sp-4);
+  letter-spacing: 0.06em;
+}
+
 .blank {
   font-size: var(--fs-caption);
   font-weight: var(--fw-regular);

@@ -75,11 +75,12 @@ export default function Fridge({
 
   return (
     <section className="ds-card">
+      {/*
+        설명은 한 줄이다. 매번 읽을 글이 아닌데 세 줄을 차지하고 있었다 —
+        칩이 곧 설명이라 눌러보면 안다.
+      */}
       <p className={styles.lead}>
-        담은 요리에 들어가는 재료예요. 집에 있는 걸 눌러두면 장보기에서
-        빼드려요.
-        <br />
-        <span className={styles.quiet}>안 눌러도 아래는 그대로 나와요.</span>
+        집에 있는 걸 눌러두면 장보기에서 빼드려요.
       </p>
 
       <div className={styles.chips}>

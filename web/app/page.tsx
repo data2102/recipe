@@ -51,10 +51,14 @@ import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 
+/*
+ * 라벨은 짧게. 폰 너비에 셋이 나란히 서야 해서, 길면 두 줄로 접히고
+ * 탭이 탭처럼 안 보인다. 무슨 목록인지는 아래 내용이 말해준다.
+ */
 const TABS = [
-  { key: "want", label: "아직 만들기 전" },
-  { key: "done", label: "최근 만든 것" },
-  { key: "week", label: "이번 주 추천" },
+  { key: "want", label: "만들기 전" },
+  { key: "done", label: "만든 것" },
+  { key: "week", label: "이번 주" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];

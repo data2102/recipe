@@ -43,11 +43,16 @@
 
 /* --- 섹션 ------------------------------------------------------- */
 
+/*
+ * 화면이 길어서 섹션 제목이 이정표 노릇을 한다. 카드 제목과 같은
+ * 크기면 어디가 새 덩어리인지 안 보인다 — 한 단계 키우고 좁힌다.
+ */
 .section {
-  font-size: var(--fs-heading);
+  font-size: 20px;
   font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-tight);
   color: var(--text-primary);
-  margin: var(--sp-8) 0 var(--sp-3);
+  margin: var(--sp-6) 0 var(--sp-3);
 }
 
 .section:first-of-type {
