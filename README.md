@@ -2,6 +2,7 @@
 
 > 요리를 아는 사람이 자기 레시피를 모아두고, 장보기 전에 메뉴를 정해 장보기 목록을 뽑는 도구.
 
+**쓰는 법**: [`docs/how-to-use.md`](docs/how-to-use.md)
 **상태**: v1 설계 완료, 개발 착수 단계
 **디자인 시스템**: [여백(Yeobaek)](https://github.com/data2102/design-system) — 라이트 기본
 **화면 시안**: Figma `레시피·장보기 앱 v1 — 화면 흐름`
