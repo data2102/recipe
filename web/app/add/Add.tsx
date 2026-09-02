@@ -19,6 +19,7 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
+import { framesFromVideo, isVideo } from "@/lib/frames";
 import {
   commit,
   ingest,
@@ -158,9 +159,16 @@ export default function Add({ shared }: { shared?: Shared | null }) {
    *
    * onSubmit 안에서 부르면 평범한 긴급 갱신이라 그 자리에서 그려진다.
    */
-  function onIngest(e: React.FormEvent<HTMLFormElement>) {
+  function onIngest(e: React.FormEvent<HTMLFormElement>, frames?: File[]) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
+
+    // 영상에서 뽑아둔 장면이 있으면 그걸 캡처 자리에 넣는다 (lib/frames.ts).
+    // 영상 자체는 서버로 안 보낸다 — 파일 칸에 남아 있으면 걷어낸다.
+    if (frames && frames.length > 0) {
+      form.delete("images");
+      for (const f of frames) form.append("images", f);
+    }
 
     /*
      * 링크만 넣었으면 링크를 읽는다.
@@ -299,7 +307,7 @@ function Pick({
   onShared,
   onLinkOnly,
 }: {
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>, frames?: File[]) => void;
   /** 이름만 저장이 도는 중. 두 번 누르면 두 건이 된다 */
   pending: boolean;
   error?: Fail;
@@ -313,6 +321,44 @@ function Pick({
   const [count, setCount] = useState(0);
   const [hasText, setHasText] = useState(Boolean(shared?.text?.trim()));
   const fileRef = useRef<HTMLInputElement>(null);
+
+  /*
+   * 영상에서 뽑아둔 장면.
+   *
+   * 릴스·쇼츠는 재료와 단계가 화면을 넘겨가며 나와서, 지금까지는 사람이
+   * 5~6번 스크린샷을 찍어야 했다. 화면 녹화 하나를 고르면 앱이 뽑는다.
+   * 뽑는 건 브라우저에서 하고 (lib/frames.ts) 서버에는 이미지만 간다.
+   */
+  const [frames, setFrames] = useState<File[]>([]);
+  const [reading, setReading] = useState(false);
+  const [videoProblem, setVideoProblem] = useState<string | null>(null);
+
+  async function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []);
+    setVideoProblem(null);
+    setFrames([]);
+
+    const video = picked.find(isVideo);
+    if (!video) {
+      setCount(picked.length);
+      return;
+    }
+
+    setCount(0);
+    setReading(true);
+    try {
+      const got = await framesFromVideo(video);
+      if (got.length === 0) {
+        setVideoProblem("영상에서 화면을 못 뽑았어요. 캡처를 올려주세요.");
+      } else {
+        setFrames(got);
+      }
+    } catch {
+      setVideoProblem("영상을 읽지 못했어요. 캡처를 올려주세요.");
+    } finally {
+      setReading(false);
+    }
+  }
   const gotShared = Boolean(shared?.assetIds.length);
 
   // 인스타는 링크로 본문을 못 읽는다. 넣어놓고 안 될 걸 알면서
@@ -326,7 +372,8 @@ function Pick({
    * 쪽은 주 버튼을 누르면 링크를 읽으러 갔다가 실패했다. 안 될 걸 아는
    * 일을 시키느니 버튼이 캡처 고르기를 연다 — 버튼 글자도 그렇게 적는다.
    */
-  const needCapture = instagram && !gotShared && count === 0 && !hasText;
+  const needCapture =
+    instagram && !gotShared && count === 0 && frames.length === 0 && !hasText;
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     if (needCapture) {
@@ -334,7 +381,7 @@ function Pick({
       fileRef.current?.click();
       return;
     }
-    onSubmit(e);
+    onSubmit(e, frames);
   }
 
   /*
@@ -455,6 +502,9 @@ function Pick({
         </h2>
         <p className={styles.body}>
           재료와 만드는 법이 보이면 돼요. 여러 장을 한 번에 읽어요 (10장까지).
+          <br />
+          <strong>영상을 골라도 돼요</strong> — 화면 녹화 하나면 장면은 앱이
+          뽑아요.
         </p>
 
         <input
@@ -463,13 +513,20 @@ function Pick({
           className={styles.file}
           type="file"
           name="images"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm"
           multiple
-          onChange={(e) => setCount(e.target.files?.length ?? 0)}
+          onChange={onFiles}
         />
         <label htmlFor="images" className={styles.drop}>
-          {count > 0 ? `캡처 ${count}장 골랐어요` : "캡처 고르기"}
+          {reading
+            ? "영상에서 화면을 뽑는 중이에요"
+            : frames.length > 0
+              ? `영상에서 ${frames.length}장 뽑았어요`
+              : count > 0
+                ? `캡처 ${count}장 골랐어요`
+                : "캡처 · 영상 고르기"}
         </label>
+        {videoProblem && <p className={styles.hint}>{videoProblem}</p>}
       </section>
 
       <section className="ds-card">
