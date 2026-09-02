@@ -1,5 +1,11 @@
 /* 이번 주 일곱 칸. 요약이라 누를 수 없다 — 색도 액션색을 안 쓴다 */
 
+/*
+ * 누르는 게 아니라 읽는 것이다. 그런데 폰에서 요일 글자를 탭하면
+ * 안드로이드가 **글자를 선택해서** "구글에서 검색" 시트를 띄운다 —
+ * 누를 수 있는 것처럼 생겼는데 누르면 엉뚱한 게 뜨는 셈이었다.
+ * 선택 자체를 막는다.
+ */
 .strip {
   list-style: none;
   display: flex;
@@ -9,6 +15,8 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .cell {
@@ -24,6 +32,7 @@
 .name {
   font-size: var(--fs-caption);
   color: var(--text-secondary);
+  padding-bottom: 3px;
 }
 
 /* 담긴 게 있으면 점, 둘 이상이면 숫자. 없으면 자리만 지킨다 */
@@ -35,14 +44,17 @@
   line-height: 18px;
 }
 
-/* 오늘. 정보 표시라 액션색(파랑)을 안 쓴다 (지시서 5장) */
-.today {
-  background: var(--surface-sunken);
-}
-
+/*
+ * 오늘.
+ *
+ * 칸을 통째로 칠하면 "선택된 칩" 처럼 보여서 누르고 싶어진다 —
+ * 실제로 눌러본 사람이 있었다. 글자 아래 밑줄로만 표시한다.
+ * 정보 표시라 액션색(파랑)은 안 쓴다 (지시서 5장).
+ */
 .today .name {
   color: var(--text-primary);
   font-weight: var(--fw-medium);
+  box-shadow: inset 0 -2px 0 var(--text-primary);
 }
 
 .sr {
