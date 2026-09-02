@@ -213,3 +213,57 @@ export async function shotsFromImage(file: File): Promise<File[]> {
 
 /** 한 장에서 나올 수 있는 조각 수 상한. 서버가 읽는 장수와 같은 눈금이다 */
 const WANT_SHOTS = 10;
+
+
+/* ---------------------------------------------------------------- */
+/*  보낼 수 있는 무게로 맞추기                                        */
+/* ---------------------------------------------------------------- */
+
+/**
+ * 한 번에 보낼 총 무게.
+ *
+ * 서버 액션 본문 제한(next.config.ts) 아래로 넉넉히 잡는다. multipart 는
+ * 경계·헤더로 얼마씩 더 붙고, 그걸 넘기면 파싱 실패가 아니라 **화면이
+ * 통째로 죽는다** (413). 넘느니 화질을 낮추는 게 낫다 — 글자만 읽히면 된다.
+ */
+const BUDGET = 3 * 1024 * 1024;
+
+function weigh(files: File[]): number {
+  return files.reduce((sum, f) => sum + f.size, 0);
+}
+
+async function bake(file: File, quality: number): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((r) =>
+    canvas.toBlob(r, "image/jpeg", quality),
+  );
+  return blob ? new File([blob], file.name, { type: "image/jpeg" }) : file;
+}
+
+/**
+ * 총 무게가 넘으면 화질을 낮춰 다시 굽는다.
+ *
+ * 장수를 줄이지 않는다 — 자른 조각 하나를 버리면 그 부분 재료를 통째로
+ * 잃는다. 화질은 좀 낮아도 글자는 읽힌다.
+ */
+export async function fitBudget(files: File[]): Promise<File[]> {
+  if (weigh(files) <= BUDGET) return files;
+  for (const quality of [0.7, 0.55, 0.4]) {
+    const smaller = await Promise.all(files.map((f) => bake(f, quality)));
+    if (weigh(smaller) <= BUDGET) return smaller;
+    files = smaller;
+  }
+  return files; // 그래도 넘으면 화면이 말해준다 (app/add/Add.tsx)
+}
+
+/** 화면이 "너무 무겁다" 를 판단하는 데 쓴다 */
+export function overBudget(files: File[]): boolean {
+  return weigh(files) > BUDGET;
+}

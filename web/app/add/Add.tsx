@@ -19,7 +19,13 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import { framesFromVideo, isVideo, shotsFromImage } from "@/lib/frames";
+import {
+  fitBudget,
+  framesFromVideo,
+  isVideo,
+  overBudget,
+  shotsFromImage,
+} from "@/lib/frames";
 import {
   commit,
   ingest,
@@ -86,6 +92,24 @@ function autoStart(shared?: Shared | null): Auto {
 }
 
 type Fail = Extract<IngestResult, { ok: false }>;
+
+/**
+ * 서버가 요청을 통째로 거절했을 때 화면에 남길 말.
+ *
+ * 413 은 우리 코드가 돌기 전에 나서 평소 오류 통로를 안 탄다. 그냥 두면
+ * 페이지가 죽는다 — 사용자 눈에는 앱이 고장 난 것으로 보인다.
+ */
+function tooBig(e: unknown): Fail {
+  const said = e instanceof Error ? e.message : String(e);
+  if (/body exceeded|413|payload too large/i.test(said)) {
+    return {
+      ok: false,
+      message: "올린 게 너무 커서 서버가 받지 못했어요.",
+      hint: "캡처를 몇 장씩 나눠서 올려주세요.",
+    };
+  }
+  return { ok: false, message: "보내다가 막혔어요.", hint: said };
+}
 
 type Phase =
   | { at: "pick"; error?: Fail }
@@ -169,7 +193,18 @@ export default function Add({ shared }: { shared?: Shared | null }) {
     }
 
     setPhase({ at: "reading" });
-    startTransition(async () => land(await ingest(form)));
+    startTransition(async () => {
+      try {
+        land(await ingest(form));
+      } catch (e) {
+        /*
+          서버가 요청 자체를 거절하면 (본문이 너무 큼 → 413) 우리 코드까지
+          오지도 못한다. 그냥 두면 **화면이 통째로 죽어서** ("A server error
+          occurred") 뭘 잘못했는지도 알 수 없다. 여기서 받아서 화면에 남긴다.
+        */
+        land(tooBig(e));
+      }
+    });
   }
 
   function onLink(url: string) {
@@ -187,9 +222,13 @@ export default function Add({ shared }: { shared?: Shared | null }) {
   function onShared() {
     if (!shared) return;
     setPhase({ at: "reading" });
-    startTransition(async () =>
-      land(await ingestShared(shared.assetIds, shared.url)),
-    );
+    startTransition(async () => {
+      try {
+        land(await ingestShared(shared.assetIds, shared.url));
+      } catch (e) {
+        land(tooBig(e));
+      }
+    });
   }
 
   function onCommit(draft: Draft) {
@@ -330,7 +369,7 @@ function Pick({
         if (got.length === 0) {
           setVideoProblem("영상에서 화면을 못 뽑았어요. 캡처를 올려주세요.");
         } else {
-          setFrames(got);
+          setFrames(await fitBudget(got));
         }
         return;
       }
@@ -340,7 +379,13 @@ function Pick({
         if (shots.length >= MAX_SHOTS) break;
         shots.push(...(await shotsFromImage(one)));
       }
-      setFrames(shots.slice(0, MAX_SHOTS));
+      const fitted = await fitBudget(shots.slice(0, MAX_SHOTS));
+      setFrames(fitted);
+      if (overBudget(fitted)) {
+        setVideoProblem(
+          "고른 게 너무 무거워요. 몇 장씩 나눠서 올려주세요.",
+        );
+      }
     } catch {
       setVideoProblem("고른 걸 읽지 못했어요. 다시 골라주세요.");
     } finally {
