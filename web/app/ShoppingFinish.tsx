@@ -15,7 +15,8 @@ import styles from "./Shopping.module.css";
 
 export default function ShoppingFinish({ bought }: { bought: number }) {
   return (
-    <>
+    /* PC 에서 두 칸으로 벌어져도 이건 통으로 간다 (globals.css 의 .wide) */
+    <div className="wide">
       <p className={styles.note}>
         체크하면 &quot;오늘 샀다&quot;로 기록해둘게요. 다음에 살 때가 됐는지
         여기서 알려드려요.
@@ -30,6 +31,6 @@ export default function ShoppingFinish({ bought }: { bought: number }) {
           {bought > 0 ? `장보기 끝 (${bought}개 담음)` : "장보기 끝"}
         </button>
       </form>
-    </>
+    </div>
   );
 }

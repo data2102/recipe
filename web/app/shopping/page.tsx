@@ -166,7 +166,8 @@ export default async function ShoppingPage({
         </nav>
       )}
 
-      {/* 섹션 제목을 따로 두지 않는다 — 칸 이름이 그 자리를 한다 */}
+      {/* 섹션 제목을 따로 두지 않는다 — 칸 이름이 그 자리를 한다.
+          PC 에서는 목록이 두 칸으로 벌어진다 (globals.css 의 .board) */}
       {data.cart.length > 0 ? (
         merged ? (
           <Shopping items={data.cart} />

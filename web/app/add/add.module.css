@@ -276,3 +276,24 @@
 .step:last-child {
   margin-bottom: 0;
 }
+
+/* 끌어다 올려둔 동안. 놓을 자리라는 걸 알려준다 */
+.dropOver {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent-strong);
+}
+
+/*
+ * PC 에만 있는 길(붙여넣기·끌어놓기) 안내. 폰에서 읽으면 못 하는 걸
+ * 하라는 말이 된다.
+ */
+.onlyWide {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .onlyWide {
+    display: inline;
+  }
+}

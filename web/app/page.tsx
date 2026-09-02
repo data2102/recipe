@@ -173,14 +173,25 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         물을 자리가 아니다 (RecipeRow 가 provider 없으면 그냥 담는다).
       */}
       <PickDayProvider week={which}>
-        {/* 다음 주에는 "오늘" 이 없다 */}
-        <WeekStrip
-          plan={data.plan}
-          todayIndex={next ? -1 : todayIndex(today)}
-        />
+        {/*
+          PC 에서는 두 칸으로 나눈다 — 왼쪽에 짜둔 주, 오른쪽에 담을 것.
+          담으면서 이번 주가 어떻게 차는지 같이 보인다 (폰에서는 그냥
+          세로로 쌓인다). globals.css 의 .board 참조.
+        */}
+        <div className="board">
+          {/* 다음 주에는 "오늘" 이 없다 */}
+          <div className="wide">
+            <WeekStrip
+              plan={data.plan}
+              todayIndex={next ? -1 : todayIndex(today)}
+            />
+          </div>
 
-        <Week plan={data.plan} have={have} week={which} />
+          <div>
+            <Week plan={data.plan} have={have} week={which} />
+          </div>
 
+          <div>
         {/*
           담을 곳이 바로 위에 있으니 목록은 그 아래다.
           셋을 **같이** 낸다 — 재료를 넣는 건 보기를 좁히자는 게 아니라
@@ -239,6 +250,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <Link href="/weeks" className={styles.more}>
           지난 주 보기 →
         </Link>
+          </div>
+        </div>
       </PickDayProvider>
     </main>
   );

@@ -59,7 +59,8 @@ export default function ShoppingByRecipe({
   }
 
   return (
-    <div>
+    /* PC 에서는 두 칸으로 벌어진다 (globals.css) */
+    <div className="board board-tight">
       {groups.map((g) => {
         // 합친 목록의 순서를 그대로 쓴다 (칸 → 진열대 → 이름).
         const mine = shown.filter((i) => g.labels.includes(i.label));

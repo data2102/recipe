@@ -346,6 +346,8 @@ function Pick({
   const [frames, setFrames] = useState<File[]>([]);
   const [reading, setReading] = useState(false);
   const [videoProblem, setVideoProblem] = useState<string | null>(null);
+  /** 파일을 끌어다 이 위에 올려두고 있다 (PC) */
+  const [over, setOver] = useState(false);
 
   /**
    * 고른 걸 **보낼 수 있는 크기로** 다듬는다 (lib/frames.ts).
@@ -355,7 +357,11 @@ function Pick({
    * 폭을 맞추고 긴 것은 잘라서 여러 장으로 만든다.
    */
   async function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = Array.from(e.target.files ?? []);
+    void take(Array.from(e.target.files ?? []));
+  }
+
+  /** 고른 것·붙여넣은 것·끌어다 놓은 것이 다 여기로 온다 */
+  async function take(picked: File[]) {
     setVideoProblem(null);
     setFrames([]);
     setCount(0);
@@ -402,6 +408,26 @@ function Pick({
    */
   const needCapture =
     Boolean(url) && !gotShared && count === 0 && frames.length === 0 && !hasText;
+
+
+  /**
+   * PC 에서 붙여넣기(Ctrl+V)와 끌어놓기로 받는다.
+   *
+   * **PC 에서 정리할 때 제일 빠른 길이다** — 화면을 캡처하면 클립보드에
+   * 들어가니까, 앱에 와서 붙여넣기만 하면 파일로 저장할 필요가 없다.
+   * 폰에는 없는 길이라 화면에도 큰 화면에서만 적어둔다.
+   */
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (files.length > 0) {
+        e.preventDefault();
+        void take(files);
+      }
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     if (needCapture) {
@@ -471,6 +497,11 @@ function Pick({
           <br />
           <strong>영상을 골라도 돼요</strong> — 화면 녹화 하나면 장면은 앱이
           뽑아요.
+          {/* 폰에는 없는 길이라 큰 화면에서만 적어둔다 */}
+          <span className={styles.onlyWide}>
+            <br />
+            캡처한 걸 <strong>붙여넣거나(Ctrl+V)</strong> 끌어다 놓아도 돼요.
+          </span>
         </p>
         {url && (
           <p className={styles.hint}>
@@ -488,7 +519,20 @@ function Pick({
           multiple
           onChange={onFiles}
         />
-        <label htmlFor="images" className={styles.drop}>
+        <label
+          htmlFor="images"
+          className={`${styles.drop} ${over ? styles.dropOver : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setOver(true);
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setOver(false);
+            void take(Array.from(e.dataTransfer.files));
+          }}
+        >
           {reading
             ? "고른 걸 읽는 중이에요"
             : frames.length > 0

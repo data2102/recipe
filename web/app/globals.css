@@ -40,6 +40,51 @@ body {
     calc(56px + var(--sp-8) + env(safe-area-inset-bottom, 0px));
 }
 
+/*
+ * PC.
+ *
+ * 폰에서는 보고, **PC 에서는 정리한다** — 캡처를 붙여넣고, 글을 다듬고,
+ * 한 주를 짜는 건 큰 화면과 키보드가 훨씬 빠르다. 480px 기둥 하나로
+ * 두면 그 이점을 하나도 못 쓴다.
+ *
+ * 폭만 늘리지 않는다. 넓어진 자리는 화면마다 2열로 나눠 쓴다
+ * (page.module.css 의 .board). 한 줄이 1,000px 이 되면 눈이 줄을
+ * 놓친다 — 넓힌 만큼 갈라야 읽힌다.
+ */
+@media (min-width: 900px) {
+  .shell {
+    max-width: 960px;
+    /* 탭바가 위로 올라간다 (TabBar.module.css) — 그만큼 위를 비운다 */
+    padding: calc(52px + var(--sp-6)) var(--sp-6) var(--sp-12);
+  }
+}
+
+/*
+ * 넓은 화면에서 두 칸으로 나눠 쓰는 자리.
+ * 좁은 화면에서는 그냥 세로로 쌓인다 (아무것도 안 한다).
+ */
+@media (min-width: 900px) {
+  .board {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 var(--sp-6);
+    align-items: start;
+  }
+
+  /* 두 칸을 다 쓰는 줄 (제목, 주간 스트립처럼) */
+  .board > .wide {
+    grid-column: 1 / -1;
+  }
+
+  /*
+   * 카드가 그대로 칸이 되는 자리 (장보기 목록). 마지막 요소가 두 칸을
+   * 다 쓰게 두면 "장보기 끝" 이 한쪽에 치우쳐서 안 보인다.
+   */
+  .board-tight > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
 button {
   font-family: inherit;
   cursor: pointer;

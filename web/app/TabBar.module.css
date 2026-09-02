@@ -37,3 +37,34 @@
 .tab:active {
   background: var(--surface-sunken);
 }
+
+
+/*
+ * PC 에서는 위로 올린다.
+ *
+ * 아래 고정은 엄지가 닿는 자리라서 폰의 답이고, 마우스에는 아니다 —
+ * 큰 화면에서 화면 맨 아래는 눈에서 제일 먼 곳이다.
+ */
+@media (min-width: 900px) {
+  .bar {
+    top: 0;
+    bottom: auto;
+    border-top: 0;
+    border-bottom: 1px solid var(--border);
+    justify-content: center;
+    gap: var(--sp-2);
+    padding: 0 var(--sp-6);
+  }
+
+  .tab {
+    flex: none;
+    min-width: 120px;
+    min-height: 52px;
+    font-size: var(--fs-body);
+  }
+
+  /* 위에 붙었으니 선도 위로 */
+  .on {
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+}

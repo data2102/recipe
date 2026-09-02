@@ -45,7 +45,8 @@ export default function Shopping({ items }: { items: ShoppingItem[] }) {
   const bought = shown.filter((i) => i.checked).length;
 
   return (
-    <>
+    /* PC 에서는 두 칸으로 벌어진다 (globals.css) */
+    <div className="board board-tight">
       {ORDER.map((bucket) => {
         const picked = shown.filter((i) => i.bucket === bucket);
         if (picked.length === 0) return null;
@@ -85,6 +86,6 @@ export default function Shopping({ items }: { items: ShoppingItem[] }) {
       })}
 
       <ShoppingFinish bought={bought} />
-    </>
+    </div>
   );
 }
