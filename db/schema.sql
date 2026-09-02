@@ -181,7 +181,10 @@ CREATE INDEX idx_purchase_ing ON purchase(ingredient_id, purchased_on DESC);
 
 CREATE TABLE shopping_list (
     id              BIGSERIAL PRIMARY KEY,
-    status          TEXT NOT NULL DEFAULT 'OPEN',   -- OPEN / DONE
+    -- OPEN 이번 주 (한 개)
+    -- NEXT 미리 짜둔 다음 주 (한 개). 장보기를 끝내면 OPEN 으로 올라간다
+    -- DONE 끝낸 주. 지우지 않는다 — 되돌릴 수 있어야 한다 (lib/weeks.ts)
+    status          TEXT NOT NULL DEFAULT 'OPEN',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at    TIMESTAMPTZ
 );

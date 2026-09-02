@@ -6,6 +6,13 @@ import styles from "./add.module.css";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * 캡처 여러 장을 한 번에 읽으면 그만큼 오래 걸린다 (10장이면 1분 가까이).
+ * 이 화면의 서버 액션이 이 값을 물려받는다 — 기본값으로 두면 중간에
+ * 잘려서 "레시피를 읽다가 막혔어요" 만 나온다.
+ */
+export const maxDuration = 60;
+
 export const metadata = { title: "레시피 추가" };
 
 /** 공유 시트에서 넘어온 것 (/share 가 붙여준다) */

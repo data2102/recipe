@@ -33,6 +33,8 @@ export type Props = {
    * 추천 목록과 식단 두 군데에 빼기가 있으면 어디서 뺀 건지 헷갈린다.
    */
   pick?: "add" | "in";
+  /** 어느 주에 담는가. 식단 화면이 보고 있는 주 */
+  week?: "this" | "next";
 };
 
 export default function RecipeRow({
@@ -43,6 +45,7 @@ export default function RecipeRow({
   sourceUrl,
   today,
   pick,
+  week = "this",
 }: Props) {
   const picker = usePickDay();
   const [open, setOpen] = useState(false);
@@ -120,6 +123,7 @@ export default function RecipeRow({
         {pick === "add" && !picker && (
           <form action={addToWeek}>
             <input type="hidden" name="id" value={id} />
+            <input type="hidden" name="week" value={week} />
             <button type="submit" className={styles.pick}>
               담기
             </button>

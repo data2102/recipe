@@ -110,8 +110,13 @@ export async function plan(listId: number | null): Promise<Planned[]> {
  * 요일을 정한다. null 이면 "아직 안 정함" 으로 되돌린다.
  *
  * 열려 있는 목록에만 손댄다 — 지난 주 목록은 이미 닫혀서 과거다.
+ * 이번 주와 다음 주가 따로 열려 있어서 어느 쪽인지 받는다.
  */
-export async function setDay(recipeId: number, day: number | null): Promise<void> {
+export async function setDay(
+  recipeId: number,
+  day: number | null,
+  which: "this" | "next" = "this",
+): Promise<void> {
   if (day !== null && !(Number.isInteger(day) && day >= 0 && day <= 6)) {
     throw new Error("요일을 못 알아보겠어요");
   }
@@ -120,8 +125,8 @@ export async function setDay(recipeId: number, day: number | null): Promise<void
         SET day_of_week = $2
        FROM shopping_list sl
       WHERE sl.id = slr.list_id
-        AND sl.status = 'OPEN'
+        AND sl.status = $3
         AND slr.recipe_id = $1`,
-    [recipeId, day],
+    [recipeId, day, which === "next" ? "NEXT" : "OPEN"],
   );
 }

@@ -24,10 +24,13 @@ import styles from "./Week.module.css";
 export default function Week({
   plan,
   have,
+  week = "this",
 }: {
   plan: Planned[];
   /** 집에 있다고 눌러둔 재료. 주소에서 온다 (lib/fridge.types.ts) */
   have: Have;
+  /** 어느 주를 보고 있는가. 요일 옮기기·빼기가 이 주에 걸린다 */
+  week?: "this" | "next";
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const [, startTransition] = useTransition();
@@ -35,7 +38,7 @@ export default function Week({
   if (plan.length === 0) {
     return (
       <div className={`ds-empty ${styles.empty}`}>
-        <p>아래에서 담으면 여기 모여요. 장보기는 장보기 탭에 있어요.</p>
+        <p>아래에서 담으면 여기 모여요.</p>
       </div>
     );
   }
@@ -50,6 +53,7 @@ export default function Week({
       const form = new FormData();
       form.set("id", String(recipeId));
       form.set("day", value);
+      form.set("week", week);
       void setDayOfWeek(form);
     });
     void day;
@@ -130,6 +134,7 @@ export default function Week({
               <form action={setDayOfWeek}>
                 <input type="hidden" name="id" value={p.recipe_id} />
                 <input type="hidden" name="day" value="" />
+                <input type="hidden" name="week" value={week} />
                 <button type="submit" className="ds-btn ds-btn-secondary">
                   안 먹었어요
                 </button>
@@ -169,8 +174,9 @@ export default function Week({
             )}
             <form action={removeFromWeek} className={styles.drop}>
               <input type="hidden" name="id" value={p.recipe_id} />
+              <input type="hidden" name="week" value={week} />
               <button type="submit" className={styles.unpick}>
-                이번 주에서 뺄게요
+                {week === "next" ? "다음 주에서 뺄게요" : "이번 주에서 뺄게요"}
               </button>
             </form>
           </>

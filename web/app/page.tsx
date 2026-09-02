@@ -22,9 +22,9 @@ import { Broken, Setup } from "./Shell";
 import { dbUrl } from "@/lib/db";
 import { suggest, type RecipeRow as Row } from "@/lib/recipes";
 import { todayInput } from "@/lib/say";
-import { parseHave, weighted } from "@/lib/fridge";
+import { haveParams, parseHave, weighted } from "@/lib/fridge";
 import type { Have } from "@/lib/fridge.types";
-import { openList, picked as pickedRecipes } from "@/lib/shopping";
+import { openList, picked as pickedRecipes, type Which } from "@/lib/shopping";
 import { plan as weekPlan } from "@/lib/week";
 import type { Planned } from "@/lib/week.types";
 import type { PickedRecipe } from "@/lib/shopping.types";
@@ -45,12 +45,12 @@ type Loaded =
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
-async function load(have: Have): Promise<Loaded> {
+async function load(have: Have, which: Which): Promise<Loaded> {
   try {
     const { old, fresh } = await suggest();
     // 담은 것과 장보기는 같은 목록에서 나온다. 목록이 없으면 만들지 않는다 —
     // 담기 전까지 빈 목록이 쌓이면 "이번 주" 가 뭔지 흐려진다.
-    const listId = await openList();
+    const listId = await openList(false, which);
     const [basket, plan, byFridge] = await Promise.all([
       pickedRecipes(listId),
       weekPlan(listId),
@@ -116,15 +116,28 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   const params = await searchParams;
   const have = parseHave(params.have, params.haveRaw);
-  const data = await load(have);
+
+  /*
+    이번 주 / 다음 주. 주소에 둔다 — 새로고침해도, 링크를 눌러도 같은
+    주를 본다. 담기·요일 옮기기는 **지금 보고 있는 주**에 걸린다.
+  */
+  const raw = Array.isArray(params.week) ? params.week[0] : params.week;
+  const which: Which = raw === "next" ? "next" : "this";
+  const next = which === "next";
+
+  const data = await load(have, which);
   if (data.kind === "error") return <Broken message={data.message} />;
 
   const inBasket = new Set(data.basket.map((r) => r.id));
+  const keep = haveParams(have);
+  const hereThis = keep.toString() ? `/?${keep}` : "/";
+  const there = new URLSearchParams(keep);
+  there.set("week", "next");
 
   return (
     <main className="shell">
       <header className={styles.head}>
-        <h1 className={styles.title}>이번 주 식단</h1>
+        <h1 className={styles.title}>{next ? "다음 주 식단" : "이번 주 식단"}</h1>
         <p className={styles.sub}>
           {data.basket.length > 0
             ? `${data.basket.length}개 담았어요`
@@ -133,14 +146,40 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       </header>
 
       {/*
+        다음 주를 미리 짠다. 일요일에 다음 주를 정해두는 일이 실제로 있다.
+        **장보기는 이번 주 것만 나온다** — 다음 주 장은 다음 주에 본다.
+        장보기를 끝내면 다음 주가 이번 주가 된다 (lib/shopping.ts finish).
+      */}
+      <nav className={`ds-tabs ${styles.tabs}`}>
+        <Link
+          href={hereThis}
+          className={`ds-tab ${next ? "" : "on"}`}
+          aria-current={next ? undefined : "page"}
+        >
+          이번 주
+        </Link>
+        <Link
+          href={`/?${there}`}
+          className={`ds-tab ${next ? "on" : ""}`}
+          aria-current={next ? "page" : undefined}
+        >
+          다음 주
+        </Link>
+      </nav>
+
+      {/*
         담기 버튼이 요일 막대를 띄우고 끌기를 따라간다. provider 는 이
         화면에만 있다 — 레시피 화면에는 이번 주라는 게 없어서 요일을
         물을 자리가 아니다 (RecipeRow 가 provider 없으면 그냥 담는다).
       */}
-      <PickDayProvider>
-        <WeekStrip plan={data.plan} todayIndex={todayIndex(today)} />
+      <PickDayProvider week={which}>
+        {/* 다음 주에는 "오늘" 이 없다 */}
+        <WeekStrip
+          plan={data.plan}
+          todayIndex={next ? -1 : todayIndex(today)}
+        />
 
-        <Week plan={data.plan} have={have} />
+        <Week plan={data.plan} have={have} week={which} />
 
         {/*
           담을 곳이 바로 위에 있으니 목록은 그 아래다.
@@ -160,6 +199,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               empty="레시피가 아직 없어요."
               pick="add"
               inBasket={inBasket}
+              week={which}
             />
           </>
         )}
@@ -172,6 +212,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           empty="만든 지 30일 지난 요리가 여기 나와요."
           pick="add"
           inBasket={inBasket}
+          week={which}
         />
 
         <p className={styles.group}>아직 안 만들어본 것</p>
@@ -182,6 +223,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           empty="아직 안 만들어본 게 없어요."
           pick="add"
           inBasket={inBasket}
+          week={which}
         />
 
         {/*

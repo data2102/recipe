@@ -60,6 +60,18 @@ export function whenShort(isoDate: string, today = new Date()): string {
   return `${days}일 전`;
 }
 
+/**
+ * "9월 1주차" — 지난 주를 부르는 이름.
+ *
+ * ISO 주차(연 기준 38주차)는 사람이 못 알아본다. 달 안에서 몇 번째
+ * 주인지가 "언제였더라" 에 답한다.
+ */
+export function monthWeek(isoDate: string): string {
+  const [, m, d] = isoDate.split("-").map(Number);
+  if (!m || !d) return "";
+  return `${m}월 ${Math.floor((d - 1) / 7) + 1}주차`;
+}
+
 /** 재료 요약. 없으면 링크를 보라고 안내한다 (지시서 3장 탭 1) */
 export function ingredientSummary(
   names: string[],

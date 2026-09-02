@@ -19,8 +19,18 @@ import path from "node:path";
 /** 캡처 한 장 상한. 지나치게 크면 파싱 전에 걸러 말해준다 */
 export const MAX_BYTES = 8 * 1024 * 1024;
 
-/** 지시서 4장 — 캡처 1~3장 */
-export const MAX_IMAGES = 3;
+/**
+ * 한 번에 읽는 캡처 장수.
+ *
+ * 지시서 4장은 1~3장이라고 썼지만, 실제로 넣어보니 **릴스·유튜브가**
+ * 문제였다. 영상은 올릴 수 없고 재료와 단계가 여러 화면에 나뉘어 있어서
+ * 캡처가 5~6장이 된다. 3장에서 잘리면 나머지 재료를 통째로 잃는다.
+ *
+ * 공짜는 아니다 — 장수만큼 파싱 시간과 API 비용이 늘고, 함수가 도는
+ * 시간도 길어진다 (app/add/page.tsx 의 maxDuration 을 같이 늘려뒀다).
+ * 그래서 무제한이 아니라 10장이다.
+ */
+export const MAX_IMAGES = 10;
 
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "originals";
 

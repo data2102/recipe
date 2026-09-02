@@ -25,6 +25,7 @@ export function rows(
   mode: "wish" | "cooked",
   pick?: "add" | "in",
   inBasket?: Set<number>,
+  week?: "this" | "next",
 ) {
   return list.map((r) => {
     const days = daysSince(r.last_cooked_on);
@@ -35,6 +36,7 @@ export function rows(
         title={r.title}
         sourceUrl={r.source_url}
         today={today}
+        week={week}
         pick={pick === "add" && inBasket?.has(r.id) ? "in" : pick}
         warm={mode === "cooked" && days !== null && days >= OLD_DAYS}
         meta={
@@ -54,6 +56,7 @@ export default function List({
   empty,
   pick,
   inBasket,
+  week,
 }: {
   list: Row[];
   today: string;
@@ -61,9 +64,12 @@ export default function List({
   empty: string;
   pick?: "add" | "in";
   inBasket?: Set<number>;
+  week?: "this" | "next";
 }) {
   if (list.length === 0) return <Empty>{empty}</Empty>;
   return (
-    <ul className={styles.list}>{rows(list, today, mode, pick, inBasket)}</ul>
+    <ul className={styles.list}>
+      {rows(list, today, mode, pick, inBasket, week)}
+    </ul>
   );
 }

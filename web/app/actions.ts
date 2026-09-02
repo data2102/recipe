@@ -99,14 +99,22 @@ function recipeId(formData: FormData): number {
   return id;
 }
 
+/**
+ * 어느 주에 담는가. 화면이 보고 있는 주를 그대로 보낸다 (app/page.tsx).
+ * 안 보내면 이번 주다 — 예전 화면에서 온 요청도 그대로 돌아간다.
+ */
+function which(formData: FormData): "this" | "next" {
+  return formData.get("week") === "next" ? "next" : "this";
+}
+
 /** 이번 주에 담는다. 열려 있는 목록이 없으면 새로 연다. */
 export async function addToWeek(formData: FormData) {
-  await shopping.addRecipe(recipeId(formData));
+  await shopping.addRecipe(recipeId(formData), which(formData));
   revalidatePath("/", "layout");
 }
 
 export async function removeFromWeek(formData: FormData) {
-  await shopping.removeRecipe(recipeId(formData));
+  await shopping.removeRecipe(recipeId(formData), which(formData));
   revalidatePath("/", "layout");
 }
 
@@ -132,7 +140,7 @@ export async function reopenWeek(formData: FormData) {
 export async function setDayOfWeek(formData: FormData) {
   const raw = String(formData.get("day") ?? "").trim();
   const day = raw === "" ? null : Number(raw);
-  await week.setDay(recipeId(formData), day);
+  await week.setDay(recipeId(formData), day, which(formData));
   revalidatePath("/", "layout");
 }
 
@@ -148,8 +156,9 @@ export async function addToWeekOn(formData: FormData) {
   const raw = String(formData.get("day") ?? "").trim();
   const day = raw === "" ? null : Number(raw);
 
-  await shopping.addRecipe(id);
-  if (day !== null) await week.setDay(id, day);
+  const w = which(formData);
+  await shopping.addRecipe(id, w);
+  if (day !== null) await week.setDay(id, day, w);
   revalidatePath("/", "layout");
 }
 

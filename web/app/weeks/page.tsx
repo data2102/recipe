@@ -16,7 +16,7 @@ import Link from "next/link";
 import { reopenWeek } from "../actions";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
-import { whenShort } from "@/lib/say";
+import { monthWeek, whenShort } from "@/lib/say";
 import { justClosed, past, type PastWeek } from "@/lib/weeks";
 import styles from "../page.module.css";
 import weekStyles from "./weeks.module.css";
@@ -64,20 +64,34 @@ export default async function WeeksPage() {
         data.list.map((w) => (
           <section key={w.id} className="ds-card">
             <h2 className={weekStyles.when}>
-              {w.closed_on ? `${whenShort(w.closed_on)} 끝냈어요` : "안 끝냈어요"}
+              {monthWeek(w.opened_on)}
               <span className={weekStyles.range}>
-                {w.opened_on}
-                {w.closed_on && w.closed_on !== w.opened_on
-                  ? ` ~ ${w.closed_on}`
-                  : ""}
+                {w.closed_on ? `${whenShort(w.closed_on)} 끝냈어요` : "안 끝냈어요"}
               </span>
             </h2>
+            <p className={weekStyles.range}>
+              {w.opened_on}
+              {w.closed_on && w.closed_on !== w.opened_on
+                ? ` ~ ${w.closed_on}`
+                : ""}
+            </p>
 
+            {/*
+              담은 것과 만든 것을 나눠 적는다. 담아놓고 못 만든 주가
+              흔한데, 한 줄로 합치면 그게 안 보인다.
+            */}
+            <p className={weekStyles.label}>담았어요</p>
             <p className={weekStyles.titles}>
               {w.titles.length > 0
                 ? w.titles.join(" · ")
                 : "담은 요리가 없었어요"}
             </p>
+
+            <p className={weekStyles.label}>만들었어요</p>
+            <p className={weekStyles.titles}>
+              {w.cooked.length > 0 ? w.cooked.join(" · ") : "기록이 없어요"}
+            </p>
+
             <p className={weekStyles.bought}>{w.bought}개 샀어요</p>
 
             {/* 되돌리기는 제일 최근 것 하나에만. 그 위의 주는 이미 지났다 */}

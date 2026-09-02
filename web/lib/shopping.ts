@@ -30,15 +30,35 @@ export type { Bucket, PickedRecipe, ShoppingItem };
  * 한 번에 하나만 열려 있다. "이번 주"라는 말이 곧 열려 있는 목록이다 —
  * 주차를 따로 계산하지 않는다. 장보기를 끝내면 다음 것이 열린다.
  */
-export async function openList(create = false): Promise<number | null> {
+/**
+ * 어느 주에 담는가.
+ *
+ * 목록은 한 번에 **둘까지** 열린다 — 이번 주(OPEN)와 다음 주(NEXT).
+ * 일요일에 다음 주를 미리 짜는 일이 실제로 있어서 열어뒀다. 셋은 없다:
+ * 다다음 주까지 짜는 사람은 없고, 늘어날수록 "이번 주" 가 흐려진다.
+ *
+ * 장보기를 끝내면 이번 주가 닫히고 **다음 주가 이번 주가 된다**
+ * (finish). 그래서 주가 넘어가는 자리가 한 곳뿐이다.
+ */
+export type Which = "this" | "next";
+
+const STATUS: Record<Which, string> = { this: "OPEN", next: "NEXT" };
+
+export async function openList(
+  create = false,
+  which: Which = "this",
+): Promise<number | null> {
+  const status = STATUS[which];
   const found = await one<{ id: number }>(
-    `SELECT id FROM shopping_list WHERE status = 'OPEN'
+    `SELECT id FROM shopping_list WHERE status = $1
       ORDER BY id DESC LIMIT 1`,
+    [status],
   );
   if (found) return found.id;
   if (!create) return null;
   const made = await one<{ id: number }>(
-    `INSERT INTO shopping_list (status) VALUES ('OPEN') RETURNING id`,
+    `INSERT INTO shopping_list (status) VALUES ($1) RETURNING id`,
+    [status],
   );
   return made!.id;
 }
@@ -55,8 +75,11 @@ export async function picked(listId: number | null): Promise<PickedRecipe[]> {
   );
 }
 
-export async function addRecipe(recipeId: number): Promise<void> {
-  const listId = await openList(true);
+export async function addRecipe(
+  recipeId: number,
+  which: Which = "this",
+): Promise<void> {
+  const listId = await openList(true, which);
   await query(
     `INSERT INTO shopping_list_recipe (list_id, recipe_id) VALUES ($1, $2)
      ON CONFLICT DO NOTHING`,
@@ -64,8 +87,11 @@ export async function addRecipe(recipeId: number): Promise<void> {
   );
 }
 
-export async function removeRecipe(recipeId: number): Promise<void> {
-  const listId = await openList();
+export async function removeRecipe(
+  recipeId: number,
+  which: Which = "this",
+): Promise<void> {
+  const listId = await openList(false, which);
   if (!listId) return;
   await query(
     `DELETE FROM shopping_list_recipe WHERE list_id = $1 AND recipe_id = $2`,
@@ -306,13 +332,30 @@ export async function toggle(label: string, checked: boolean): Promise<void> {
   });
 }
 
-/** 장보기 끝. 목록을 닫는다 — 다음에 담으면 새 목록이 열린다. */
+/**
+ * 장보기 끝. 이번 주를 닫는다.
+ *
+ * **다음 주를 미리 짜뒀으면 그게 이번 주가 된다.** 주가 넘어가는 자리는
+ * 여기 하나뿐이다 — 날짜로 넘기지 않는다 (이 앱에서 한 주를 끊는 건
+ * 장보기 끝이다). 없으면 다음에 담을 때 새 목록이 열린다.
+ */
 export async function finish(): Promise<void> {
-  const listId = await openList();
-  if (!listId) return;
-  await query(
-    `UPDATE shopping_list SET status = 'DONE', completed_at = now()
-      WHERE id = $1`,
-    [listId],
-  );
+  await tx(async (q) => {
+    const open = await q<{ id: number }>(
+      `SELECT id FROM shopping_list WHERE status = 'OPEN'
+        ORDER BY id DESC LIMIT 1`,
+    );
+    if (open.length === 0) return;
+    await q(
+      `UPDATE shopping_list SET status = 'DONE', completed_at = now()
+        WHERE id = $1`,
+      [open[0].id],
+    );
+    // 미리 짜둔 다음 주가 있으면 승격. 없으면 아무 일도 안 한다.
+    await q(
+      `UPDATE shopping_list SET status = 'OPEN'
+        WHERE id = (SELECT id FROM shopping_list WHERE status = 'NEXT'
+                     ORDER BY id ASC LIMIT 1)`,
+    );
+  });
 }

@@ -46,8 +46,11 @@ type Picking = { recipeId: number; title: string } | null;
 
 export default function PickDayProvider({
   children,
+  week = "this",
 }: {
   children: React.ReactNode;
+  /** 어느 주에 담는가. 식단 화면이 보고 있는 주를 넘긴다 */
+  week?: "this" | "next";
 }) {
   const [picking, setPicking] = useState<Picking>(null);
   const [over, setOver] = useState<number | "none" | null>(null);
@@ -62,10 +65,12 @@ export default function PickDayProvider({
         const form = new FormData();
         form.set("id", String(recipeId));
         form.set("day", day === null ? "" : String(day));
+        // 화면이 보고 있는 주에 담는다 (이번 주 / 다음 주)
+        form.set("week", week);
         void addToWeekOn(form);
       });
     },
-    [],
+    [week],
   );
 
   /** 손가락 아래에 어느 요일이 있나. 끌기 중에만 쓴다 */
