@@ -5,6 +5,8 @@
  * 넘기지 않는다. 판정("오래됨")도 하지 않는다 — 근거만 말한다 (원칙 ③).
  */
 
+import { DAYS } from "./week.types";
+
 /**
  * 이만큼 지나야 "오랜만에 어때요" 에 나온다.
  * 그 전에는 아직 질리지 않았고, 넘으면 슬슬 생각날 때다.
@@ -89,4 +91,66 @@ export function ingredientSummary(
  */
 export function todayInput(today = new Date()): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: TZ }).format(today);
+}
+
+/*
+ * 날짜를 날짜로 말하기
+ *
+ * "이번 주 / 다음 주" 는 **며칠인지를 안 알려준다.** 화요일에 담아둔 게
+ * 이번 주 화요일인지 다음 주 화요일인지 화면만 봐서는 알 수가 없어서,
+ * 사용자가 "실제로 몇일껀지 더 헷갈려" 라고 했다. 그래서 요일 옆에
+ * 날짜를 같이 적는다.
+ *
+ * **날짜는 전부 `YYYY-MM-DD` 문자열로 들고 다닌다.** Date 로 바꿔 넘기면
+ * 시간대가 따라붙어서 서버(UTC)와 폰(한국) 사이에서 하루씩 밀린다.
+ * 문자열로 세고 문자열로 돌려준다 — 아래 셈은 전부 정오가 아니라 UTC
+ * 자정 기준이라 여름시간 같은 것도 안 탄다.
+ */
+
+/** n 일 뒤 (음수면 앞). `YYYY-MM-DD` 그대로 */
+export function addDays(isoDate: string, n: number): string {
+  const t = Date.parse(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(t)) return isoDate;
+  return new Date(t + n * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** 0=월 … 6=일. `DAYS` 와 같은 순서다 (lib/week.types.ts) */
+export function dayIndex(isoDate: string): number {
+  const d = new Date(`${isoDate}T00:00:00Z`).getUTCDay(); // 0=일
+  return Number.isNaN(d) ? 0 : (d + 6) % 7;
+}
+
+/**
+ * 시작일부터 n 일치 날짜.
+ *
+ * **요일 순서가 아니라 날짜 순서다.** 목록이 수요일에 열렸으면 그 주는
+ * 수·목·금·토·일·월·화다 — 이 앱의 한 주는 달력 주가 아니라 목록이
+ * 열린 날부터 이레이기 때문이다 (lib/shopping.ts finish).
+ */
+export function daysFrom(startIso: string, n = 7): string[] {
+  return Array.from({ length: n }, (_, i) => addDays(startIso, i));
+}
+
+/** "8/31" — 칸이 좁을 때 */
+export function dateTiny(isoDate: string): string {
+  const [, m, d] = isoDate.split("-").map(Number);
+  return m && d ? `${m}/${d}` : "";
+}
+
+/** "8월 31일" */
+export function dateSay(isoDate: string): string {
+  const [, m, d] = isoDate.split("-").map(Number);
+  return m && d ? `${m}월 ${d}일` : "";
+}
+
+/** "8월 31일(월)" — 사용자가 부르는 이름 */
+export function dateFull(isoDate: string): string {
+  const say = dateSay(isoDate);
+  return say ? `${say}(${DAYS[dayIndex(isoDate)]})` : "";
+}
+
+/** "8월 31일 ~ 9월 6일" */
+export function dateRange(from: string, to: string): string {
+  if (!dateSay(from)) return "";
+  return from === to ? dateSay(from) : `${dateSay(from)} ~ ${dateSay(to)}`;
 }

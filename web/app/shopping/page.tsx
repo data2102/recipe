@@ -24,7 +24,9 @@ import {
   items as shoppingItems,
   openList,
   picked as pickedRecipes,
+  weekStart,
 } from "@/lib/shopping";
+import { dateRange, daysFrom } from "@/lib/say";
 import { JUST_HOURS, justClosed, type PastWeek } from "@/lib/weeks";
 import { reopenWeek } from "../actions";
 import styles from "../page.module.css";
@@ -43,12 +45,15 @@ type Loaded =
       groups: Awaited<ReturnType<typeof recipeGroups>>;
       /** 방금 끝낸 장보기. 되돌릴 수 있게 눈앞에 낸다 */
       closed: PastWeek | null;
+      /** 이번 주 날짜 일곱 개. 요리에 적힌 요일을 날짜로 바꿔 적는다 */
+      dates: string[];
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
 async function load(have: ReturnType<typeof parseHave>): Promise<Loaded> {
   try {
     const listId = await openList();
+    const start = await weekStart();
     // items() 가 shopping_item 을 다시 쓴다. groups() 는 그 결과를 읽는
     // 게 아니라 같은 이름을 따로 만들 뿐이라 순서는 상관없다.
     const [basket, cart, groups] = await Promise.all([
@@ -75,6 +80,7 @@ async function load(have: ReturnType<typeof parseHave>): Promise<Loaded> {
       cart,
       basket,
       groups,
+      dates: daysFrom(start),
       closed:
         recent && (recent.hours_ago ?? Infinity) < JUST_HOURS ? recent : null,
     };
@@ -117,6 +123,7 @@ export default async function ShoppingPage({
       <header className={styles.head}>
         <h1 className={styles.title}>장보기</h1>
         <p className={styles.sub}>
+          {dateRange(data.dates[0], data.dates[6])} ·{" "}
           {data.cart.length === 0
             ? "담은 요리가 없어요"
             : buy === 0
@@ -172,7 +179,11 @@ export default async function ShoppingPage({
         merged ? (
           <Shopping items={data.cart} />
         ) : (
-          <ShoppingByRecipe groups={data.groups} items={data.cart} />
+          <ShoppingByRecipe
+            groups={data.groups}
+            items={data.cart}
+            dates={data.dates}
+          />
         )
       ) : (
         <Empty>

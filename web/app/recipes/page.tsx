@@ -22,8 +22,12 @@ import PickDayProvider from "../PickDay";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
 import { counts, listCooked, listWish, type RecipeRow as Row } from "@/lib/recipes";
-import { todayInput } from "@/lib/say";
-import { openList, picked as pickedRecipes } from "@/lib/shopping";
+import { daysFrom, todayInput } from "@/lib/say";
+import {
+  openList,
+  picked as pickedRecipes,
+  weekStart,
+} from "@/lib/shopping";
 import styles from "../page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -39,13 +43,21 @@ type TabKey = (typeof TABS)[number]["key"];
 
 type Loaded =
   | { kind: "error"; message: string }
-  | { kind: "ok"; total: number; list: Row[]; inBasket: Set<number> };
+  | {
+      kind: "ok";
+      total: number;
+      list: Row[];
+      inBasket: Set<number>;
+      /** 이번 주 날짜 일곱 개. 담을 때 뜨는 막대가 날짜로 묻는다 */
+      dates: string[];
+    };
 
 async function load(tab: TabKey): Promise<Loaded> {
   try {
     const n = await counts();
     // 이미 담은 것은 또 담을 게 없다 — 배지로 알린다
     const listId = await openList();
+    const start = await weekStart();
     const [list, basket] = await Promise.all([
       tab === "want" ? listWish() : listCooked(),
       pickedRecipes(listId),
@@ -55,6 +67,7 @@ async function load(tab: TabKey): Promise<Loaded> {
       total: n.wish + n.good,
       list,
       inBasket: new Set(basket.map((r) => r.id)),
+      dates: daysFrom(start),
     };
   } catch (e) {
     return {
@@ -104,7 +117,7 @@ export default async function RecipesPage({
         ))}
       </nav>
 
-      <PickDayProvider>
+      <PickDayProvider dates={data.dates}>
         <List
           list={data.list}
           today={today}

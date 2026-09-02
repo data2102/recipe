@@ -14,6 +14,7 @@
  */
 
 import { one, query, tx } from "./db";
+import { addDays, todayInput } from "./say";
 import { NO_HAVE, atHome, type Have } from "./fridge.types";
 import type {
   Bucket,
@@ -61,6 +62,33 @@ export async function openList(
     [status],
   );
   return made!.id;
+}
+
+/**
+ * 그 주가 **며칠부터인가** (한국 기준, `YYYY-MM-DD`).
+ *
+ * 이 앱의 한 주는 달력 주가 아니다. 목록이 열린 날부터 이레고, 끝나는
+ * 건 일요일이 아니라 장보기 끝이다 (finish). 그래서 "이번 주" 의 시작은
+ * **OPEN 목록을 연 날**이다.
+ *
+ * 다음 주는 거기서 정확히 7일 뒤로 잡는다. NEXT 목록을 만든 날로 재면
+ * 수요일에 다음 주를 짜기 시작한 순간 두 주가 겹쳐 보인다 — 요일만
+ * 보여줄 때는 안 드러났지만 날짜를 적기 시작하면 바로 티가 난다.
+ *
+ * 아직 아무 목록도 없으면 오늘부터다. OPEN 없이 NEXT 만 있는 경우
+ * (담기 전에 다음 주 탭부터 연 경우) 는 그 목록을 연 날을 기준으로
+ * 삼는다 — 오늘로 잡으면 날짜가 매일 하루씩 밀린다.
+ */
+export async function weekStart(which: Which = "this"): Promise<string> {
+  const row = await one<{ on_date: string }>(
+    `SELECT (created_at AT TIME ZONE 'Asia/Seoul')::date::text AS on_date
+       FROM shopping_list
+      WHERE status IN ('OPEN', 'NEXT')
+      ORDER BY (status = 'OPEN') DESC, id DESC
+      LIMIT 1`,
+  );
+  const base = row?.on_date ?? todayInput();
+  return which === "next" ? addDays(base, 7) : base;
 }
 
 export async function picked(listId: number | null): Promise<PickedRecipe[]> {

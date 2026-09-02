@@ -19,6 +19,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { toggleItem } from "./actions";
 import ShoppingFinish from "./ShoppingFinish";
+import { dateTiny } from "@/lib/say";
 import { DAYS } from "@/lib/week.types";
 import type { RecipeGroup, ShoppingItem } from "@/lib/shopping.types";
 import styles from "./ShoppingByRecipe.module.css";
@@ -26,9 +27,15 @@ import styles from "./ShoppingByRecipe.module.css";
 export default function ShoppingByRecipe({
   groups,
   items,
+  dates,
 }: {
   groups: RecipeGroup[];
   items: ShoppingItem[];
+  /**
+   * 이번 주 날짜 일곱 개 (`YYYY-MM-DD`, 날짜 순서). 요일만 적으면
+   * 마트에서 "그게 며칠이더라" 를 다시 세게 된다.
+   */
+  dates: string[];
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const [, startTransition] = useTransition();
@@ -50,6 +57,13 @@ export default function ShoppingByRecipe({
       form.set("checked", checked ? "1" : "0");
       await toggleItem(form);
     });
+  }
+
+  // 요일 -> 날짜. 저장은 요일이고 날짜는 주의 시작일에서 계산한 것이다.
+  const dateOf = new Map<number, string>();
+  for (const iso of dates) {
+    const d = new Date(`${iso}T00:00:00Z`).getUTCDay();
+    dateOf.set((d + 6) % 7, iso);
   }
 
   // 몇 개의 요리에 걸치는가. 둘 이상이면 한 번만 사면 된다고 알려준다.
@@ -80,7 +94,10 @@ export default function ShoppingByRecipe({
               </span>
               <span className={styles.title}>{g.title}</span>
               {g.day !== null && (
-                <span className={styles.day}>{DAYS[g.day]}</span>
+                <span className={styles.day}>
+                  {DAYS[g.day]}
+                  {dateOf.has(g.day) ? ` ${dateTiny(dateOf.get(g.day)!)}` : ""}
+                </span>
               )}
               <span className={styles.count}>
                 {mine.length === 0

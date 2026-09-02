@@ -21,10 +21,21 @@ import PickDayProvider from "./PickDay";
 import { Broken, Setup } from "./Shell";
 import { dbUrl } from "@/lib/db";
 import { suggest, type RecipeRow as Row } from "@/lib/recipes";
-import { todayInput } from "@/lib/say";
+import {
+  addDays,
+  dateRange,
+  dateTiny,
+  daysFrom,
+  todayInput,
+} from "@/lib/say";
 import { haveParams, parseHave, weighted } from "@/lib/fridge";
 import type { Have } from "@/lib/fridge.types";
-import { openList, picked as pickedRecipes, type Which } from "@/lib/shopping";
+import {
+  openList,
+  picked as pickedRecipes,
+  weekStart,
+  type Which,
+} from "@/lib/shopping";
 import { plan as weekPlan } from "@/lib/week";
 import type { Planned } from "@/lib/week.types";
 import type { PickedRecipe } from "@/lib/shopping.types";
@@ -40,6 +51,8 @@ type Loaded =
       fresh: Row[];
       basket: PickedRecipe[];
       plan: Planned[];
+      /** 보고 있는 주가 며칠부터인가 (`YYYY-MM-DD`) */
+      start: string;
       /** 냉장고 재료를 넣었을 때만. 필터가 아니라 가중치다 */
       byFridge: Row[] | null;
     };
@@ -48,12 +61,15 @@ type Loaded =
 async function load(have: Have, which: Which): Promise<Loaded> {
   try {
     const { old, fresh } = await suggest();
+    // 그 주가 며칠부터인지 (lib/shopping.ts weekStart). 요일을 날짜로
+    // 바꿔 적는 데 쓰고, 담아둔 요리의 날짜도 여기서 계산된다.
+    const start = await weekStart(which);
     // 담은 것과 장보기는 같은 목록에서 나온다. 목록이 없으면 만들지 않는다 —
     // 담기 전까지 빈 목록이 쌓이면 "이번 주" 가 뭔지 흐려진다.
     const listId = await openList(false, which);
     const [basket, plan, byFridge] = await Promise.all([
       pickedRecipes(listId),
-      weekPlan(listId),
+      weekPlan(listId, start),
       have.ids.length + have.names.length > 0
         ? weighted(have, 12)
         : Promise.resolve(null),
@@ -81,6 +97,7 @@ async function load(have: Have, which: Which): Promise<Loaded> {
       fresh,
       basket,
       plan,
+      start,
       byFridge: byFridge
         ? byFridge
             .filter((r) => r.hit > 0 && !shownBelow.has(r.id))
@@ -104,12 +121,6 @@ async function load(have: Have, which: Which): Promise<Loaded> {
   }
 }
 
-/** 오늘이 무슨 요일인가 (0=월 … 6=일). 한국 기준 (lib/say.ts TZ) */
-function todayIndex(iso: string): number {
-  const dow = new Date(`${iso}T00:00:00Z`).getUTCDay(); // 0=일
-  return (dow + 6) % 7;
-}
-
 export default async function Home({ searchParams }: PageProps<"/">) {
   const today = todayInput();
   if (!dbUrl()) return <Setup />;
@@ -128,6 +139,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const data = await load(have, which);
   if (data.kind === "error") return <Broken message={data.message} />;
 
+  /*
+    "이번 주 / 다음 주" 만으로는 며칠 건지 알 수가 없다. 화요일에 담아둔
+    게 이번 주 화요일인지 다음 주 화요일인지 화면에 없었다 — 그래서
+    이 화면의 요일은 전부 날짜를 달고 나온다.
+
+    다음 주는 이번 주에서 정확히 7일 뒤다 (lib/shopping.ts weekStart).
+    그래서 어느 쪽을 보고 있든 나머지 한 쪽을 셈으로 알 수 있다.
+  */
+  const dates = daysFrom(data.start);
+  const thisStart = next ? addDays(data.start, -7) : data.start;
+  const nextStart = addDays(thisStart, 7);
+
   const inBasket = new Set(data.basket.map((r) => r.id));
   const keep = haveParams(have);
   const hereThis = keep.toString() ? `/?${keep}` : "/";
@@ -139,6 +162,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <header className={styles.head}>
         <h1 className={styles.title}>{next ? "다음 주 식단" : "이번 주 식단"}</h1>
         <p className={styles.sub}>
+          {dateRange(dates[0], dates[6])} ·{" "}
           {data.basket.length > 0
             ? `${data.basket.length}개 담았어요`
             : "아직 안 담았어요"}
@@ -156,14 +180,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           className={`ds-tab ${next ? "" : "on"}`}
           aria-current={next ? undefined : "page"}
         >
-          이번 주
+          이번 주 {dateTiny(thisStart)}~{dateTiny(addDays(thisStart, 6))}
         </Link>
         <Link
           href={`/?${there}`}
           className={`ds-tab ${next ? "on" : ""}`}
           aria-current={next ? "page" : undefined}
         >
-          다음 주
+          다음 주 {dateTiny(nextStart)}~{dateTiny(addDays(nextStart, 6))}
         </Link>
       </nav>
 
@@ -172,23 +196,26 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         화면에만 있다 — 레시피 화면에는 이번 주라는 게 없어서 요일을
         물을 자리가 아니다 (RecipeRow 가 provider 없으면 그냥 담는다).
       */}
-      <PickDayProvider week={which}>
+      <PickDayProvider week={which} dates={dates}>
         {/*
           PC 에서는 두 칸으로 나눈다 — 왼쪽에 짜둔 주, 오른쪽에 담을 것.
           담으면서 이번 주가 어떻게 차는지 같이 보인다 (폰에서는 그냥
           세로로 쌓인다). globals.css 의 .board 참조.
         */}
         <div className="board">
-          {/* 다음 주에는 "오늘" 이 없다 */}
+          {/* 다음 주에는 보통 "오늘" 이 없다 — 그러면 아무 칸도 안 짚는다 */}
           <div className="wide">
-            <WeekStrip
-              plan={data.plan}
-              todayIndex={next ? -1 : todayIndex(today)}
-            />
+            <WeekStrip plan={data.plan} dates={dates} today={today} />
           </div>
 
           <div>
-            <Week plan={data.plan} have={have} week={which} />
+            <Week
+              plan={data.plan}
+              have={have}
+              dates={dates}
+              today={today}
+              week={which}
+            />
           </div>
 
           <div>

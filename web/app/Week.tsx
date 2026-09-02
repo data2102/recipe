@@ -17,6 +17,7 @@
 import { useState } from "react";
 import { useTransition } from "react";
 import { markCooked, removeFromWeek, setDayOfWeek } from "./actions";
+import { dateFull, dateSay, dateTiny, dayIndex } from "@/lib/say";
 import { DAYS, type Planned } from "@/lib/week.types";
 import { atHome, type Have } from "@/lib/fridge.types";
 import styles from "./Week.module.css";
@@ -24,11 +25,20 @@ import styles from "./Week.module.css";
 export default function Week({
   plan,
   have,
+  dates,
+  today,
   week = "this",
 }: {
   plan: Planned[];
   /** 집에 있다고 눌러둔 재료. 주소에서 온다 (lib/fridge.types.ts) */
   have: Have;
+  /**
+   * 그 주의 날짜 일곱 개 (`YYYY-MM-DD`). **날짜 순서다** — 목록이 수요일에
+   * 열렸으면 수요일부터다. 요일만 적으면 며칠 건지 알 수 없어서 같이 낸다.
+   */
+  dates: string[];
+  /** 오늘 (한국 기준). 이 주에 없으면 아무 날도 표시되지 않는다 */
+  today: string;
   /** 어느 주를 보고 있는가. 요일 옮기기·빼기가 이 주에 걸린다 */
   week?: "this" | "next";
 }) {
@@ -43,8 +53,12 @@ export default function Week({
     );
   }
 
-  // 요일별로 나눈다. 안 정한 것은 맨 아래 따로.
-  const byDay = DAYS.map((_, d) => plan.filter((p) => p.day === d));
+  /*
+    날짜 순으로 나눈다. 안 정한 것은 맨 아래 따로.
+
+    저장은 여전히 요일(`day_of_week`)이다 — 날짜는 주의 시작일에서
+    계산한 것뿐이라 화면에만 산다 (lib/shopping.ts weekStart).
+  */
   const unset = plan.filter((p) => p.day === null);
 
   function move(recipeId: number, value: string) {
@@ -94,9 +108,9 @@ export default function Week({
               onChange={(e) => move(p.recipe_id, e.target.value)}
             >
               <option value="">미정</option>
-              {DAYS.map((d, i) => (
-                <option key={d} value={i}>
-                  {d}
+              {dates.map((iso) => (
+                <option key={iso} value={dayIndex(iso)}>
+                  {DAYS[dayIndex(iso)]} {dateTiny(iso)}
                 </option>
               ))}
             </select>
@@ -116,7 +130,8 @@ export default function Week({
         {p.past && !p.cooked && p.day !== null && (
           <div className={styles.ask}>
             <p className={styles.askText}>
-              {DAYS[p.day]}요일이 지났어요. 만들었어요?
+              {p.plannedOn ? dateFull(p.plannedOn) : `${DAYS[p.day]}요일`}이
+              지났어요. 만들었어요?
             </p>
             <div className={styles.askRow}>
               <form action={markCooked}>
@@ -187,18 +202,23 @@ export default function Week({
 
   return (
     <>
-      {DAYS.map((label, d) => (
-        byDay[d].length > 0 && (
-          <div key={label} className={styles.day7}>
-            <h3 className={styles.dayName}>{label}</h3>
+      {dates.map((iso) => {
+        const mine = plan.filter((p) => p.day === dayIndex(iso));
+        if (mine.length === 0) return null;
+        return (
+          <div key={iso} className={styles.day7}>
+            <h3 className={styles.dayName}>
+              {dateSay(iso)} ({DAYS[dayIndex(iso)]})
+              {iso === today && <span className={styles.blank}>오늘</span>}
+            </h3>
             <ul className={styles.list}>
-              {byDay[d].map((p) => (
+              {mine.map((p) => (
                 <Dish key={p.recipe_id} p={p} />
               ))}
             </ul>
           </div>
-        )
-      ))}
+        );
+      })}
 
       {unset.length > 0 && (
         <div className={styles.day7}>

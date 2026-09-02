@@ -16,7 +16,7 @@ import Link from "next/link";
 import { reopenWeek } from "../actions";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
-import { monthWeek, whenShort } from "@/lib/say";
+import { dateRange, dateSay, monthWeek, whenShort } from "@/lib/say";
 import { justClosed, past, type PastWeek } from "@/lib/weeks";
 import styles from "../page.module.css";
 import weekStyles from "./weeks.module.css";
@@ -69,11 +69,11 @@ export default async function WeeksPage() {
                 {w.closed_on ? `${whenShort(w.closed_on)} 끝냈어요` : "안 끝냈어요"}
               </span>
             </h2>
+            {/* "2026-08-31" 이 아니라 "8월 31일". 사람이 읽는 자리다 */}
             <p className={weekStyles.range}>
-              {w.opened_on}
-              {w.closed_on && w.closed_on !== w.opened_on
-                ? ` ~ ${w.closed_on}`
-                : ""}
+              {w.closed_on
+                ? dateRange(w.opened_on, w.closed_on)
+                : `${dateSay(w.opened_on)}부터`}
             </p>
 
             {/*

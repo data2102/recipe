@@ -24,15 +24,23 @@ export type { Planned, PlannedItem };
  * 미확인 BODY 는 뺀다. 조리 단계에만 나와서 2패스가 지어냈을 수 있는
  * 것들이라, 사용자가 확인 화면에서 넣겠다고 한 것만 보여준다.
  */
-export async function plan(listId: number | null): Promise<Planned[]> {
+export async function plan(
+  listId: number | null,
+  startIso: string,
+): Promise<Planned[]> {
   if (!listId) return [];
 
   /*
    * 정해둔 요일이 **실제로 며칠인지** 같이 낸다.
    *
-   * 목록을 연 날부터 세어 다가오는 그 요일이다 (토요일에 담으면서 화요일을
-   * 고르면 다음 화요일). 달력 주에 묶지 않는 이유는 이 앱에서 한 주를 끝내는
-   * 게 날짜가 아니라 **장보기 끝** 이기 때문이다 (lib/shopping.ts finish).
+   * 주가 시작한 날부터 세어 다가오는 그 요일이다 (토요일에 시작한 주에서
+   * 화요일을 고르면 그 다음 화요일). 달력 주에 묶지 않는 이유는 이 앱에서
+   * 한 주를 끝내는 게 날짜가 아니라 **장보기 끝** 이기 때문이다
+   * (lib/shopping.ts finish).
+   *
+   * 시작일은 밖에서 받는다 (lib/shopping.ts weekStart). 예전에는 목록의
+   * created_at 을 그대로 썼는데, 그러면 수요일에 만든 다음 주 목록이
+   * 이번 주와 겹친 날짜를 갖는다 — 요일만 보여줄 때는 안 보이던 어긋남이다.
    *
    * 그 날짜가 지났는데 그날의 조리 기록이 없으면 물어볼 거리가 된다 —
    * 만들었는지 아닌지는 사람만 안다. 자동으로 기록하지 않는다.
@@ -54,17 +62,16 @@ export async function plan(listId: number | null): Promise<Planned[]> {
                      WHERE cl.recipe_id = r.id
                        AND cl.cooked_on = d.on_date) AS cooked
        FROM shopping_list_recipe slr
-       JOIN shopping_list sl ON sl.id = slr.list_id
        JOIN recipe r ON r.id = slr.recipe_id
        LEFT JOIN LATERAL (
-         SELECT (sl.created_at AT TIME ZONE 'Asia/Seoul')::date
+         SELECT $2::date
               + ((slr.day_of_week
-                  - (EXTRACT(ISODOW FROM (sl.created_at AT TIME ZONE 'Asia/Seoul'))::int - 1)
+                  - (EXTRACT(ISODOW FROM $2::date)::int - 1)
                   + 7) % 7) AS on_date
        ) d ON slr.day_of_week IS NOT NULL
       WHERE slr.list_id = $1
-      ORDER BY slr.day_of_week NULLS LAST, r.title`,
-    [listId],
+      ORDER BY d.on_date NULLS LAST, r.title`,
+    [listId, startIso],
   );
   if (rows.length === 0) return [];
 

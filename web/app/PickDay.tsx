@@ -25,6 +25,7 @@ import {
   useTransition,
 } from "react";
 import { addToWeekOn } from "./actions";
+import { dateTiny, dayIndex } from "@/lib/say";
 import { DAYS } from "@/lib/week.types";
 import styles from "./PickDay.module.css";
 
@@ -46,9 +47,15 @@ type Picking = { recipeId: number; title: string } | null;
 
 export default function PickDayProvider({
   children,
+  dates,
   week = "this",
 }: {
   children: React.ReactNode;
+  /**
+   * 고를 수 있는 날짜 일곱 개 (`YYYY-MM-DD`, 날짜 순서).
+   * 칩에 요일만 적으면 "이번 주 화요일" 이 며칠인지 알 수가 없다.
+   */
+  dates: string[];
   /** 어느 주에 담는가. 식단 화면이 보고 있는 주를 넘긴다 */
   week?: "this" | "next";
 }) {
@@ -161,19 +168,25 @@ export default function PickDayProvider({
               그만둘래요
             </button>
           </div>
-          <p className={styles.lead}>무슨 요일에 먹을까요?</p>
+          <p className={styles.lead}>언제 먹을까요?</p>
           <div className={styles.days}>
-            {DAYS.map((label, d) => (
-              <button
-                key={label}
-                type="button"
-                data-day={d}
-                className={`ds-chip ${styles.slot} ${over === d ? styles.over : ""}`}
-                onClick={() => commit(picking.recipeId, d)}
-              >
-                {label}
-              </button>
-            ))}
+            {dates.map((iso) => {
+              const d = dayIndex(iso);
+              return (
+                <button
+                  key={iso}
+                  type="button"
+                  data-day={d}
+                  className={`ds-chip ${styles.slot} ${
+                    over === d ? styles.over : ""
+                  }`}
+                  onClick={() => commit(picking.recipeId, d)}
+                >
+                  <span className={styles.slotDay}>{DAYS[d]}</span>
+                  <span className={styles.slotDate}>{dateTiny(iso)}</span>
+                </button>
+              );
+            })}
             <button
               type="button"
               data-day="none"
