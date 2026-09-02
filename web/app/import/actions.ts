@@ -99,7 +99,7 @@ export async function importOne(index: number): Promise<ImportResult> {
       await query(`UPDATE recipe SET status = 'GOOD' WHERE id = $1`, [recipeId]);
     }
 
-    revalidatePath("/");
+    revalidatePath("/", "layout");
     return { ok: true, title: src.title, recipeId, skipped: false, items: rows.length };
   } catch (e) {
     // 파싱이 실패해도 원본은 source_asset 에 남는다. 다시 눌러도 된다.

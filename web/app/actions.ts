@@ -8,6 +8,12 @@
  * 이력이 원본이고 캐시는 따라간다 — 그래서 한 트랜잭션 안에서 같이 고친다.
  */
 
+/*
+ * 화면이 셋이라 (레시피·식단·장보기) 한 곳만 새로 그리면 나머지가
+ * 어제 걸 보여준다. 담기 하나가 식단과 장보기를 동시에 바꾸고, 체크
+ * 하나가 장보기와 식단의 "다 있어요" 를 같이 바꾼다.
+ * `revalidatePath("/", "layout")` 이 루트 레이아웃 아래를 전부 턴다.
+ */
 import { revalidatePath } from "next/cache";
 import { tx } from "@/lib/db";
 import * as shopping from "@/lib/shopping";
@@ -54,7 +60,7 @@ export async function markCooked(formData: FormData) {
     );
   });
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 /**
@@ -78,7 +84,7 @@ export async function markBad(formData: FormData) {
     );
   });
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 
@@ -95,12 +101,12 @@ function recipeId(formData: FormData): number {
 /** 이번 주에 담는다. 열려 있는 목록이 없으면 새로 연다. */
 export async function addToWeek(formData: FormData) {
   await shopping.addRecipe(recipeId(formData));
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 export async function removeFromWeek(formData: FormData) {
   await shopping.removeRecipe(recipeId(formData));
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 /**
@@ -112,7 +118,7 @@ export async function setDayOfWeek(formData: FormData) {
   const raw = String(formData.get("day") ?? "").trim();
   const day = raw === "" ? null : Number(raw);
   await week.setDay(recipeId(formData), day);
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 /**
@@ -129,7 +135,7 @@ export async function addToWeekOn(formData: FormData) {
 
   await shopping.addRecipe(id);
   if (day !== null) await week.setDay(id, day);
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 /**
@@ -140,11 +146,11 @@ export async function toggleItem(formData: FormData) {
   const label = String(formData.get("label") || "");
   if (!label) return;
   await shopping.toggle(label, formData.get("checked") === "1");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 /** 장보기 끝. 다음에 담으면 새 목록이 열린다. */
 export async function finishShopping() {
   await shopping.finish();
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }

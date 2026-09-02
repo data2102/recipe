@@ -59,6 +59,16 @@
   margin-top: 0;
 }
 
+/*
+ * 섹션 안의 소제목. "담을 것" 하나 아래에 세 갈래를 둔다 —
+ * 갈래마다 섹션 제목을 세우면 화면이 다시 길어진다.
+ */
+.group {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin: var(--sp-4) 0 var(--sp-2);
+}
+
 .note {
   font-size: var(--fs-caption);
   color: var(--text-tertiary);

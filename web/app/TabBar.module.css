@@ -1,0 +1,39 @@
+/*
+ * 아래 탭바. 여백에는 아직 이 컴포넌트가 없어서 여기서 만든다
+ * (yeobaek/README.md "원본에 돌려보낼 것").
+ */
+
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  /* 홈 인디케이터가 있는 폰에서 마지막 줄이 가리지 않게 */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--text-tertiary);
+  text-decoration: none;
+}
+
+/* 지금 보고 있는 곳. 탭은 눌러서 가는 자리라 액션색이 맞다 */
+.on {
+  color: var(--accent-strong);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.tab:active {
+  background: var(--surface-sunken);
+}

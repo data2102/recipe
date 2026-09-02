@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import RegisterSW from "./RegisterSW";
+import TabBar from "./TabBar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,6 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="ko">
       <body>
         {children}
+        {/* 아래 탭바. 주소를 읽으니 Suspense 안에 둔다 */}
+        <Suspense fallback={null}>
+          <TabBar />
+        </Suspense>
         <RegisterSW />
       </body>
     </html>

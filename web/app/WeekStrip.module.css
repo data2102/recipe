@@ -1,0 +1,55 @@
+/* 이번 주 일곱 칸. 요약이라 누를 수 없다 — 색도 액션색을 안 쓴다 */
+
+.strip {
+  list-style: none;
+  display: flex;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--sp-2) 0;
+  border-radius: var(--radius-sm);
+}
+
+.name {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
+/* 담긴 게 있으면 점, 둘 이상이면 숫자. 없으면 자리만 지킨다 */
+.mark {
+  min-height: 18px;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  line-height: 18px;
+}
+
+/* 오늘. 정보 표시라 액션색(파랑)을 안 쓴다 (지시서 5장) */
+.today {
+  background: var(--surface-sunken);
+}
+
+.today .name {
+  color: var(--text-primary);
+  font-weight: var(--fw-medium);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

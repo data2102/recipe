@@ -35,7 +35,7 @@ export default function Week({
   if (plan.length === 0) {
     return (
       <div className={`ds-empty ${styles.empty}`}>
-        <p>위에서 담으면 여기 모이고, 재료가 아래에 합쳐져요.</p>
+        <p>아래에서 담으면 여기 모여요. 장보기는 장보기 탭에 있어요.</p>
       </div>
     );
   }
@@ -43,7 +43,6 @@ export default function Week({
   // 요일별로 나눈다. 안 정한 것은 맨 아래 따로.
   const byDay = DAYS.map((_, d) => plan.filter((p) => p.day === d));
   const unset = plan.filter((p) => p.day === null);
-  const blankDays = DAYS.map((_, d) => d).filter((d) => byDay[d].length === 0);
 
   function move(recipeId: number, value: string) {
     const day = value === "" ? null : Number(value);
@@ -194,18 +193,6 @@ export default function Week({
           </div>
         )
       ))}
-
-      {/*
-        빈 요일은 한 줄로 모은다.
-        예전에는 요일마다 "아직 안 정했어요" 한 줄씩 나서, 아무것도 안
-        담은 날 다섯이 화면의 다섯 칸을 먹었다. 정보는 없는데 자리는
-        제일 많이 쓰던 자리다. 무슨 요일이 비었는지는 여기서도 보인다.
-      */}
-      {blankDays.length > 0 && (
-        <p className={styles.blankDays}>
-          아직 안 정한 날 · {blankDays.map((d) => DAYS[d]).join(" ")}
-        </p>
-      )}
 
       {unset.length > 0 && (
         <div className={styles.day7}>

@@ -35,7 +35,9 @@ body {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100dvh;
-  padding: var(--sp-5) var(--sp-4) var(--sp-12);
+  /* 아래는 탭바(56px) 높이만큼 더 비운다 — 마지막 줄이 가리면 안 된다 */
+  padding: var(--sp-5) var(--sp-4)
+    calc(56px + var(--sp-8) + env(safe-area-inset-bottom, 0px));
 }
 
 button {

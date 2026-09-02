@@ -337,7 +337,7 @@ export async function commit(draft: Draft): Promise<number> {
     sourceKind: draft.sourceKind,
   });
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   return recipeId;
 }
 
@@ -428,6 +428,6 @@ export async function saveLinkOnly(
   const clean = title.trim() || "제목 없음";
   const u = normalizeUrl(url);
   const id = await saveTitleOnly(clean, u ? u.toString() : null, u ? kindOf(u) : "MANUAL");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   return id;
 }
