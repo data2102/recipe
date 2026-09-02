@@ -23,5 +23,11 @@ export type Planned = {
   status: string;
   /** 0~6, 아직 안 정했으면 null */
   day: number | null;
+  /** 그 요일이 실제로 며칠인가 (YYYY-MM-DD). 요일을 안 정했으면 null */
+  plannedOn: string | null;
+  /** 그 날짜가 지났는가. 지났으면 만들었는지 물어본다 */
+  past: boolean;
+  /** 그 날짜에 만든 기록이 있는가 */
+  cooked: boolean;
   items: PlannedItem[];
 };

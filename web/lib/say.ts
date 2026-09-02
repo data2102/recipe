@@ -19,16 +19,24 @@ export const SUGGEST_AFTER_DAYS = 30;
  */
 export const OLD_DAYS = 60;
 
+/**
+ * 이 앱의 시계는 한국이다.
+ *
+ * 서버는 UTC 로 돈다 (Vercel·Supabase 둘 다). 그냥 두면 한국 새벽 0~9시에
+ * "오늘" 이 어제가 돼서, 밤에 만들고 체크한 게 **어제 만든 것으로 기록된다.**
+ *
+ * **날짜를 만들어 적는 곳만** 이 기준을 쓴다. "며칠 지났나" 같은 비교는
+ * 몇 시간 어긋나도 30일·60일 문턱이 바뀌지 않아서 CURRENT_DATE 로 둔다 —
+ * 쓸 때 틀리는 것과 셀 때 몇 시간 이른 것은 무게가 다르다.
+ */
+export const TZ = "Asia/Seoul";
+
 export function daysSince(isoDate: string | null, today = new Date()): number | null {
   if (!isoDate) return null;
-  const then = new Date(`${isoDate}T00:00:00Z`);
-  if (Number.isNaN(then.getTime())) return null;
-  const now = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  return Math.round((now - then.getTime()) / 86_400_000);
+  const then = Date.parse(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(then)) return null;
+  const now = Date.parse(`${todayInput(today)}T00:00:00Z`);
+  return Math.round((now - then) / 86_400_000);
 }
 
 export function cookedAgo(isoDate: string | null, today = new Date()): string {
@@ -48,8 +56,12 @@ export function ingredientSummary(
   return hasLink ? "재료는 링크에서 확인해요" : "재료는 아직 안 넣었어요";
 }
 
-/** <input type="date"> 에 넣을 오늘 날짜 (로컬 기준) */
+/**
+ * `<input type="date">` 에 넣을 오늘 날짜 — **한국 기준**.
+ *
+ * 서버에서 그려지는 값이라 서버 시계(UTC)를 그대로 쓰면 안 된다.
+ * sv-SE 로케일이 `YYYY-MM-DD` 를 준다.
+ */
 export function todayInput(today = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: TZ }).format(today);
 }

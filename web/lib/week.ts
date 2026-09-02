@@ -27,15 +27,41 @@ export type { Planned, PlannedItem };
 export async function plan(listId: number | null): Promise<Planned[]> {
   if (!listId) return [];
 
+  /*
+   * 정해둔 요일이 **실제로 며칠인지** 같이 낸다.
+   *
+   * 목록을 연 날부터 세어 다가오는 그 요일이다 (토요일에 담으면서 화요일을
+   * 고르면 다음 화요일). 달력 주에 묶지 않는 이유는 이 앱에서 한 주를 끝내는
+   * 게 날짜가 아니라 **장보기 끝** 이기 때문이다 (lib/shopping.ts finish).
+   *
+   * 그 날짜가 지났는데 그날의 조리 기록이 없으면 물어볼 거리가 된다 —
+   * 만들었는지 아닌지는 사람만 안다. 자동으로 기록하지 않는다.
+   */
   const rows = await query<{
     recipe_id: number;
     title: string;
     status: string;
     day: number | null;
+    planned_on: string | null;
+    past: boolean;
+    cooked: boolean;
   }>(
-    `SELECT slr.recipe_id, r.title, r.status, slr.day_of_week AS day
+    `SELECT slr.recipe_id, r.title, r.status, slr.day_of_week AS day,
+            d.on_date::text AS planned_on,
+            COALESCE(d.on_date < (now() AT TIME ZONE 'Asia/Seoul')::date, FALSE)
+              AS past,
+            EXISTS (SELECT 1 FROM cook_log cl
+                     WHERE cl.recipe_id = r.id
+                       AND cl.cooked_on = d.on_date) AS cooked
        FROM shopping_list_recipe slr
+       JOIN shopping_list sl ON sl.id = slr.list_id
        JOIN recipe r ON r.id = slr.recipe_id
+       LEFT JOIN LATERAL (
+         SELECT (sl.created_at AT TIME ZONE 'Asia/Seoul')::date
+              + ((slr.day_of_week
+                  - (EXTRACT(ISODOW FROM (sl.created_at AT TIME ZONE 'Asia/Seoul'))::int - 1)
+                  + 7) % 7) AS on_date
+       ) d ON slr.day_of_week IS NOT NULL
       WHERE slr.list_id = $1
       ORDER BY slr.day_of_week NULLS LAST, r.title`,
     [listId],
@@ -73,6 +99,9 @@ export async function plan(listId: number | null): Promise<Planned[]> {
     title: r.title,
     status: r.status,
     day: r.day,
+    plannedOn: r.planned_on,
+    past: r.past,
+    cooked: r.cooked,
     items: byRecipe.get(r.recipe_id) ?? [],
   }));
 }

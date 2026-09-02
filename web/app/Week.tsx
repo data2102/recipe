@@ -16,7 +16,7 @@
 
 import { useState } from "react";
 import { useTransition } from "react";
-import { removeFromWeek, setDayOfWeek } from "./actions";
+import { markCooked, removeFromWeek, setDayOfWeek } from "./actions";
 import { DAYS, type Planned } from "@/lib/week.types";
 import { atHome, type Have } from "@/lib/fridge.types";
 import styles from "./Week.module.css";
@@ -72,11 +72,13 @@ export default function Week({
             </span>
             <span className={styles.title}>{p.title}</span>
             <span className={styles.count}>
-              {p.items.length === 0
-                ? "재료 없어요"
-                : need.length === 0
-                  ? "다 있어요"
-                  : `살 것 ${need.length}`}
+              {p.cooked
+                ? "만들었어요"
+                : p.items.length === 0
+                  ? "재료 없어요"
+                  : need.length === 0
+                    ? "다 있어요"
+                    : `살 것 ${need.length}`}
             </span>
           </button>
 
@@ -96,6 +98,45 @@ export default function Week({
             </select>
           </div>
         </div>
+
+        {/*
+          지난 요일인데 그날 만든 기록이 없으면 물어본다.
+          **자동으로 체크하지 않는다** — 약속이 생겨 건너뛴 날이 흔하고,
+          안 만든 걸 만들었다고 적으면 추천이 통째로 틀어진다
+          (30일 규칙과 탭 2 정렬이 last_cooked_on 을 본다).
+
+          "안 먹었어요" 는 요일만 미정으로 되돌린다. 이번 주에서 빼지는
+          않는다 — 못 먹었을 뿐 먹기로 한 건 그대로다. 아예 뺄 거면
+          펼쳐서 "이번 주에서 뺄게요" 가 따로 있다.
+        */}
+        {p.past && !p.cooked && p.day !== null && (
+          <div className={styles.ask}>
+            <p className={styles.askText}>
+              {DAYS[p.day]}요일이 지났어요. 만들었어요?
+            </p>
+            <div className={styles.askRow}>
+              <form action={markCooked}>
+                <input type="hidden" name="id" value={p.recipe_id} />
+                {/* 오늘이 아니라 **그날로** 적는다 */}
+                <input
+                  type="hidden"
+                  name="cookedOn"
+                  value={p.plannedOn ?? ""}
+                />
+                <button type="submit" className="ds-btn ds-btn-secondary">
+                  만들었어요
+                </button>
+              </form>
+              <form action={setDayOfWeek}>
+                <input type="hidden" name="id" value={p.recipe_id} />
+                <input type="hidden" name="day" value="" />
+                <button type="submit" className="ds-btn ds-btn-secondary">
+                  안 먹었어요
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
 
         {isOpen && (
           <>

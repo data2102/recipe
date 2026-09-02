@@ -164,3 +164,35 @@
 .empty p {
   margin: 0;
 }
+
+/* --- 지난 요일 확인 ------------------------------------------------ */
+
+/*
+ * 접힌 상태에서도 보여야 한다. 펼쳐야 보이면 지난 걸 영영 못 본다.
+ * 카드가 아니라 요리 줄에 붙는 조각이라 배경만 살짝 깐다.
+ */
+.ask {
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.askText {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  margin: 0 0 var(--sp-2);
+}
+
+.askRow {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.askRow > form {
+  flex: 1;
+}
+
+.askRow button {
+  width: 100%;
+}

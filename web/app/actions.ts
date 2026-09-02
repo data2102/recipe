@@ -34,8 +34,10 @@ export async function markCooked(formData: FormData) {
 
   await tx(async (q) => {
     await q(
+      // 날짜를 안 골랐으면 오늘이다 — **한국 기준** 오늘 (lib/say.ts TZ).
+      // CURRENT_DATE 는 서버 시계(UTC)라 한국 새벽에 어제로 적힌다.
       `INSERT INTO cook_log (recipe_id, cooked_on)
-       VALUES ($1, COALESCE($2::date, CURRENT_DATE))`,
+       VALUES ($1, COALESCE($2::date, (now() AT TIME ZONE 'Asia/Seoul')::date))`,
       [id, cookedOn],
     );
     // 캐시는 이력에서 다시 센다. +1 로 더하면 어긋난 뒤 되돌릴 수 없다.
