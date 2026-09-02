@@ -138,6 +138,36 @@ Settings → Environment Variables 에 넣는다. **전부 Production·Preview �
 
 Deploy 를 누르면 `https://<이름>.vercel.app` 이 나온다.
 
+### 환경변수를 고칠 때
+
+**저장만 하면 안 바뀐다.** Vercel 은 배포할 때 환경변수를 함수에 박는다.
+값을 고쳐도 **이미 떠 있는 배포는 옛날 값을 그대로 쓴다.** 고친 뒤 재배포해야
+반영된다.
+
+1. 프로젝트 → **Settings → Environment Variables**
+2. 고칠 줄 오른쪽 **⋯ → Edit**. 값은 가려져 있어서 눈으로 확인은 못 하고
+   덮어쓰기만 된다 — 뭐가 들었는지 모르겠으면 지우고 새로 만든다
+3. **Environments 에 Production 과 Preview 가 둘 다 켜져 있는지** 본다
+4. Save
+5. **Deployments → 맨 위 배포 → ⋯ → Redeploy**
+   (Build Cache 는 켜둬도 된다. 환경변수는 캐시와 상관없다)
+
+붙여넣을 때 **따옴표로 감싸지 마라.** `"sb_secret_..."` 로 넣으면 따옴표까지
+값이 된다. 앞뒤 공백·줄바꿈도 그대로 값에 들어간다.
+
+### 안 될 때
+
+화면에 나오는 말이 곧 원인이다. 오류에는 서버가 받은 이유를 그대로 붙여 낸다.
+
+| 화면에 뜨는 말 | 뜻 | 할 것 |
+|---|---|---|
+| `원본을 못 올렸어요 (400) … Bucket not found` | 보관함이 없다 | Storage → New bucket → `originals`, **Private** |
+| `원본을 못 올렸어요 (403) … Invalid Compact JWS` | 키가 JWT 로 안 읽힌다 | 앱이 `apikey` 헤더를 같이 보내면서 없어진 오류다. 그래도 나면 `SUPABASE_SERVICE_ROLE_KEY` 를 다시 넣고 **재배포** |
+| `원본을 못 올렸어요 (403) … AccessDenied` | publishable 키를 넣었다 | `sb_secret_...` (또는 legacy `service_role` JWT `eyJ...`) 로 바꾼다 |
+| `원본 보관 자리가 없어요` | `SUPABASE_URL` 이나 키가 아예 없다 | 둘 다 넣었는지, Production 에 켜져 있는지 |
+| 첫 화면이 "아직 DB 를 안 붙였어요" | `DATABASE_URL` 이 없거나 틀렸다 | **6543** 인지 본다 |
+| 저장이 몇 초씩 걸린다 | 함수가 미국에 있다 | 배포 화면 Functions 탭에서 `icn1` 인지 본다 |
+
 ### 함수를 서울에 둔다
 
 `web/vercel.json` 이 `"regions": ["icn1"]` 로 잡아둔다. **지우지 마라.**
