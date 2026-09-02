@@ -51,6 +51,16 @@
   margin-bottom: var(--sp-4);
 }
 
+/*
+ * 서버가 그대로 옮겨준 오류에는 줄바꿈할 자리가 없는 긴 덩어리가 들어온다
+ * (Supabase 가 돌려준 JSON 한 줄 같은 것). 폰에서 오른쪽이 잘려 나가면
+ * 정작 이유가 적힌 부분을 못 읽는다.
+ */
+.notice > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* 카드 안 마지막 필드는 아래 여백을 카드가 준다 */
 .lastField {
   margin-bottom: 0;

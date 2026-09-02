@@ -32,6 +32,20 @@ const EXT: Record<string, string> = {
 };
 
 /**
+ * Storage 에 보내는 인증 헤더.
+ *
+ * **두 개를 다 보낸다.** `Authorization` 만 보내면 Storage 가 그 값을
+ * JWT 로 뜯어보다가 실패한다 — 수파베이스가 새로 낸 키(`sb_secret_...`)는
+ * JWT 가 아니라서 "Invalid Compact JWS" 로 막힌다. `apikey` 는 게이트웨이가
+ * 먼저 보는 자리고, 공식 클라이언트도 둘 다 보낸다.
+ *
+ * 예전 방식인 service_role JWT(`eyJ...`)는 어느 쪽으로 보내도 통한다.
+ */
+function auth(key: string): Record<string, string> {
+  return { apikey: key, Authorization: `Bearer ${key}` };
+}
+
+/**
  * 로컬 보관 자리. 개발용이다 — pipeline/ CLI 가 쓰는 .local/originals 와 같다.
  * 운영에서는 Supabase Storage 로 간다. 여기로 떨어지면 컨테이너가 재시작할 때
  * 원본이 날아가므로 (원칙 ⑤ 위반) 그때는 차라리 실패시킨다.
@@ -62,7 +76,7 @@ export async function keepOriginal(
     const res = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
+        ...auth(key),
         "Content-Type": mediaType,
         // 같은 해시면 같은 파일이다. 덮어써도 내용이 안 바뀐다.
         "x-upsert": "true",
@@ -126,7 +140,7 @@ export async function readOriginal(
 
   const res = await fetch(
     `${url.replace(/\/+$/, "")}/storage/v1/object/${storageKey}`,
-    { headers: { Authorization: `Bearer ${key}` } },
+    { headers: auth(key) },
   );
   if (!res.ok) {
     const why = await res.text().catch(() => "");
