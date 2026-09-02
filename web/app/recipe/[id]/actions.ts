@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache";
 import { tx } from "@/lib/db";
 import { MEDIA_TYPES } from "@/lib/parse/claude";
 import { MAX_BYTES, keepOriginal } from "@/lib/parse/originals";
+import { ATTACH_WITHIN_DAYS } from "@/lib/photos";
 
 export async function addPhoto(formData: FormData): Promise<void> {
   const recipeId = Number(formData.get("recipeId"));
@@ -39,20 +40,26 @@ export async function addPhoto(formData: FormData): Promise<void> {
 
   await tx(async (q) => {
     /*
-      오늘 만든 기록이 있으면 거기 붙인다. 없으면 만든다 —
-      "만들었어요" 를 누른 것과 같은 일이 일어난다 (app/actions.ts).
+      최근에 만든 기록이 있으면 거기 붙인다 (lib/photos.ts attachTarget).
+      사진첩에서 고르는 경우가 많아서 오늘 것만 보면 안 된다 — 어제
+      만들고 오늘 올리면 하루에 두 번 만든 것으로 남는다.
+
+      없으면 만든다 — "만들었어요" 를 누른 것과 같은 일이 일어난다
+      (app/actions.ts). 화면의 버튼 글자가 그렇게 될 거라고 미리 말한다.
     */
-    const today = await q<{ id: number }>(
+    const recent = await q<{ id: number }>(
       `SELECT id FROM cook_log
         WHERE recipe_id = $1
-          AND cooked_on = (now() AT TIME ZONE 'Asia/Seoul')::date
-        ORDER BY id DESC LIMIT 1`,
-      [recipeId],
+          AND photo_key IS NULL
+          AND cooked_on >= (now() AT TIME ZONE 'Asia/Seoul')::date - $2::int
+        ORDER BY cooked_on DESC, id DESC
+        LIMIT 1`,
+      [recipeId, ATTACH_WITHIN_DAYS],
     );
 
-    if (today.length > 0) {
+    if (recent.length > 0) {
       await q(`UPDATE cook_log SET photo_key = $2 WHERE id = $1`, [
-        today[0].id,
+        recent[0].id,
         storageKey,
       ]);
       return;

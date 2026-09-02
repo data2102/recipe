@@ -47,6 +47,19 @@ export function cookedAgo(isoDate: string | null, today = new Date()): string {
   return `${days}일 전에 만들었어요`;
 }
 
+/**
+ * 문장이 아니라 **때만** 말할 때. "어제 만든 것으로 붙여요" 처럼
+ * 다른 말 안에 들어가는 자리다 — cookedAgo 는 그 자체로 문장이라
+ * 안에 넣으면 "어제 만들었어요 에 만든 것" 이 된다.
+ */
+export function whenShort(isoDate: string, today = new Date()): string {
+  const days = daysSince(isoDate, today);
+  if (days === null) return "";
+  if (days <= 0) return "오늘";
+  if (days === 1) return "어제";
+  return `${days}일 전`;
+}
+
 /** 재료 요약. 없으면 링크를 보라고 안내한다 (지시서 3장 탭 1) */
 export function ingredientSummary(
   names: string[],

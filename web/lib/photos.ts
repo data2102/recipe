@@ -39,3 +39,31 @@ export async function keyOf(cookId: number): Promise<string | null> {
   );
   return rows[0]?.photo_key ?? null;
 }
+
+/** 사진을 붙일 만한 최근 조리 기록을 찾는 창. 이만큼은 "그때 만든 것" 으로 본다 */
+export const ATTACH_WITHIN_DAYS = 2;
+
+/**
+ * 사진을 붙일 조리 기록. 없으면 null (그러면 오늘 기록을 새로 만든다).
+ *
+ * 오늘 것만 보지 않는다. **사진은 만든 날 바로 안 올린다** — 저녁에
+ * 만들고 다음 날 사진첩에서 고르는 게 보통이다. 그때 어제 기록에 안
+ * 붙이고 오늘 기록을 새로 만들면, 하루에 두 번 만든 것으로 남는다.
+ *
+ * 사진이 이미 붙은 기록은 건너뛴다 — 한 번 만들 때 한 장이라, 거기
+ * 덮어쓰면 먼저 올린 사진이 소리 없이 사라진다.
+ */
+export async function attachTarget(
+  recipeId: number,
+): Promise<{ id: number; cooked_on: string } | null> {
+  const rows = await query<{ id: number; cooked_on: string }>(
+    `SELECT id, cooked_on::text AS cooked_on FROM cook_log
+      WHERE recipe_id = $1
+        AND photo_key IS NULL
+        AND cooked_on >= (now() AT TIME ZONE 'Asia/Seoul')::date - $2::int
+      ORDER BY cooked_on DESC, id DESC
+      LIMIT 1`,
+    [recipeId, ATTACH_WITHIN_DAYS],
+  );
+  return rows[0] ?? null;
+}

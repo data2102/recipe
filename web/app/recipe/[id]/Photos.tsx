@@ -14,7 +14,7 @@
 import Image from "next/image";
 import { useRef, useState, useTransition } from "react";
 import { addPhoto, removePhoto } from "./actions";
-import { cookedAgo } from "@/lib/say";
+import { cookedAgo, whenShort } from "@/lib/say";
 import type { Photo } from "@/lib/photos";
 import styles from "./photos.module.css";
 
@@ -43,12 +43,15 @@ async function shrink(file: File): Promise<Blob> {
 export default function Photos({
   recipeId,
   photos,
-  cookedToday,
+  attachesTo,
 }: {
   recipeId: number;
   photos: Photo[];
-  /** 오늘 만든 기록이 이미 있는가. 버튼 글자가 달라진다 */
-  cookedToday: boolean;
+  /**
+   * 사진이 붙을 최근 조리 기록의 날짜. 없으면 null —
+   * 그때는 올리면서 오늘 기록이 생긴다는 걸 버튼이 말해준다.
+   */
+  attachesTo: string | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -119,14 +122,17 @@ export default function Photos({
         className={styles.file}
         type="file"
         accept="image/png,image/jpeg,image/webp"
-        // 폰에서는 카메라가 먼저 열린다. 갤러리도 그 화면에서 고를 수 있다
-        capture="environment"
+        /*
+          capture 를 붙이지 않는다. 붙이면 카메라로 직행하는데, 만든
+          그 자리에서 바로 올리는 일은 드물다 — 먹고 나서 사진첩에서
+          고른다. 안 붙이면 폰이 "카메라 / 갤러리" 를 물어본다.
+        */
         onChange={onPick}
       />
       <label htmlFor="photo" className={`ds-btn ds-btn-secondary ${styles.add}`}>
         {busy
           ? "올리는 중이에요"
-          : cookedToday
+          : attachesTo
             ? "사진 올리기"
             : "오늘 만든 사진 올리기"}
       </label>
@@ -135,11 +141,11 @@ export default function Photos({
         버튼 글자가 이미 "오늘 만든" 이라고 말하지만, 처음 올리는 사람은
         그게 기록까지 남긴다는 걸 모른다. 한 줄로 적어둔다 (원칙 ③).
       */}
-      {!cookedToday && (
-        <p className={styles.hint}>
-          올리면 오늘 만든 걸로 같이 기록해요.
-        </p>
-      )}
+      <p className={styles.hint}>
+        {attachesTo
+          ? `${whenShort(attachesTo)} 만든 것으로 붙여요.`
+          : "올리면 오늘 만든 걸로 같이 기록해요."}
+      </p>
 
       {problem && <p className={styles.problem}>{problem}</p>}
     </section>
