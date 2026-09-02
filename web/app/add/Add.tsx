@@ -37,8 +37,6 @@ const MAPPED = "MAPPED";
 const CHECK = "CHECK";
 const UNMAPPED = "UNMAPPED";
 
-const INSTAGRAM = /instagram\.com/i;
-
 /**
  * 배포가 바뀌면 지금 화면이 부르던 서버 함수가 서버에서 사라진다
  * ("Server Action ... was not found on the server"). **다시 눌러도 계속
@@ -46,7 +44,6 @@ const INSTAGRAM = /instagram\.com/i;
  * 다르게 다뤄야 한다. 원본은 이미 보관돼 있으니 새로 불러오면 된다.
  */
 const STALE_ACTION = /server action/i;
-const URL_IN_TEXT = /https?:\/\/\S+/;
 
 /**
  * 공유로 넘어온 글이 이만큼 되면 본문이 통째로 온 것으로 본다.
@@ -74,16 +71,14 @@ type Auto = "assets" | "text" | "link" | null;
  * /share 는 그대로 파싱하지 않는다. 원본만 보관하고 넘긴다 — 시작은
  * 여기서 하니까 사용자는 흰 화면이 아니라 "읽는 중" 을 본다.
  *
- * 안 시작하는 경우가 둘 있다.
- *   인스타 링크만  링크로는 못 읽는 걸 이미 안다. 8초 태우고 실패를
- *                 보여주느니 캡처를 부탁하는 화면을 바로 낸다 (지시서 4장)
- *   problem 있음   /share 가 이미 실패했다. 직접 올리라고 안내 중이다
+ * 링크는 시작하지 않는다 — 링크로 가져오기를 화면에서 뺐다. 주소만
+ * 공유받았으면 캡처를 부탁하는 화면을 바로 낸다.
+ * problem 이 있어도 시작하지 않는다 — /share 가 이미 실패했다.
  */
 function autoStart(shared?: Shared | null): Auto {
   if (!shared || shared.problem) return null;
   if (shared.assetIds.length > 0) return "assets";
   if ((shared.text?.trim().length ?? 0) >= BODY_ENOUGH) return "text";
-  if (shared.url && !INSTAGRAM.test(shared.url)) return "link";
   return null;
 }
 
@@ -120,7 +115,7 @@ export default function Add({ shared }: { shared?: Shared | null }) {
    * 경로인데, 그때 주소를 잃으면 source_url 없이 저장된다 (저작권 —
    * 지시서 4장은 원문 주소를 항상 같이 남기라고 한다).
    */
-  const [url, setUrl] = useState(shared?.url ?? "");
+  const [url] = useState(shared?.url ?? "");
 
   /* 자동 시작은 딱 한 번이다. 두 번 돌면 원본도 파싱도 두 벌이 된다 */
   const started = useRef(false);
@@ -168,26 +163,6 @@ export default function Add({ shared }: { shared?: Shared | null }) {
     if (frames && frames.length > 0) {
       form.delete("images");
       for (const f of frames) form.append("images", f);
-    }
-
-    /*
-     * 링크만 넣었으면 링크를 읽는다.
-     *
-     * 예전에는 링크를 읽는 버튼이 카드 안에 따로 있었고, 아래 큰 버튼은
-     * 캡처·메모만 봤다. 그래서 주소만 붙여넣고 큰 버튼을 누르면
-     * "캡처를 올리거나 레시피를 붙여넣어 주세요" 가 떴다 — 방금 주소를
-     * 넣었는데 못 본 척하는 셈이다. 인스타 주소일 때는 작은 버튼이 아예
-     * 안 나와서 빠져나갈 길도 없었다.
-     *
-     * 버튼은 하나고, 채워진 것에 맞춰 움직인다 (design-system.md 6장).
-     */
-    const hasFile = form
-      .getAll("images")
-      .some((f) => f instanceof File && f.size > 0);
-    const hasText = String(form.get("text") || "").trim().length > 0;
-    if (!hasFile && !hasText && url.trim()) {
-      onLink(url);
-      return;
     }
 
     setPhase({ at: "reading" });
@@ -259,7 +234,6 @@ export default function Add({ shared }: { shared?: Shared | null }) {
       error={phase.error}
       shared={shared}
       url={url}
-      setUrl={setUrl}
       onShared={onShared}
       onLinkOnly={onLinkOnly}
     />
@@ -303,7 +277,6 @@ function Pick({
   error,
   shared,
   url,
-  setUrl,
   onShared,
   onLinkOnly,
 }: {
@@ -312,9 +285,8 @@ function Pick({
   pending: boolean;
   error?: Fail;
   shared?: Shared | null;
-  /** Add 가 들고 있다 — 화면이 바뀌어도 붙여넣은 주소가 살아 있어야 한다 */
+  /** 공유로 넘어온 원문 주소. 화면에는 안 보이고 같이 저장만 된다 */
   url: string;
-  setUrl: (v: string) => void;
   onShared: () => void;
   onLinkOnly: (title: string, url: string) => void;
 }) {
@@ -361,19 +333,14 @@ function Pick({
   }
   const gotShared = Boolean(shared?.assetIds.length);
 
-  // 인스타는 링크로 본문을 못 읽는다. 넣어놓고 안 될 걸 알면서
-  // 시도하게 만들지 않는다 (지시서 4장).
-  const instagram = INSTAGRAM.test(url);
-
   /*
-   * 인스타 주소만 있으면 **남은 길은 캡처뿐이다.**
+   * 공유받은 주소만 있고 아직 아무것도 안 골랐다.
    *
-   * 공유로 들어온 쪽은 이미 시도하지 않게 해뒀는데, 손으로 붙여넣은
-   * 쪽은 주 버튼을 누르면 링크를 읽으러 갔다가 실패했다. 안 될 걸 아는
-   * 일을 시키느니 버튼이 캡처 고르기를 연다 — 버튼 글자도 그렇게 적는다.
+   * 남은 길은 캡처(또는 영상)뿐이라, 주 버튼이 그걸 연다 — 버튼 글자도
+   * 그렇게 적는다. 안 될 걸 아는 일을 시키지 않는다.
    */
   const needCapture =
-    instagram && !gotShared && count === 0 && frames.length === 0 && !hasText;
+    Boolean(url) && !gotShared && count === 0 && frames.length === 0 && !hasText;
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     if (needCapture) {
@@ -384,32 +351,6 @@ function Pick({
     onSubmit(e, frames);
   }
 
-  /*
-   * 클립보드에서 바로 받는다.
-   *
-   * 링크는 거의 다 **다른 앱에서 복사해온 것**이다. 칸을 길게 눌러
-   * 붙여넣기 메뉴를 띄우는 것보다 한 번에 끝난다.
-   *
-   * 되는 브라우저에서만 낸다. 눌러서 거절당하면 칸은 그대로 있으니
-   * 손으로 붙여넣으면 된다 — 막다른 길이 되지 않는다.
-   */
-  const canPaste = useSyncExternalStore(
-    noSubscribe,
-    () => Boolean(navigator.clipboard?.readText),
-    () => false, // 서버는 모른다. 안 내는 쪽으로 그린다
-  );
-  const [missed, setMissed] = useState(false);
-
-  async function paste() {
-    try {
-      const hit = (await navigator.clipboard.readText()).match(URL_IN_TEXT);
-      setMissed(!hit);
-      if (hit) setUrl(hit[0]);
-    } catch {
-      // 거절했거나 안 되는 브라우저다. 손으로 붙여넣으면 된다
-      setMissed(false);
-    }
-  }
 
   /*
    * 설치하면 공유 시트에 뜬다 (manifest.ts). 그게 제일 짧은 길인데
@@ -423,9 +364,6 @@ function Pick({
     () => window.matchMedia("(display-mode: standalone)").matches,
     () => true, // 서버는 모른다. 안 내는 쪽으로 그린다
   );
-
-  /** 주소만 넣었다 — 누르면 링크를 읽으러 간다 (onIngest 참조) */
-  const linkOnly = url.trim().length > 0 && count === 0 && !hasText;
 
   return (
     <form onSubmit={submit}>
@@ -452,49 +390,16 @@ function Pick({
       )}
 
       {/*
-        링크가 맨 위다.
-        복사해온 주소 한 줄이면 끝나는 게 제일 짧은 길이라 먼저 묻는다.
-        캡처는 그 아래 — 인스타처럼 링크로 못 읽는 곳에서 쓰는 길이다.
+        링크로 가져오기는 화면에서 뺐다 (읽을 수 있는 곳이 적어서 먼저
+        캡처·붙여넣기만 두고 써보기로 했다). 서버 쪽 코드는 남아 있다 —
+        actions.ts 의 ingestLink · lib/parse/link.ts.
+
+        **주소는 계속 들고 간다.** 공유로 넘어온 주소는 화면에 안 보여도
+        같이 저장돼야 한다 (저작권 — 지시서 4장은 원문 주소를 항상 함께
+        남기라고 한다). 그래서 숨은 칸으로 딸려 보내고, 있다는 사실은
+        한 줄로 알려준다 (원칙 ③ — 조용히 하는 일을 만들지 않는다).
       */}
-      <section className="ds-card">
-        <h2 className={styles.cardTitle}>링크를 붙여넣어 주세요</h2>
-        <p className={styles.body}>
-          읽을 수 있으면 읽고, 안 되면 캡처를 올려달라고 알려드려요.
-        </p>
-        <div className={`ds-field ${styles.urlField} ${styles.lastField}`}>
-          <div className={styles.urlRow}>
-            <input
-              id="sourceUrl"
-              className="ds-input"
-              type="url"
-              name="sourceUrl"
-              aria-label="레시피 링크"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-                setMissed(false);
-              }}
-              placeholder="인스타·유튜브·블로그 주소"
-            />
-            {canPaste && (
-              <button
-                type="button"
-                className={`ds-btn ds-btn-secondary ${styles.paste}`}
-                onClick={paste}
-              >
-                붙여넣기
-              </button>
-            )}
-          </div>
-          <span className="ds-help">
-            {instagram
-              ? "인스타는 링크로 못 읽어요. 주소는 그대로 두고 아래에서 캡처를 올려주세요 — 주소도 같이 저장돼요."
-              : missed
-                ? "복사해둔 링크가 없어요. 캡처를 올려도 돼요."
-                : "유튜브·블로그 주소를 그대로 붙여넣으면 돼요."}
-          </span>
-        </div>
-      </section>
+      <input type="hidden" name="sourceUrl" value={url} />
 
       <section className="ds-card">
         <h2 className={styles.cardTitle}>
@@ -506,6 +411,11 @@ function Pick({
           <strong>영상을 골라도 돼요</strong> — 화면 녹화 하나면 장면은 앱이
           뽑아요.
         </p>
+        {url && (
+          <p className={styles.hint}>
+            공유받은 주소도 같이 저장할게요 — {url}
+          </p>
+        )}
 
         <input
           ref={fileRef}
@@ -579,9 +489,8 @@ function Pick({
         공유로 들어왔으면 주 행동은 위쪽("이걸로 정리해줄게요")이다.
         파란 버튼이 한 화면에 둘이면 어느 쪽을 눌러야 할지 갈린다.
 
-        버튼 글자는 **누르면 실제로 일어날 일**을 적는다. 주소만 넣었으면
-        링크를 읽으러 가므로 그렇게 적는다 — 인스타는 읽을 수 없다는 걸
-        이미 아니까 캡처를 부탁하는 말로 남긴다.
+        버튼 글자는 **누르면 실제로 일어날 일**을 적는다. 아직 아무것도
+        안 골랐으면 캡처 고르기를 연다.
       */}
       <button
         type="submit"
@@ -592,10 +501,8 @@ function Pick({
         {gotShared
           ? "올린 걸로 정리해줄게요"
           : needCapture
-            ? "캡처 고르기"
-            : linkOnly && !instagram
-              ? "링크 읽어볼게요"
-              : "정리해줄게요"}
+            ? "캡처 · 영상 고르기"
+            : "정리해줄게요"}
       </button>
 
       {/* 더 짧은 길이 있다는 것만 알려준다. 설치를 조르지 않는다 */}
