@@ -12,8 +12,10 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Photos from "./Photos";
+import { list as listPhotos } from "@/lib/photos";
 import { detail } from "@/lib/recipes";
-import { cookedAgo } from "@/lib/say";
+import { cookedAgo, todayInput } from "@/lib/say";
 import styles from "./recipe.module.css";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +27,11 @@ export default async function RecipePage({
   const n = Number(id);
   if (!Number.isInteger(n) || n <= 0) notFound();
 
-  const r = await detail(n);
+  const [r, photos] = await Promise.all([detail(n), listPhotos(n)]);
   if (!r) notFound();
+
+  // 오늘 만든 기록이 있으면 사진은 거기 붙는다 (recipe/[id]/actions.ts)
+  const cookedToday = r.last_cooked_on === todayInput();
 
   // 섹션이 여럿이면 소제목으로 나눈다. 하나뿐이면 굳이 붙이지 않는다.
   const sections = [...new Set(r.items.map((i) => i.section ?? ""))];
@@ -48,6 +53,12 @@ export default async function RecipePage({
             : "아직 안 만들어봤어요"}
         </p>
       </header>
+
+      {/*
+        만든 사진이 먼저다. 재료·만드는 법보다 이게 이 요리를 기억하게
+        한다 — "저번에 이렇게 나왔지" 가 다시 만들 이유가 된다.
+      */}
+      <Photos recipeId={r.id} photos={photos} cookedToday={cookedToday} />
 
       <section className="ds-card">
         <h2 className={styles.cardTitle}>재료</h2>
