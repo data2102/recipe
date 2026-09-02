@@ -25,6 +25,8 @@ import {
   openList,
   picked as pickedRecipes,
 } from "@/lib/shopping";
+import { JUST_HOURS, justClosed, type PastWeek } from "@/lib/weeks";
+import { reopenWeek } from "../actions";
 import styles from "../page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +41,8 @@ type Loaded =
       cart: Awaited<ReturnType<typeof shoppingItems>>;
       basket: Awaited<ReturnType<typeof pickedRecipes>>;
       groups: Awaited<ReturnType<typeof recipeGroups>>;
+      /** 방금 끝낸 장보기. 되돌릴 수 있게 눈앞에 낸다 */
+      closed: PastWeek | null;
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
@@ -59,7 +63,21 @@ async function load(have: ReturnType<typeof parseHave>): Promise<Loaded> {
       집에 있나" 를 묻는 것이니 그게 맞다. 담거나 빼면 칩도 따라 바뀐다.
     */
     const chips = await fridgeChips(basket.map((r) => r.id));
-    return { kind: "ok", chips, cart, basket, groups };
+    /*
+      "장보기 끝" 은 이번 주를 통째로 닫는 일인데 되돌릴 길이 없었다.
+      끝낸 직후 이 화면은 빈 목록만 보여줘서, 잘못 눌렀는지조차 알 수
+      없었다. 방금 끝낸 게 있으면 그렇다고 말하고 되돌릴 길을 낸다.
+    */
+    const recent = await justClosed();
+    return {
+      kind: "ok",
+      chips,
+      cart,
+      basket,
+      groups,
+      closed:
+        recent && (recent.hours_ago ?? Infinity) < JUST_HOURS ? recent : null,
+    };
   } catch (e) {
     return {
       kind: "error",
@@ -106,6 +124,25 @@ export default async function ShoppingPage({
               : `살 것 ${buy}개`}
         </p>
       </header>
+
+      {data.closed && (
+        <section className="ds-card">
+          <h2 className={styles.cardTitle}>방금 장보기를 끝냈어요</h2>
+          <p className={styles.body}>
+            {data.closed.bought}개 샀고, 담았던 요리는 그대로 남아 있어요.
+            잘못 눌렀으면 다시 열 수 있어요.
+          </p>
+          <form action={reopenWeek} className={styles.undo}>
+            <input type="hidden" name="listId" value={data.closed.id} />
+            <button
+              type="submit"
+              className="ds-btn ds-btn-secondary ds-btn-block"
+            >
+              다시 열게요
+            </button>
+          </form>
+        </section>
+      )}
 
       <h2 className={styles.section}>집에 있는 재료 (선택)</h2>
       <Fridge chips={data.chips} have={have} />

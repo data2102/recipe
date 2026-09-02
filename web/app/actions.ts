@@ -18,6 +18,7 @@ import { revalidatePath } from "next/cache";
 import { tx } from "@/lib/db";
 import * as shopping from "@/lib/shopping";
 import * as week from "@/lib/week";
+import * as weeks from "@/lib/weeks";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -114,6 +115,20 @@ export async function removeFromWeek(formData: FormData) {
  *
  * 담기와는 별개다 — 담아만 두고 요일은 안 정해도 된다 (lib/week.ts).
  */
+/**
+ * 끝낸 장보기를 다시 연다.
+ *
+ * "장보기 끝" 은 한 번 누르면 이번 주가 통째로 사라지는 일인데 되돌릴
+ * 길이 없었다. 잘못 누른 사람은 담은 것도 요일도 전부 다시 해야 했다.
+ * 끝낸 목록을 지우지 않고 두니까 되살리는 건 상태 한 줄이면 된다.
+ */
+export async function reopenWeek(formData: FormData) {
+  const id = Number(formData.get("listId"));
+  if (!Number.isInteger(id) || id <= 0) throw new Error("목록을 못 찾았어요");
+  await weeks.reopen(id);
+  revalidatePath("/", "layout");
+}
+
 export async function setDayOfWeek(formData: FormData) {
   const raw = String(formData.get("day") ?? "").trim();
   const day = raw === "" ? null : Number(raw);

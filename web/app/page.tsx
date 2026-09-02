@@ -192,6 +192,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <Link href="/recipes?tab=done" className={styles.more}>
           모아둔 레시피에서 고르기 →
         </Link>
+
+        {/* 끝낸 주는 지워지지 않는다. 되짚어 보고 되돌릴 수도 있다 */}
+        <Link href="/weeks" className={styles.more}>
+          지난 주 보기 →
+        </Link>
       </PickDayProvider>
     </main>
   );

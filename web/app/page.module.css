@@ -157,3 +157,8 @@
   text-decoration: none;
   text-align: center;
 }
+
+/* 되돌리기 버튼은 설명 아래에 붙는다 */
+.undo {
+  margin-top: var(--sp-3);
+}
