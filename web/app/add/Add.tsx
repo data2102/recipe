@@ -19,7 +19,7 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import { framesFromVideo, isVideo } from "@/lib/frames";
+import { framesFromVideo, isVideo, shotsFromImage } from "@/lib/frames";
 import {
   commit,
   ingest,
@@ -51,6 +51,9 @@ const STALE_ACTION = /server action/i;
  * 안드로이드가 붙여준 "제목 + 주소" 한 줄이지 레시피가 아니다.
  */
 const BODY_ENOUGH = 200;
+
+/** 한 번에 보낼 수 있는 장수. 서버의 MAX_IMAGES 와 같은 눈금이다 */
+const MAX_SHOTS = 10;
 
 /**
  * 바뀌지 않는 것을 읽는다 (클립보드가 되는가, 설치돼 있는가).
@@ -305,28 +308,41 @@ function Pick({
   const [reading, setReading] = useState(false);
   const [videoProblem, setVideoProblem] = useState<string | null>(null);
 
+  /**
+   * 고른 걸 **보낼 수 있는 크기로** 다듬는다 (lib/frames.ts).
+   *
+   * 서버 액션 본문 제한이 1MB 라, 스크롤 캡처는 물론 폰 스크린샷도 그냥
+   * 보내면 화면이 통째로 죽는다 (413). 영상이면 장면을 뽑고, 사진이면
+   * 폭을 맞추고 긴 것은 잘라서 여러 장으로 만든다.
+   */
   async function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
     setVideoProblem(null);
     setFrames([]);
-
-    const video = picked.find(isVideo);
-    if (!video) {
-      setCount(picked.length);
-      return;
-    }
-
     setCount(0);
+    if (picked.length === 0) return;
+
     setReading(true);
     try {
-      const got = await framesFromVideo(video);
-      if (got.length === 0) {
-        setVideoProblem("영상에서 화면을 못 뽑았어요. 캡처를 올려주세요.");
-      } else {
-        setFrames(got);
+      const video = picked.find(isVideo);
+      if (video) {
+        const got = await framesFromVideo(video);
+        if (got.length === 0) {
+          setVideoProblem("영상에서 화면을 못 뽑았어요. 캡처를 올려주세요.");
+        } else {
+          setFrames(got);
+        }
+        return;
       }
+
+      const shots: File[] = [];
+      for (const one of picked) {
+        if (shots.length >= MAX_SHOTS) break;
+        shots.push(...(await shotsFromImage(one)));
+      }
+      setFrames(shots.slice(0, MAX_SHOTS));
     } catch {
-      setVideoProblem("영상을 읽지 못했어요. 캡처를 올려주세요.");
+      setVideoProblem("고른 걸 읽지 못했어요. 다시 골라주세요.");
     } finally {
       setReading(false);
     }
@@ -429,9 +445,9 @@ function Pick({
         />
         <label htmlFor="images" className={styles.drop}>
           {reading
-            ? "영상에서 화면을 뽑는 중이에요"
+            ? "고른 걸 읽는 중이에요"
             : frames.length > 0
-              ? `영상에서 ${frames.length}장 뽑았어요`
+              ? `${frames.length}장 준비했어요`
               : count > 0
                 ? `캡처 ${count}장 골랐어요`
                 : "캡처 · 영상 고르기"}

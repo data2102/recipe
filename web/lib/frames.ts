@@ -136,3 +136,80 @@ function diff(a: number[], b: number[]): number {
   for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
   return sum / a.length;
 }
+
+
+/* ---------------------------------------------------------------- */
+/*  긴 캡처 자르기                                                    */
+/* ---------------------------------------------------------------- */
+
+/** 가로는 이보다 크면 줄인다. 폰 캡처(1080)는 그대로 지나간다 */
+const MAX_WIDTH = 1280;
+
+/**
+ * 이보다 길면 자른다. 보통 폰 캡처(1080×2400 쯤)는 자르지 않는다 —
+ * 한 장이면 될 걸 둘로 나누면 읽는 값만 두 배가 된다.
+ */
+const TOO_TALL = 2600;
+
+/** 한 조각의 세로. 폰 화면 한 장 반쯤이라 글자가 넉넉히 산다 */
+const SLICE_HEIGHT = 2200;
+
+/** 자른 자리에서 글자가 반 토막 나지 않게 겹쳐서 자른다 */
+const OVERLAP = 80;
+
+/**
+ * 사진 한 장을 **보낼 수 있는 크기로** 다듬는다.
+ *
+ * 서버 액션의 본문 제한은 1MB 다. 스크롤 캡처는 그냥 넘고, 폰 스크린샷도
+ * 아슬아슬하다 — 넘으면 파싱이 아니라 **화면이 통째로 죽는다** (413).
+ *
+ * 통째로 줄이지 않고 **자른다.** 1080×9000 을 한 장으로 줄이면 글자가
+ * 뭉개져서 읽을 수가 없다. 폭은 그대로 두고 세로로 잘라야 글자가 산다 —
+ * 어차피 파서는 여러 장을 한 번에 읽는다.
+ *
+ * 자른 자리에서 글자가 반 토막 나지 않게 조금 겹쳐서 자른다.
+ */
+export async function shotsFromImage(file: File): Promise<File[]> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_WIDTH / bitmap.width);
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return [file];
+
+  const out: File[] = [];
+  // 길지 않으면 한 장 그대로 (폭만 맞추고 다시 굽는다)
+  const step = h <= TOO_TALL ? h : SLICE_HEIGHT - OVERLAP;
+  const cut = h <= TOO_TALL ? h : SLICE_HEIGHT;
+  let n = 0;
+
+  for (let top = 0; top < h && out.length < WANT_SHOTS; top += step) {
+    const height = Math.min(cut, h - top);
+    // 마지막 조각이 겹침보다 얇으면 앞 조각에 이미 다 들어 있다
+    if (out.length > 0 && height <= OVERLAP) break;
+
+    canvas.width = w;
+    canvas.height = height;
+    ctx.drawImage(
+      bitmap,
+      0, top / scale, bitmap.width, height / scale,
+      0, 0, w, height,
+    );
+
+    const blob = await new Promise<Blob | null>((r) =>
+      canvas.toBlob(r, "image/jpeg", 0.85),
+    );
+    if (blob) {
+      n += 1;
+      out.push(new File([blob], `shot-${n}.jpg`, { type: "image/jpeg" }));
+    }
+  }
+
+  bitmap.close();
+  return out.length > 0 ? out : [file];
+}
+
+/** 한 장에서 나올 수 있는 조각 수 상한. 서버가 읽는 장수와 같은 눈금이다 */
+const WANT_SHOTS = 10;
