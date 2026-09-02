@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Edit from "./Edit";
 import Photos from "./Photos";
 import { attachTarget, list as listPhotos } from "@/lib/photos";
 import { detail } from "@/lib/recipes";
@@ -22,8 +23,11 @@ export const dynamic = "force-dynamic";
 
 export default async function RecipePage({
   params,
+  searchParams,
 }: PageProps<"/recipe/[id]">) {
   const { id } = await params;
+  const q = await searchParams;
+  const editing = (Array.isArray(q.edit) ? q.edit[0] : q.edit) === "1";
   const n = Number(id);
   if (!Number.isInteger(n) || n <= 0) notFound();
 
@@ -46,6 +50,27 @@ export default async function RecipePage({
     name: s,
     items: r.items.filter((i) => (i.section ?? "") === s),
   }));
+
+  /*
+    고치는 화면은 읽는 화면을 **대신한다.** 같이 두면 어느 쪽이 지금 값인지
+    알 수 없다. 주소(`?edit=1`)로 가른다 — 새로고침해도 그 자리다.
+  */
+  if (editing) {
+    return (
+      <main className="shell">
+        <header className={styles.head}>
+          <Link href={`/recipe/${r.id}`} className={styles.back}>
+            ← 그만두기
+          </Link>
+          <h1 className={styles.title}>고치기</h1>
+          <p className={styles.sub}>
+            조리 기록과 사진, 보관해둔 원본은 그대로예요.
+          </p>
+        </header>
+        <Edit id={r.id} title={r.title} items={r.items} steps={r.steps} />
+      </main>
+    );
+  }
 
   return (
     <main className="shell">
@@ -114,6 +139,13 @@ export default async function RecipePage({
           </p>
         )}
       </section>
+
+      <Link
+        href={`/recipe/${r.id}?edit=1`}
+        className="ds-btn ds-btn-secondary ds-btn-block"
+      >
+        고칠게요
+      </Link>
 
       {r.source_url && (
         <a

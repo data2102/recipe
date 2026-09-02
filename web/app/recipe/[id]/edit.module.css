@@ -1,0 +1,74 @@
+/* 레시피 고치기. 카드·폼은 여백의 .ds-* — 여기는 줄 배치만 */
+
+.cardTitle {
+  font-size: var(--fs-subhead);
+  font-weight: var(--fw-medium);
+  margin: 0 0 var(--sp-2);
+}
+
+.help {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--sp-3);
+}
+
+.last {
+  margin-bottom: 0;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+}
+
+.keep {
+  flex: none;
+}
+
+/* 이름이 길다. 수량은 짧다 */
+.name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* "1/4포기" 가 안 잘릴 만큼은 돼야 한다 — 고치는 칸인데 안 보이면 곤란하다 */
+.qty {
+  flex: none;
+  width: 96px;
+}
+
+.drop {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.add {
+  margin-top: var(--sp-3);
+}
+
+.steps {
+  width: 100%;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

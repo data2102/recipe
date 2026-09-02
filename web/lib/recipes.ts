@@ -133,6 +133,10 @@ export type DetailItem = {
   section: string | null;
   /** 장보기에 넣기로 한 것인가. 뺀 것도 레시피에는 그대로 남는다 */
   confirmed: boolean;
+  /** 'A 또는 B' 중 하나. 고칠 때 그대로 돌려보낸다 */
+  choice_group: string | null;
+  /** LIST / BODY / USER. 고칠 때 그대로 돌려보낸다 */
+  origin: string;
 };
 
 export type RecipeDetail = RecipeRow & {
@@ -154,7 +158,7 @@ export async function detail(id: number): Promise<RecipeDetail | null> {
   const [rows, items, steps] = await Promise.all([
     query<RecipeRow>(`${SELECT_ROW} WHERE r.id = $1`, [id]),
     query<DetailItem>(
-      `SELECT raw_name, raw_qty, section, confirmed
+      `SELECT raw_name, raw_qty, section, confirmed, choice_group, origin
          FROM recipe_ingredient
         WHERE recipe_id = $1
         ORDER BY id`,
