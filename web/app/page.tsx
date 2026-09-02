@@ -13,6 +13,7 @@
  * 정렬이 곧 추천이다. 별도 추천 로직 없이 순서만으로 작동한다.
  */
 
+import Link from "next/link";
 import List from "./RecipeList";
 import Week from "./Week";
 import WeekStrip from "./WeekStrip";
@@ -182,6 +183,15 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           pick="add"
           inBasket={inBasket}
         />
+
+        {/*
+          여기 나오는 건 추천이라 몇 개뿐이다. 오늘 먹고 싶은 게 그 안에
+          없을 때 갈 데가 없으면 식단 짜기가 거기서 막힌다 — 모아둔 것
+          전부에서 고르는 길을 낸다. 거기서도 담기가 된다.
+        */}
+        <Link href="/recipes?tab=done" className={styles.more}>
+          모아둔 레시피에서 고르기 →
+        </Link>
       </PickDayProvider>
     </main>
   );

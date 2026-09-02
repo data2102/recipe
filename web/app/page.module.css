@@ -147,3 +147,13 @@
 .add {
   margin-bottom: var(--sp-5);
 }
+
+/* 목록 밖으로 나가는 길. 버튼이 아니라 링크다 — 담기와 경쟁하면 안 된다 */
+.more {
+  display: block;
+  padding: var(--sp-4) 0;
+  font-size: var(--fs-caption);
+  color: var(--accent-strong);
+  text-decoration: none;
+  text-align: center;
+}
