@@ -257,3 +257,22 @@
   line-height: 1.6;
   margin: var(--sp-5) 0 0;
 }
+
+/* --- 만드는 법 (확인 화면에서 읽기만 한다) -------------------------- */
+
+.steps {
+  margin: var(--sp-3) 0 0;
+  padding-left: 1.3em;
+}
+
+.step {
+  font-size: var(--fs-body);
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: var(--sp-3);
+  white-space: pre-wrap;
+}
+
+.step:last-child {
+  margin-bottom: 0;
+}

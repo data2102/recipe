@@ -1,0 +1,112 @@
+/**
+ * 레시피 한 건 (재료 + 만드는 법)
+ *
+ * 저장해둔 걸 **읽는 화면**이다. 목록은 제목과 재료 몇 개만 보여줘서,
+ * 캡처로 넣은 레시피는 만드는 법을 다시 볼 데가 없었다 — 원본 링크가
+ * 없으면(인스타 캡처가 그렇다) 저장해두고도 못 읽는다.
+ *
+ * 여기서 하지 않는 것: 타이머, 단계 넘기기, 화면 켜두기 같은 **요리 중
+ * UX**. 그건 아직 안 정한 것이다 (지시서 9장) — 지금 정하면 근거 없이
+ * 정하게 된다. 이 화면은 적어둔 걸 그대로 보여주기만 한다.
+ */
+
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { detail } from "@/lib/recipes";
+import { cookedAgo } from "@/lib/say";
+import styles from "./recipe.module.css";
+
+export const dynamic = "force-dynamic";
+
+export default async function RecipePage({
+  params,
+}: PageProps<"/recipe/[id]">) {
+  const { id } = await params;
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) notFound();
+
+  const r = await detail(n);
+  if (!r) notFound();
+
+  // 섹션이 여럿이면 소제목으로 나눈다. 하나뿐이면 굳이 붙이지 않는다.
+  const sections = [...new Set(r.items.map((i) => i.section ?? ""))];
+  const grouped = sections.map((s) => ({
+    name: s,
+    items: r.items.filter((i) => (i.section ?? "") === s),
+  }));
+
+  return (
+    <main className="shell">
+      <header className={styles.head}>
+        <Link href="/" className={styles.back}>
+          ← 목록
+        </Link>
+        <h1 className={styles.title}>{r.title}</h1>
+        <p className={styles.sub}>
+          {r.cook_count > 0
+            ? `${r.cook_count}번 만들었어요 · ${cookedAgo(r.last_cooked_on)}`
+            : "아직 안 만들어봤어요"}
+        </p>
+      </header>
+
+      <section className="ds-card">
+        <h2 className={styles.cardTitle}>재료</h2>
+        {grouped.map((g) => (
+          <div key={g.name}>
+            {sections.length > 1 && g.name && (
+              <p className={styles.section}>{g.name}</p>
+            )}
+            <ul className={styles.items}>
+              {g.items.map((it, i) => (
+                <li key={i} className={styles.item}>
+                  <span className={it.confirmed ? "" : styles.dropped}>
+                    {it.raw_name}
+                  </span>
+                  <span className={styles.qty}>
+                    {it.raw_qty}
+                    {/* 흐린 글씨만 두면 왜 흐린지 알 수 없다 */}
+                    {!it.confirmed && (
+                      <span className={styles.note}>장보기에서 뺐어요</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
+
+      <section className="ds-card">
+        <h2 className={styles.cardTitle}>만드는 법</h2>
+        {r.steps.length > 0 ? (
+          <ol className={styles.steps}>
+            {r.steps.map((s, i) => (
+              <li key={i} className={styles.step}>
+                {s}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          /* 없으면 없다고 말한다. 빈 자리를 그냥 두면 저장이 덜 된 건지
+             원래 없는 건지 알 수 없다 (원칙 ③) */
+          <p className={styles.body}>
+            만드는 법은 저장돼 있지 않아요. 캡처에 안 보였거나 못 읽은
+            거예요 — 만드는 법이 보이는 화면을 캡처해서 새로 올리면 같이
+            저장돼요.
+          </p>
+        )}
+      </section>
+
+      {r.source_url && (
+        <a
+          className="ds-btn ds-btn-secondary ds-btn-block"
+          href={r.source_url}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          원본 열기
+        </a>
+      )}
+    </main>
+  );
+}

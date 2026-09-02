@@ -146,13 +146,6 @@
   display: contents;
 }
 
-/* 누를 수 없다는 표시. .ds-btn:disabled 와 같은 모양을 span 에도 준다 */
-.disabled {
-  background: var(--surface-sunken);
-  color: var(--text-disabled);
-  border-color: var(--border);
-  cursor: not-allowed;
-}
 
 .close {
   display: block;

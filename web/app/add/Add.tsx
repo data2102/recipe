@@ -37,6 +37,14 @@ const CHECK = "CHECK";
 const UNMAPPED = "UNMAPPED";
 
 const INSTAGRAM = /instagram\.com/i;
+
+/**
+ * 배포가 바뀌면 지금 화면이 부르던 서버 함수가 서버에서 사라진다
+ * ("Server Action ... was not found on the server"). **다시 눌러도 계속
+ * 실패한다** — 화면이 옛날 배포에서 왔기 때문이다. 이건 저장 실패와
+ * 다르게 다뤄야 한다. 원본은 이미 보관돼 있으니 새로 불러오면 된다.
+ */
+const STALE_ACTION = /server action/i;
 const URL_IN_TEXT = /https?:\/\/\S+/;
 
 /**
@@ -225,6 +233,11 @@ export default function Add({ shared }: { shared?: Shared | null }) {
         draft={phase.draft}
         saving={phase.at === "saving"}
         failed={phase.at === "confirm" ? phase.failed : undefined}
+        stale={
+          phase.at === "confirm" && phase.failed
+            ? STALE_ACTION.test(phase.failed)
+            : false
+        }
         onChange={(draft) => setPhase({ at: "confirm", draft })}
         onSave={onCommit}
         onBack={() => setPhase({ at: "pick" })}
@@ -576,6 +589,7 @@ function Confirm({
   draft,
   saving,
   failed,
+  stale,
   onChange,
   onSave,
   onBack,
@@ -583,11 +597,14 @@ function Confirm({
   draft: Draft;
   saving: boolean;
   failed?: string;
+  /** 배포가 바뀌어 서버 함수가 사라졌다. 다시 눌러도 안 된다 */
+  stale: boolean;
   onChange: (d: Draft) => void;
   onSave: (d: Draft) => void;
   onBack: () => void;
 }) {
   const [openMapped, setOpenMapped] = useState(false);
+  const [openSteps, setOpenSteps] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
 
   const set = (i: number, patch: Partial<DraftItem>) =>
@@ -724,22 +741,86 @@ function Confirm({
         같은 초안은 두 번 저장되지 않는다 (lib/parse/store.ts 의 save).
         그걸 말해줘야 다시 눌러도 되는지 망설이지 않는다.
       */}
+      {/*
+        만드는 법은 **고치라고 내는 게 아니라 읽으라고 낸다.** 확인 화면이
+        묻는 건 재료뿐인데, 그러다 보니 "만드는 법은 안 가져왔나" 싶어진다.
+        읽어온 걸 접어서 보여주고, 못 읽었으면 못 읽었다고 말한다 (원칙 ③).
+      */}
+      <section className="ds-card">
+        {draft.steps.length > 0 ? (
+          <>
+            <button
+              type="button"
+              className={styles.foldHead}
+              onClick={() => setOpenSteps(!openSteps)}
+              aria-expanded={openSteps}
+            >
+              <span>만드는 법 {draft.steps.length}단계</span>
+              <span className={styles.hint}>{openSteps ? "접기" : "펼치기"}</span>
+            </button>
+            {openSteps && (
+              <ol className={styles.steps}>
+                {draft.steps.map((step, i) => (
+                  <li key={i} className={styles.step}>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
+        ) : (
+          <>
+            <h2 className={styles.cardTitle}>만드는 법은 못 읽었어요</h2>
+            <p className={styles.body}>
+              재료만 저장돼요. 만드는 법이 보이는 화면을 캡처해서 다시
+              올리면 같이 저장돼요.
+            </p>
+          </>
+        )}
+      </section>
+
       {failed && (
         <Notice>
-          {failed}
+          {stale
+            ? "앱이 새 버전으로 바뀌어서 이 화면이 서버와 안 맞아요."
+            : failed}
           <br />
-          다시 눌러도 돼요 — 같은 걸 두 번 저장하지는 않아요.
+          {stale
+            ? "올린 원본은 그대로 있어요. 아래를 누르면 새로 불러와 다시 읽어드려요."
+            : "다시 눌러도 돼요 — 같은 걸 두 번 저장하지는 않아요."}
         </Notice>
       )}
 
-      <button
-        type="button"
-        className="ds-btn ds-btn-primary ds-btn-block"
-        disabled={saving}
-        onClick={() => onSave(draft)}
-      >
-        {saving ? "저장하는 중이에요" : failed ? "다시 저장할게요" : "저장할게요"}
-      </button>
+      {/*
+        서버 함수가 사라진 경우에는 다시 누르게 두면 안 된다 — 몇 번을
+        눌러도 같은 자리에서 막힌다. 보관해둔 원본으로 다시 시작하는
+        길을 낸다 (<a> 라 페이지를 통째로 새로 받는다).
+      */}
+      {stale ? (
+        <a
+          className="ds-btn ds-btn-primary ds-btn-block"
+          href={
+            draft.assetIds.length > 0
+              ? `/add?shared=1&assets=${draft.assetIds.join(",")}${
+                  draft.sourceUrl
+                    ? `&url=${encodeURIComponent(draft.sourceUrl)}`
+                    : ""
+                }`
+              : "/add"
+          }
+        >
+          새로 불러와서 다시 읽을게요
+        </a>
+      ) : (
+        <button
+          type="button"
+          className="ds-btn ds-btn-primary ds-btn-block"
+          disabled={saving}
+          onClick={() => onSave(draft)}
+        >
+          {saving ? "저장하는 중이에요" : failed ? "다시 저장할게요" : "저장할게요"}
+        </button>
+      )}
       <button type="button" className="ds-btn ds-btn-secondary ds-btn-block" onClick={onBack} disabled={saving}>
         다시 올릴래요
       </button>

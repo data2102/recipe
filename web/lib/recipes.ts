@@ -122,3 +122,50 @@ export async function counts() {
     ingredients: Number(row?.ingredients ?? 0),
   };
 }
+
+/* ---------------------------------------------------------------- */
+/*  레시피 한 건 보기                                                 */
+/* ---------------------------------------------------------------- */
+
+export type DetailItem = {
+  raw_name: string;
+  raw_qty: string | null;
+  section: string | null;
+  /** 장보기에 넣기로 한 것인가. 뺀 것도 레시피에는 그대로 남는다 */
+  confirmed: boolean;
+};
+
+export type RecipeDetail = RecipeRow & {
+  items: DetailItem[];
+  steps: string[];
+};
+
+/**
+ * 저장해둔 레시피를 그대로 펼친다.
+ *
+ * **원문 그대로 보여준다** (원칙 ①). 재료는 raw_name·raw_qty, 만드는 법은
+ * 파서가 옮긴 본문 그대로다 — 요약하거나 다시 쓰지 않는다.
+ *
+ * 안 물어본 것까지 다 낸다. 확인 화면에서 "아니요" 한 재료도 레시피에는
+ * 적혀 있던 것이라 지우지 않고, 장보기에서 뺐다고만 표시한다 — 여기는
+ * 장보기 목록이 아니라 **레시피 원문**이다.
+ */
+export async function detail(id: number): Promise<RecipeDetail | null> {
+  const [rows, items, steps] = await Promise.all([
+    query<RecipeRow>(`${SELECT_ROW} WHERE r.id = $1`, [id]),
+    query<DetailItem>(
+      `SELECT raw_name, raw_qty, section, confirmed
+         FROM recipe_ingredient
+        WHERE recipe_id = $1
+        ORDER BY id`,
+      [id],
+    ),
+    query<{ body: string }>(
+      `SELECT body FROM recipe_step WHERE recipe_id = $1 ORDER BY seq`,
+      [id],
+    ),
+  ]);
+
+  if (rows.length === 0) return null;
+  return { ...rows[0], items, steps: steps.map((s) => s.body) };
+}

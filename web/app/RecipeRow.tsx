@@ -3,12 +3,13 @@
 /**
  * 레시피 한 줄 (지시서 3장)
  *
- * 행을 탭하면 `만들었어요` `레시피 열기` `별로였어요` 가 나온다.
+ * 행을 탭하면 `만들었어요` `만드는 법 보기` `별로였어요` 가 나온다.
  * `만들었어요` 는 **한 번에 끝나야 한다** — 탭하면 오늘로 바로 기록된다.
  * 길게 누르면 날짜를 고른다 (그날 체크 못 하고 다음날 하는 경우가 흔하고,
  * 초기 데이터를 채울 때 "두 달 전쯤" 이 필요하다).
  */
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { addToWeek, markBad, markCooked } from "./actions";
 import { usePickDay } from "./PickDay";
@@ -198,6 +199,18 @@ export default function RecipeRow({
                   다른 날에 만들었어요
                 </button>
 
+                {/*
+                  저장해둔 재료와 만드는 법을 읽는 자리. 캡처로 넣은 건
+                  원본 링크가 없어서, 이게 없으면 만드는 법을 다시 볼
+                  데가 아예 없다.
+                */}
+                <Link
+                  href={`/recipe/${id}`}
+                  className="ds-btn ds-btn-secondary ds-btn-block"
+                >
+                  만드는 법 보기
+                </Link>
+
                 {sourceUrl ? (
                   <a
                     className="ds-btn ds-btn-secondary ds-btn-block"
@@ -205,11 +218,9 @@ export default function RecipeRow({
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    레시피 열기
+                    원본 열기
                   </a>
-                ) : (
-                  <span className={`ds-btn ds-btn-secondary ds-btn-block ${styles.disabled}`}>링크가 없어요</span>
-                )}
+                ) : null}
 
                 <form action={markBad}>
                   <input type="hidden" name="id" value={id} />
