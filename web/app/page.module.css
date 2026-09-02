@@ -166,11 +166,18 @@
 /*
  * PC 에서는 목록을 두 줄로. 한 줄이 960px 이면 제목과 오른쪽 버튼이
  * 너무 멀어져서 어느 줄의 버튼인지 눈으로 좇아야 한다.
+ *
+ * **이미 반 칸에 들어간 목록에는 걸지 않는다** (식단의 "담을 것" 처럼).
+ * 거기서 또 나누면 한 칸이 220px 이 돼서 요리 이름이 세로로 쪼개진다.
  */
 @media (min-width: 900px) {
   .list {
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+
+  :global(.board) .list {
+    display: block;
   }
 
   /* 두 줄로 나뉘면 구분선이 어긋난다. 칸마다 다시 긋는다 */
@@ -188,5 +195,15 @@
 
   .list > li:nth-child(odd) {
     border-right: 1px solid var(--border);
+  }
+
+  /* 한 줄로 돌아왔으면 줄 사이 선도 원래대로 */
+  :global(.board) .list > li {
+    border-top: 0;
+    border-right: 0;
+  }
+
+  :global(.board) .list > li + li {
+    border-top: 1px solid var(--border);
   }
 }
