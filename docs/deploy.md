@@ -105,6 +105,18 @@ Connect 창이 보여주는 `NEXT_PUBLIC_SUPABASE_URL` 과 **값은 같다.**
 같은 화면의 **publishable 키(`sb_publishable_...`)가 아니다** — 그건 공개용이라
 RLS 에 막혀서 Storage 에 원본을 못 올린다.
 
+### 유튜브 설명란 읽기 (선택, 5분)
+
+없어도 앱은 돈다 — 유튜브 링크가 "제목만" 으로 처리될 뿐이다.
+넣으면 **설명란에 재료를 적어둔 영상**은 링크 하나로 레시피가 된다.
+
+[console.cloud.google.com](https://console.cloud.google.com) → 프로젝트 →
+**YouTube Data API v3** 사용 설정 → 사용자 인증 정보 → **API 키**.
+무료 할당량이 하루 10,000 units 이고 영상 하나 조회가 1 unit 이라 넉넉하다.
+
+자막은 안 쓴다 — 공식 API 의 자막 내려받기는 영상 주인만 되고, 비공식
+경로는 지시서 4장이 금지한 것이다.
+
 ---
 
 ## 2. Anthropic API 키 (5분)
@@ -132,6 +144,7 @@ Settings → Environment Variables 에 넣는다. **전부 Production·Preview �
 | `ANTHROPIC_API_KEY` | Anthropic 키 |
 | `SUPABASE_URL` | `https://<ref>.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase `service_role` 키 |
+| `YOUTUBE_API_KEY` | **선택.** 있으면 유튜브 링크에서 설명란을 읽는다 |
 
 **`NEXT_PUBLIC_` 을 붙이지 마라.** 붙는 순간 브라우저 번들에 실린다.
 전부 서버에서만 쓴다.

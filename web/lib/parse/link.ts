@@ -201,6 +201,29 @@ export async function readLink(u: URL): Promise<LinkRead> {
     };
   }
 
+  /*
+   * 유튜브는 **공식 API 를 먼저** 부른다 (YouTube Data API v3).
+   *
+   * 페이지를 긁어봐야 제목·썸네일뿐이라 어차피 API 로 가야 한다. 먼저
+   * 물어보면 페이지를 아예 안 열어도 되고, 레시피 채널이 설명란에
+   * 적어두는 재료를 링크 하나로 가져올 수 있다.
+   *
+   * 자막은 안 건드린다 — 공식 API 의 자막 내려받기는 영상 주인만 되고,
+   * 비공식 경로는 지시서 4장이 금지한 것이다. 키가 없으면 아무 일도
+   * 안 하고 예전처럼 "제목만" 으로 간다.
+   */
+  if (kind === "YOUTUBE") {
+    const said = await youtubeDescription(u);
+    if (said && said.body.length >= MIN_BODY_CHARS) {
+      return {
+        ok: true,
+        kind,
+        title: said.title,
+        text: `${said.title}\n\n${said.body}`.slice(0, 20000),
+      };
+    }
+  }
+
   if (!(await robotsAllows(u))) {
     return {
       ok: false,
@@ -248,14 +271,13 @@ export async function readLink(u: URL): Promise<LinkRead> {
   );
   const title = meta(html, "og:title", "twitter:title") ?? (tagTitle || null);
 
-  // 유튜브는 제목·썸네일뿐이다. 재료는 영상 안에 있어서 글로는 못 얻는다.
-  // 자막을 비공식 경로로 긁지 않는다 (지시서 4장).
   if (kind === "YOUTUBE") {
+    // 위에서 이미 API 를 물어봤다. 여기까지 왔으면 설명란에 재료가 없다.
     return {
       ok: false,
       kind,
       title,
-      why: "유튜브는 제목만 가져올 수 있어요. 재료는 캡처를 올려주세요.",
+      why: "유튜브는 제목만 가져올 수 있어요. 재료는 캡처나 영상을 올려주세요.",
     };
   }
 
@@ -274,4 +296,61 @@ export async function readLink(u: URL): Promise<LinkRead> {
 
   // 너무 길면 앞부분만. 레시피는 보통 페이지 위쪽에 있다.
   return { ok: true, kind, title, text: text.slice(0, 20000) };
+}
+
+
+/* ---------------------------------------------------------------- */
+/*  유튜브 설명란 (공식 API)                                          */
+/* ---------------------------------------------------------------- */
+
+/** watch?v= · youtu.be/ · /shorts/ 셋 다 영상 id 하나를 가리킨다 */
+function videoId(u: URL): string | null {
+  const host = u.hostname.toLowerCase();
+  if (/(^|\.)youtu\.be$/.test(host)) {
+    const id = u.pathname.slice(1).split("/")[0];
+    return id || null;
+  }
+  const v = u.searchParams.get("v");
+  if (v) return v;
+  const m = u.pathname.match(/\/(shorts|embed|live)\/([^/?#]+)/);
+  return m?.[2] ?? null;
+}
+
+/**
+ * 영상 설명란을 공식 API 로 받아온다.
+ *
+ * **긁는 게 아니라 정식 경로다** (YouTube Data API v3, videos.list).
+ * 키가 없으면 아무것도 안 한다 — 예전처럼 "제목만" 으로 돌아간다.
+ *
+ * 재료를 설명란에 적어두는 채널이 꽤 있다. 그런 영상은 링크 하나로
+ * 레시피가 되고, 아니면 지금까지처럼 캡처나 영상으로 넘어간다.
+ */
+async function youtubeDescription(
+  u: URL,
+): Promise<{ title: string; body: string } | null> {
+  const key = process.env.YOUTUBE_API_KEY;
+  const id = videoId(u);
+  if (!key || !id) return null;
+
+  const api = new URL(process.env.YOUTUBE_API_BASE ?? "https://www.googleapis.com/youtube/v3/videos");
+  api.searchParams.set("part", "snippet");
+  api.searchParams.set("id", id);
+  api.searchParams.set("key", key);
+
+  const res = await get(api.toString(), "application/json");
+  if (!res || !res.ok) return null;
+
+  try {
+    const body = (await res.json()) as {
+      items?: { snippet?: { title?: string; description?: string } }[];
+    };
+    const snippet = body.items?.[0]?.snippet;
+    if (!snippet) return null;
+    return {
+      title: (snippet.title ?? "").trim(),
+      body: (snippet.description ?? "").trim(),
+    };
+  } catch {
+    return null;
+  }
 }
