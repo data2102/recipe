@@ -21,7 +21,13 @@ import List from "../RecipeList";
 import PickDayProvider from "../PickDay";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
-import { counts, listCooked, listWish, type RecipeRow as Row } from "@/lib/recipes";
+import {
+  counts,
+  listCooked,
+  listWish,
+  type RecipeRow as Row,
+  type Sort,
+} from "@/lib/recipes";
 import { daysFrom, todayInput } from "@/lib/say";
 import {
   openList,
@@ -41,6 +47,25 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
+/*
+ * 정렬. 탭마다 기본이 다르다 — **그 탭의 추천 순서가 기본이다**
+ * (만든 것은 오래된 순, 만들기 전은 최근 추가순). 이름순은 "그거 어디
+ * 있더라" 로 찾을 때 쓴다.
+ *
+ * 기본값 이름을 탭마다 따로 적는 이유: 같은 "default" 라도 사람에게는
+ * 다른 순서라, 화면에 "기본" 이라고 쓰면 무슨 순서인지 알 수가 없다.
+ */
+const SORTS: Record<TabKey, { key: Sort; label: string }[]> = {
+  want: [
+    { key: "default", label: "최근 추가순" },
+    { key: "name", label: "가나다순" },
+  ],
+  done: [
+    { key: "default", label: "만든 지 오래된 순" },
+    { key: "name", label: "가나다순" },
+  ],
+};
+
 type Loaded =
   | { kind: "error"; message: string }
   | {
@@ -52,14 +77,14 @@ type Loaded =
       dates: string[];
     };
 
-async function load(tab: TabKey): Promise<Loaded> {
+async function load(tab: TabKey, sort: Sort): Promise<Loaded> {
   try {
     const n = await counts();
     // 이미 담은 것은 또 담을 게 없다 — 배지로 알린다
     const listId = await openList();
     const start = await weekStart();
     const [list, basket] = await Promise.all([
-      tab === "want" ? listWish() : listCooked(),
+      tab === "want" ? listWish(100, sort) : listCooked(100, sort),
       pickedRecipes(listId),
     ]);
     return {
@@ -87,7 +112,11 @@ export default async function RecipesPage({
   const raw = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const tab: TabKey = raw === "done" ? "done" : "want";
 
-  const data = await load(tab);
+  // 정렬은 주소에만 산다. 다음에 열면 다시 그 탭의 추천 순서다.
+  const rawSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
+  const sort: Sort = rawSort === "name" ? "name" : "default";
+
+  const data = await load(tab, sort);
   if (data.kind === "error") return <Broken message={data.message} />;
 
   return (
@@ -108,7 +137,7 @@ export default async function RecipesPage({
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={`/recipes?tab=${t.key}`}
+            href={`/recipes?tab=${t.key}${sort === "name" ? "&sort=name" : ""}`}
             className={`ds-tab ${t.key === tab ? "on" : ""}`}
             aria-current={t.key === tab ? "page" : undefined}
           >
@@ -116,6 +145,20 @@ export default async function RecipesPage({
           </Link>
         ))}
       </nav>
+
+      {/* 정렬. 목록이 길어지면 "그거 어디 있더라" 가 생긴다 */}
+      <div className={styles.sorts}>
+        {SORTS[tab].map((o) => (
+          <Link
+            key={o.key}
+            href={`/recipes?tab=${tab}${o.key === "name" ? "&sort=name" : ""}`}
+            className={`ds-chip ${o.key === sort ? "on" : ""}`}
+            aria-current={o.key === sort ? "true" : undefined}
+          >
+            {o.label}
+          </Link>
+        ))}
+      </div>
 
       <PickDayProvider dates={data.dates}>
         <List

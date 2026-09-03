@@ -59,6 +59,41 @@
   margin-top: 0;
 }
 
+/* 제목 오른쪽에 "다른 거 볼래요". 제목은 위쪽 여백을 그대로 쓴다 */
+.sectionRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+/*
+ * 담기와 경쟁하면 안 된다. 이건 "지금 나온 게 안 당길 때" 누르는
+ * 것이라 버튼이 아니라 글자로 둔다 (지시서 5장 — 파랑은 누를 수 있는 것에).
+ */
+.again {
+  flex: 0 0 auto;
+  font-size: var(--fs-caption);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.again::before {
+  content: "↻ ";
+}
+
+/* 정렬 고르기. 탭 바로 아래 한 줄 (app/recipes/page.tsx) */
+.sorts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 var(--sp-4);
+}
+
+.sorts a {
+  text-decoration: none;
+}
+
 /*
  * 섹션 안의 소제목. "담을 것" 하나 아래에 세 갈래를 둔다 —
  * 갈래마다 섹션 제목을 세우면 화면이 다시 길어진다.

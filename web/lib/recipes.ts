@@ -20,6 +20,29 @@ export type RecipeRow = {
 };
 
 /**
+ * 정렬. **기본은 그 탭의 추천 순서다** — 이름순은 "그거 어디 있더라" 로
+ * 찾을 때 쓰는 것이고, 정렬이 곧 추천이라는 규칙은 그대로다 (지시서 3장).
+ *
+ * 주소에만 산다 (`?sort=name`). 저장하지 않는다 — 다음에 열면 다시 추천 순.
+ */
+export type Sort = "default" | "name";
+
+/*
+ * 이름순은 그냥 `ORDER BY r.title` 이다. 한글 음절은 코드포인트 순서가
+ * 곧 가나다순이라 (초성-중성-종성 순으로 배열된 블록) 따로 collation 을
+ * 걸 필요가 없다.
+ */
+const WISH_ORDER: Record<Sort, string> = {
+  default: "r.created_at DESC, r.id DESC",
+  name: "r.title, r.id",
+};
+
+const COOKED_ORDER: Record<Sort, string> = {
+  default: "r.last_cooked_on ASC NULLS FIRST, r.id ASC",
+  name: "r.title, r.id",
+};
+
+/**
  * 재료 요약은 raw_name 을 쓴다. 사용자가 올린 그 표기 그대로 보여준다
  * (원칙 ①: 원문을 덮어쓰지 않는다). ingredient_id 는 화면에 안 나온다.
  */
@@ -37,12 +60,12 @@ const SELECT_ROW = `
          ), '{}') AS ingredients
     FROM recipe r`;
 
-/** 탭 1 — 아직 만들기 전. 최근 저장 순 */
-export function listWish(limit = 100) {
+/** 탭 1 — 아직 만들기 전. 기본은 최근 저장 순 */
+export function listWish(limit = 100, sort: Sort = "default") {
   return query<RecipeRow>(
     `${SELECT_ROW}
       WHERE r.status = 'WISH'
-      ORDER BY r.created_at DESC
+      ORDER BY ${WISH_ORDER[sort] ?? WISH_ORDER.default}
       LIMIT $1`,
     [limit],
   );
@@ -52,11 +75,11 @@ export function listWish(limit = 100) {
  * 탭 2 — 최근 만든 것. **오래된 순으로 정렬한다.**
  * 이 정렬이 곧 추천이다 (지시서 3장). 뒤집지 마라.
  */
-export function listCooked(limit = 100) {
+export function listCooked(limit = 100, sort: Sort = "default") {
   return query<RecipeRow>(
     `${SELECT_ROW}
       WHERE r.status = 'GOOD'
-      ORDER BY r.last_cooked_on ASC NULLS FIRST, r.id ASC
+      ORDER BY ${COOKED_ORDER[sort] ?? COOKED_ORDER.default}
       LIMIT $1`,
     [limit],
   );
@@ -80,15 +103,36 @@ export function listCooked(limit = 100) {
  * 30일이 안 된 게 없으면 위쪽은 빈다. 아래 목록과 이번 주 식단이 항상
  * 있으니 화면이 통째로 비지는 않는다.
  */
-export async function suggest() {
-  const [old, fresh] = await Promise.all([
+const SHOW_OLD = 3;
+const SHOW_FRESH = 2;
+/** 돌려 볼 수 있는 범위. 이보다 뒤는 추천이라기엔 너무 멀다 */
+const POOL = 30;
+
+/**
+ * 목록을 `start` 번째부터 n 개, **끝에 닿으면 처음으로 돌아온다.**
+ *
+ * 페이지 넘기기가 아니라 돌리기다 — 마지막 장에서 빈 화면이 나오면
+ * 버튼이 고장난 것처럼 보인다. 후보가 적으면 같은 게 다시 나오는데,
+ * 그건 "더 이상 다른 게 없다" 는 뜻이라 맞는 동작이다.
+ */
+function rotate<T>(list: T[], start: number, n: number): T[] {
+  if (list.length === 0) return [];
+  const from = ((start % list.length) + list.length) % list.length;
+  return Array.from(
+    { length: Math.min(n, list.length) },
+    (_, i) => list[(from + i) % list.length],
+  );
+}
+
+export async function suggest(again = 0) {
+  const [oldPool, freshPool] = await Promise.all([
     query<RecipeRow>(
       `${SELECT_ROW}
         WHERE r.status = 'GOOD'
           AND r.last_cooked_on IS NOT NULL
           AND CURRENT_DATE - r.last_cooked_on >= $1
         ORDER BY r.last_cooked_on ASC, r.id ASC
-        LIMIT 3`,
+        LIMIT ${POOL}`,
       [SUGGEST_AFTER_DAYS],
     ),
     query<RecipeRow>(
@@ -96,10 +140,16 @@ export async function suggest() {
         WHERE r.last_cooked_on IS NULL
           AND r.status <> 'BAD'
         ORDER BY r.created_at DESC
-        LIMIT 2`,
+        LIMIT ${POOL}`,
     ),
   ]);
-  return { old, fresh };
+
+  return {
+    old: rotate(oldPool, again * SHOW_OLD, SHOW_OLD),
+    fresh: rotate(freshPool, again * SHOW_FRESH, SHOW_FRESH),
+    /** 다음에 보여줄 게 남아 있는가. 없으면 "다른 거" 를 안 낸다 */
+    more: oldPool.length > SHOW_OLD || freshPool.length > SHOW_FRESH,
+  };
 }
 
 export async function counts() {

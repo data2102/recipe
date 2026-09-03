@@ -57,12 +57,18 @@ type Loaded =
       plan: Planned[];
       /** 보고 있는 주가 며칠부터인가 (`YYYY-MM-DD`) */
       start: string;
+      /** 추천에 아직 안 보여준 게 남아 있는가 */
+      more: boolean;
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
-async function load(have: Have, which: Which): Promise<Loaded> {
+async function load(
+  have: Have,
+  which: Which,
+  again: number,
+): Promise<Loaded> {
   try {
-    const { old, fresh } = await suggest();
+    const { old, fresh, more } = await suggest(again);
     // 그 주가 며칠부터인지 (lib/shopping.ts weekStart). 요일을 날짜로
     // 바꿔 적는 데 쓰고, 담아둔 요리의 날짜도 여기서 계산된다.
     const start = await weekStart(which);
@@ -81,6 +87,7 @@ async function load(have: Have, which: Which): Promise<Loaded> {
       basket,
       plan,
       start,
+      more,
     };
   } catch (e) {
     return {
@@ -110,7 +117,17 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const which: Which = raw === "this" ? "this" : "next";
   const next = which === "next";
 
-  const data = await load(have, which);
+  /*
+    추천을 몇 번 넘겼나. **주소에만 산다** — 다음에 열면 다시 처음부터다.
+
+    "당분간 이건 먹기 싫다" 를 DB 에 적지 않는 이유: 언제까지 싫은지
+    사람도 모른다. 지금 화면에서 넘기는 것으로 충분하고, 영영 싫으면
+    레시피 줄에서 지운다 (RecipeRow 의 "별로였어요").
+  */
+  const againRaw = Array.isArray(params.again) ? params.again[0] : params.again;
+  const again = Math.max(0, Math.min(999, Number(againRaw) || 0));
+
+  const data = await load(have, which, again);
   if (data.kind === "error") return <Broken message={data.message} />;
 
   /*
@@ -139,6 +156,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     else u.delete("week");
     return u.toString() ? `/?${u}` : "/";
   };
+
+  // 다음 추천 묶음. 보고 있는 주와 냉장고 재료는 그대로 들고 간다.
+  const againLink = (() => {
+    const u = new URLSearchParams(keep);
+    if (!next) u.set("week", "this");
+    u.set("again", String(again + 1));
+    return `/?${u}`;
+  })();
 
   return (
     <main className="shell">
@@ -208,7 +233,19 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           하나 더 얹자는 것이다. 소제목은 작게 둔다. 셋 다 "담을 것" 이라
           섹션을 세 개로 세우면 화면이 다시 길어진다.
         */}
-        <h2 className={styles.section}>담을 것</h2>
+        <div className={styles.sectionRow}>
+          <h2 className={styles.section}>담을 것</h2>
+          {/*
+            지금 나온 게 안 당길 수도 있다. 그렇다고 만들 때까지 같은
+            셋이 계속 붙어 있으면 화면이 굳는다 — 다음 것으로 넘긴다.
+            끝에 닿으면 처음으로 돌아온다 (lib/recipes.ts rotate).
+          */}
+          {data.more && (
+            <Link href={againLink} className={styles.again} scroll={false}>
+              다른 거 볼래요
+            </Link>
+          )}
+        </div>
 
         <p className={styles.group}>오랜만에 어때요</p>
         <List
