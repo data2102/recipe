@@ -105,25 +105,43 @@ export function listCooked(limit = 100, sort: Sort = "default") {
  */
 const SHOW_OLD = 3;
 const SHOW_FRESH = 2;
+const PER_PAGE = SHOW_OLD + SHOW_FRESH;
 /** 돌려 볼 수 있는 범위. 이보다 뒤는 추천이라기엔 너무 멀다 */
-const POOL = 30;
+const POOL = 60;
 
 /**
- * 목록을 `start` 번째부터 n 개, **끝에 닿으면 처음으로 돌아온다.**
+ * 두 후보 줄을 한 줄로 엮는다 — 오랜만에 3, 아직 안 만들어본 것 2, 다시 3, 2 …
  *
- * 페이지 넘기기가 아니라 돌리기다 — 마지막 장에서 빈 화면이 나오면
- * 버튼이 고장난 것처럼 보인다. 후보가 적으면 같은 게 다시 나오는데,
- * 그건 "더 이상 다른 게 없다" 는 뜻이라 맞는 동작이다.
+ * **한 쪽이 먼저 바닥나면 남은 쪽이 그 자리를 채운다.** 이게 핵심이다:
+ * "오랜만에" 후보는 보통 몇 개뿐이라 (만든 적 있고 + 30일이 지나야 한다)
+ * 각자 자기 풀에서만 돌리면 위쪽 세 줄이 눌러도 눌러도 그대로 남는다.
+ * 실제로 "레시피가 많이 없는 게 아닌데 계속 똑같은 게 반복" 됐다.
  */
-function rotate<T>(list: T[], start: number, n: number): T[] {
-  if (list.length === 0) return [];
-  const from = ((start % list.length) + list.length) % list.length;
-  return Array.from(
-    { length: Math.min(n, list.length) },
-    (_, i) => list[(from + i) % list.length],
-  );
+function weave<T>(a: T[], b: T[], na: number, nb: number): T[] {
+  const out: T[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length || j < b.length) {
+    const before = out.length;
+    for (let k = 0; k < na && i < a.length; k++) out.push(a[i++]);
+    for (let k = 0; k < nb && j < b.length; k++) out.push(b[j++]);
+    if (out.length === before) break; // 둘 다 비었다 — 안전장치
+  }
+  return out;
 }
 
+/**
+ * 담을 것 추천. `again` 번 넘긴 상태로 낸다.
+ *
+ * **겹치지 않게 넘긴다.** 예전에는 각 목록을 제자리에서 돌렸는데
+ * (후보 5개에 3칸이면 0·1·2 → 3·4·0), 넘길 때마다 방금 본 게 한둘씩
+ * 딸려 와서 "또 같은 거" 로 보였다. 이제 한 줄로 엮어 5개씩 자른다 —
+ * **한 바퀴 도는 동안 같은 요리가 두 번 나오지 않는다.**
+ *
+ * 끝에 닿으면 처음으로 돌아온다. 마지막 장에서 빈 화면이 나오면 버튼이
+ * 고장난 것처럼 보인다 — 대신 몇 번째 장인지 같이 내서, 다시 처음이라는
+ * 걸 화면이 말한다 (app/page.tsx).
+ */
 export async function suggest(again = 0) {
   const [oldPool, freshPool] = await Promise.all([
     query<RecipeRow>(
@@ -144,11 +162,19 @@ export async function suggest(again = 0) {
     ),
   ]);
 
+  const line = weave(oldPool, freshPool, SHOW_OLD, SHOW_FRESH);
+  const pages = Math.max(1, Math.ceil(line.length / PER_PAGE));
+  const page = ((again % pages) + pages) % pages;
+  const shown = line.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
+
+  // 어느 갈래에서 왔는지로 다시 가른다. 화면은 두 소제목으로 나눠 낸다.
+  const fromOld = new Set(oldPool.map((r) => r.id));
   return {
-    old: rotate(oldPool, again * SHOW_OLD, SHOW_OLD),
-    fresh: rotate(freshPool, again * SHOW_FRESH, SHOW_FRESH),
-    /** 다음에 보여줄 게 남아 있는가. 없으면 "다른 거" 를 안 낸다 */
-    more: oldPool.length > SHOW_OLD || freshPool.length > SHOW_FRESH,
+    old: shown.filter((r) => fromOld.has(r.id)),
+    fresh: shown.filter((r) => !fromOld.has(r.id)),
+    /** 몇 번째 장인가 (0부터) · 전부 몇 장인가. 넘길 게 없으면 pages 가 1 */
+    page,
+    pages,
   };
 }
 

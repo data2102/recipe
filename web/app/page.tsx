@@ -57,8 +57,9 @@ type Loaded =
       plan: Planned[];
       /** 보고 있는 주가 며칠부터인가 (`YYYY-MM-DD`) */
       start: string;
-      /** 추천에 아직 안 보여준 게 남아 있는가 */
-      more: boolean;
+      /** 추천 몇 번째 장인가 (0부터) · 전부 몇 장인가 */
+      page: number;
+      pages: number;
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
@@ -68,7 +69,7 @@ async function load(
   again: number,
 ): Promise<Loaded> {
   try {
-    const { old, fresh, more } = await suggest(again);
+    const { old, fresh, page, pages } = await suggest(again);
     // 그 주가 며칠부터인지 (lib/shopping.ts weekStart). 요일을 날짜로
     // 바꿔 적는 데 쓰고, 담아둔 요리의 날짜도 여기서 계산된다.
     const start = await weekStart(which);
@@ -87,7 +88,8 @@ async function load(
       basket,
       plan,
       start,
-      more,
+      page,
+      pages,
     };
   } catch (e) {
     return {
@@ -238,36 +240,59 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           {/*
             지금 나온 게 안 당길 수도 있다. 그렇다고 만들 때까지 같은
             셋이 계속 붙어 있으면 화면이 굳는다 — 다음 것으로 넘긴다.
-            끝에 닿으면 처음으로 돌아온다 (lib/recipes.ts rotate).
+
+            **한 바퀴 도는 동안 같은 요리가 두 번 안 나온다**
+            (lib/recipes.ts suggest). 마지막 장에서는 다음이 처음이라고
+            글자로 말한다 — 안 그러면 방금 본 게 또 나와서 고장으로 읽힌다.
           */}
-          {data.more && (
+          {data.pages > 1 && (
             <Link href={againLink} className={styles.again} scroll={false}>
-              다른 거 볼래요
+              {data.page === data.pages - 1 ? "처음부터 다시" : "다른 거 볼래요"}
             </Link>
           )}
         </div>
 
-        <p className={styles.group}>오랜만에 어때요</p>
-        <List
-          list={data.old}
-          today={today}
-          mode="cooked"
-          empty="만든 지 30일 지난 요리가 여기 나와요."
-          pick="add"
-          inBasket={inBasket}
-          week={which}
-        />
+        {/*
+          한 장에 다섯이고, 한 갈래가 바닥나면 나머지가 그 자리를 채운다.
+          그래서 장을 넘기다 보면 한 갈래가 빌 수 있다 — 그때는 소제목까지
+          같이 뺀다. 빈 줄이 남으면 넘길 때마다 화면이 덜컹인다.
+        */}
+        {data.old.length > 0 && (
+          <>
+            <p className={styles.group}>오랜만에 어때요</p>
+            <List
+              list={data.old}
+              today={today}
+              mode="cooked"
+              empty="만든 지 30일 지난 요리가 여기 나와요."
+              pick="add"
+              inBasket={inBasket}
+              week={which}
+            />
+          </>
+        )}
 
-        <p className={styles.group}>아직 안 만들어본 것</p>
-        <List
-          list={data.fresh}
-          today={today}
-          mode="wish"
-          empty="아직 안 만들어본 게 없어요."
-          pick="add"
-          inBasket={inBasket}
-          week={which}
-        />
+        {data.fresh.length > 0 && (
+          <>
+            <p className={styles.group}>아직 안 만들어본 것</p>
+            <List
+              list={data.fresh}
+              today={today}
+              mode="wish"
+              empty="아직 안 만들어본 게 없어요."
+              pick="add"
+              inBasket={inBasket}
+              week={which}
+            />
+          </>
+        )}
+
+        {/* 둘 다 비었다 = 담을 만한 게 아예 없다. 다음 할 일을 적는다 */}
+        {data.old.length === 0 && data.fresh.length === 0 && (
+          <div className={`ds-empty ${styles.empty}`}>
+            <p>레시피를 넣으면 여기서 추천해드려요.</p>
+          </div>
+        )}
 
         {/*
           여기 나오는 건 추천이라 몇 개뿐이다. 오늘 먹고 싶은 게 그 안에
