@@ -137,10 +137,16 @@ export default async function ShoppingPage({
   const flat = new URLSearchParams(q);
   flat.set("view", "merged");
 
-  // 주 바꾸기는 보기(요리별/합쳐서)를 그대로 들고 간다
+  /*
+    주 바꾸기는 보기(요리별/합쳐서)를 그대로 들고 간다.
+
+    **기본이 다음 주라 `?week=` 가 없으면 다음 주다** — "이번 주" 는 반드시
+    `?week=this` 를 붙여야 한다. 안 붙이면 눌러도 같은 화면이라 아무 일도
+    안 일어난다 (app/page.tsx 도 같은 규칙).
+  */
   const weekLink = (to: Which) => {
     const u = new URLSearchParams(q);
-    if (to === "next") u.set("week", "next");
+    if (to === "this") u.set("week", "this");
     else u.delete("week");
     if (merged) u.set("view", "merged");
     return u.toString() ? `/shopping?${u}` : "/shopping";

@@ -126,10 +126,19 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const nextStart = addDays(thisStart, 7);
 
   const inBasket = new Set(data.basket.map((r) => r.id));
+  /*
+    주 바꾸기 링크. **기본이 다음 주라 `?week=` 가 없으면 다음 주다** —
+    그래서 "이번 주" 는 반드시 `?week=this` 를 붙여야 한다. 예전에는
+    기본이 이번 주였어서 여기가 그냥 "/" 였고, 기본을 뒤집은 뒤로는
+    눌러도 같은 화면으로 돌아와 **아무 일도 안 일어났다.**
+  */
   const keep = haveParams(have);
-  const hereThis = keep.toString() ? `/?${keep}` : "/";
-  const there = new URLSearchParams(keep);
-  there.set("week", "next");
+  const weekLink = (to: Which) => {
+    const u = new URLSearchParams(keep);
+    if (to === "this") u.set("week", "this");
+    else u.delete("week");
+    return u.toString() ? `/?${u}` : "/";
+  };
 
   return (
     <main className="shell">
@@ -150,14 +159,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       */}
       <nav className={`ds-tabs ${styles.tabs}`}>
         <Link
-          href={hereThis}
+          href={weekLink("this")}
           className={`ds-tab ${next ? "" : "on"}`}
           aria-current={next ? undefined : "page"}
         >
           이번 주 {dateTiny(thisStart)}~{dateTiny(addDays(thisStart, 6))}
         </Link>
         <Link
-          href={`/?${there}`}
+          href={weekLink("next")}
           className={`ds-tab ${next ? "on" : ""}`}
           aria-current={next ? "page" : undefined}
         >
