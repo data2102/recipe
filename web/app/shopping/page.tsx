@@ -25,8 +25,9 @@ import {
   openList,
   picked as pickedRecipes,
   weekStart,
+  type Which,
 } from "@/lib/shopping";
-import { dateRange, daysFrom } from "@/lib/say";
+import { addDays, dateRange, dateTiny, daysFrom } from "@/lib/say";
 import { JUST_HOURS, justClosed, type PastWeek } from "@/lib/weeks";
 import { reopenWeek } from "../actions";
 import styles from "../page.module.css";
@@ -45,15 +46,18 @@ type Loaded =
       groups: Awaited<ReturnType<typeof recipeGroups>>;
       /** 방금 끝낸 장보기. 되돌릴 수 있게 눈앞에 낸다 */
       closed: PastWeek | null;
-      /** 이번 주 날짜 일곱 개. 요리에 적힌 요일을 날짜로 바꿔 적는다 */
+      /** 그 주 날짜 일곱 개. 요리에 적힌 요일을 날짜로 바꿔 적는다 */
       dates: string[];
     };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
-async function load(have: ReturnType<typeof parseHave>): Promise<Loaded> {
+async function load(
+  have: ReturnType<typeof parseHave>,
+  which: Which,
+): Promise<Loaded> {
   try {
-    const listId = await openList();
-    const start = await weekStart();
+    const listId = await openList(false, which);
+    const start = await weekStart(which);
     // items() 가 shopping_item 을 다시 쓴다. groups() 는 그 결과를 읽는
     // 게 아니라 같은 이름을 따로 만들 뿐이라 순서는 상관없다.
     const [basket, cart, groups] = await Promise.all([
@@ -106,11 +110,26 @@ export default async function ShoppingPage({
   */
   const raw = Array.isArray(params.view) ? params.view[0] : params.view;
   const merged = raw === "merged";
+
+  /*
+    어느 주의 장을 보는가. **기본은 다음 주다** — 식단 화면과 같은
+    기본값이라야 두 화면이 같은 주를 본다 (app/page.tsx). 이번 주에
+    다음 주 먹을 걸 정하고 주말에 그 장을 본다.
+
+    "장보기 끝" 은 어느 쪽을 보고 있든 하는 일이 같다: 이번 주를 닫고
+    다음 주를 이번 주로 올린다 (lib/shopping.ts finish). 다음 주 장을
+    보고 끝냈다면, 방금 산 그 주가 이번 주가 된다.
+  */
+  const rawWeek = Array.isArray(params.week) ? params.week[0] : params.week;
+  const which: Which = rawWeek === "this" ? "this" : "next";
+  const next = which === "next";
+
   const q = new URLSearchParams();
   if (params.have) q.set("have", String(params.have));
   if (params.haveRaw) q.set("haveRaw", String(params.haveRaw));
+  if (next) q.set("week", "next");
 
-  const data = await load(have);
+  const data = await load(have, which);
   if (data.kind === "error") return <Broken message={data.message} />;
 
   const buy = data.cart.filter((i) => !i.checked).length;
@@ -118,10 +137,21 @@ export default async function ShoppingPage({
   const flat = new URLSearchParams(q);
   flat.set("view", "merged");
 
+  // 주 바꾸기는 보기(요리별/합쳐서)를 그대로 들고 간다
+  const weekLink = (to: Which) => {
+    const u = new URLSearchParams(q);
+    if (to === "next") u.set("week", "next");
+    else u.delete("week");
+    if (merged) u.set("view", "merged");
+    return u.toString() ? `/shopping?${u}` : "/shopping";
+  };
+  const thisStart = next ? addDays(data.dates[0], -7) : data.dates[0];
+  const nextStart = addDays(thisStart, 7);
+
   return (
     <main className="shell">
       <header className={styles.head}>
-        <h1 className={styles.title}>장보기</h1>
+        <h1 className={styles.title}>{next ? "다음 주 장보기" : "이번 주 장보기"}</h1>
         <p className={styles.sub}>
           {dateRange(data.dates[0], data.dates[6])} ·{" "}
           {data.cart.length === 0
@@ -151,6 +181,26 @@ export default async function ShoppingPage({
         </section>
       )}
 
+      {/*
+        어느 주의 장인가. 식단 화면과 같은 자리, 같은 이름이다.
+      */}
+      <nav className={`ds-tabs ${styles.tabs}`}>
+        <Link
+          href={weekLink("this")}
+          className={`ds-tab ${next ? "" : "on"}`}
+          aria-current={next ? undefined : "page"}
+        >
+          이번 주 {dateTiny(thisStart)}~{dateTiny(addDays(thisStart, 6))}
+        </Link>
+        <Link
+          href={weekLink("next")}
+          className={`ds-tab ${next ? "on" : ""}`}
+          aria-current={next ? "page" : undefined}
+        >
+          다음 주 {dateTiny(nextStart)}~{dateTiny(addDays(nextStart, 6))}
+        </Link>
+      </nav>
+
       <h2 className={styles.section}>집에 있는 재료 (선택)</h2>
       <Fridge chips={data.chips} have={have} />
 
@@ -177,19 +227,22 @@ export default async function ShoppingPage({
           PC 에서는 목록이 두 칸으로 벌어진다 (globals.css 의 .board) */}
       {data.cart.length > 0 ? (
         merged ? (
-          <Shopping items={data.cart} />
+          <Shopping items={data.cart} week={which} />
         ) : (
           <ShoppingByRecipe
             groups={data.groups}
             items={data.cart}
             dates={data.dates}
+            week={which}
           />
         )
       ) : (
         <Empty>
           {data.basket.length > 0
             ? "담은 요리에 재료가 아직 안 붙어 있어요."
-            : "식단에서 요리를 담으면 살 것을 합쳐서 보여드려요."}
+            : next
+              ? "식단에서 다음 주에 담으면 살 것을 합쳐서 보여드려요."
+              : "식단에서 요리를 담으면 살 것을 합쳐서 보여드려요."}
         </Empty>
       )}
     </main>

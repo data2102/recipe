@@ -28,6 +28,7 @@ export default function ShoppingByRecipe({
   groups,
   items,
   dates,
+  week = "this",
 }: {
   groups: RecipeGroup[];
   items: ShoppingItem[];
@@ -36,6 +37,8 @@ export default function ShoppingByRecipe({
    * 마트에서 "그게 며칠이더라" 를 다시 세게 된다.
    */
   dates: string[];
+  /** 어느 주의 장인가. 체크가 그 주 목록에 걸린다 (app/shopping/page.tsx) */
+  week?: "this" | "next";
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const [, startTransition] = useTransition();
@@ -55,6 +58,7 @@ export default function ShoppingByRecipe({
       const form = new FormData();
       form.set("label", item.label);
       form.set("checked", checked ? "1" : "0");
+      form.set("week", week);
       await toggleItem(form);
     });
   }

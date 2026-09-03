@@ -12,7 +12,7 @@
  * 수량은 묻지 않는다. 있냐 없냐만.
  */
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { atHome, type Chip, type Have } from "@/lib/fridge.types";
 import styles from "./Fridge.module.css";
@@ -25,6 +25,12 @@ export default function Fridge({
   have: Have;
 }) {
   const router = useRouter();
+  /*
+    **지금 있는 화면에 머문다.** 예전에는 "/" 로 못박혀 있어서, 장보기에서
+    칩을 하나 누르면 식단 탭으로 튕겨 나갔다. 칩은 장보기에만 있지만
+    (거기가 답을 쓰는 자리다) 주소는 그 화면 것이어야 한다.
+  */
+  const here = usePathname();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
 
@@ -50,14 +56,14 @@ export default function Fridge({
     else q.delete("have");
     if (names.size > 0) q.set("haveRaw", [...names].join(","));
     else q.delete("haveRaw");
-    startTransition(() => router.replace(`/?${q}`, { scroll: false }));
+    startTransition(() => router.replace(`${here}?${q}`, { scroll: false }));
   }
 
   function clear() {
     const q = new URLSearchParams(params.toString());
     q.delete("have");
     q.delete("haveRaw");
-    startTransition(() => router.replace(`/?${q}`, { scroll: false }));
+    startTransition(() => router.replace(`${here}?${q}`, { scroll: false }));
   }
 
   // 담은 게 없으면 물어볼 재료도 없다. 사과 말고 다음 할 일을 알려준다.

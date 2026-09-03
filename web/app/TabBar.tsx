@@ -10,6 +10,9 @@
  * (거기가 답을 쓰는 자리다) 식단도 그 값을 읽어서 "다 있어요" 를 낸다.
  * 주소에만 사는 값이라 (지시서 6장) 화면을 옮길 때 같이 옮겨줘야 한다.
  *
+ * **보고 있는 주(`?week=`)도 같이 간다.** 식단에서 이번 주를 보다가
+ * 장보기로 넘어갔는데 거기가 다음 주면, 화면 둘이 서로 다른 주를 말한다.
+ *
  * 레시피 추가·상세처럼 "들어갔다 나오는" 화면에서는 숨는다. 거기서는
  * 하던 일을 끝내는 게 먼저고, 탭바가 있으면 빠져나가는 문이 두 개가 된다.
  */
@@ -32,7 +35,7 @@ export default function TabBar() {
   if (HIDE_ON.some((p) => path === p || path.startsWith(`${p}/`))) return null;
 
   const carry = new URLSearchParams();
-  for (const key of ["have", "haveRaw"]) {
+  for (const key of ["have", "haveRaw", "week"]) {
     const v = params.get(key);
     if (v) carry.set(key, v);
   }

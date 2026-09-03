@@ -50,12 +50,15 @@ export default function RecipeRow({
   const picker = usePickDay();
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
+  /** "별로였어요" 는 이제 **지운다.** 되돌릴 수 없어서 한 번 더 묻는다 */
+  const [dropping, setDropping] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
 
   function close() {
     setOpen(false);
     setPicking(false);
+    setDropping(false);
   }
 
   function pressStart() {
@@ -143,7 +146,30 @@ export default function RecipeRow({
             <h2 className={styles.sheetTitle}>{title}</h2>
             <p className={styles.sheetSub}>{meta}</p>
 
-            {picking ? (
+            {dropping ? (
+              <div className={styles.actions}>
+                <p className={styles.sheetSub}>
+                  이 레시피를 지울게요. 재료·만드는 법·만든 기록까지 같이
+                  사라지고 되돌릴 수 없어요.
+                </p>
+                <form action={markBad}>
+                  <input type="hidden" name="id" value={id} />
+                  <button
+                    type="submit"
+                    className="ds-btn ds-btn-primary ds-btn-block"
+                  >
+                    지울게요
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="ds-btn ds-btn-secondary ds-btn-block"
+                  onClick={() => setDropping(false)}
+                >
+                  돌아가기
+                </button>
+              </div>
+            ) : picking ? (
               <form action={markCooked} className={styles.pickForm}>
                 <input type="hidden" name="id" value={id} />
                 <div className="ds-field">
@@ -226,12 +252,13 @@ export default function RecipeRow({
                   </a>
                 ) : null}
 
-                <form action={markBad}>
-                  <input type="hidden" name="id" value={id} />
-                  <button type="submit" className="ds-btn ds-btn-secondary ds-btn-block">
-                    별로였어요
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  className="ds-btn ds-btn-secondary ds-btn-block"
+                  onClick={() => setDropping(true)}
+                >
+                  별로였어요 (지울게요)
+                </button>
               </div>
             )}
 

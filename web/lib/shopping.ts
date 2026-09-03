@@ -139,7 +139,13 @@ export async function removeRecipe(
  * 그래서 이 SQL 은 schema.sql 의 (3)번과 계속 같은 모양으로 남는다.
  */
 const NEED_SQL = `
-WITH picked AS (
+WITH today AS (
+    -- **한국 기준 오늘.** CURRENT_DATE 는 서버 시계(UTC)라, 한국 새벽
+    -- 0~9시에 체크하면 "오늘 샀어요" 가 "어제 샀어요" 로 나온다.
+    -- 하루 차이가 그대로 문장이 되는 자리라 여기는 시간대를 맞춘다.
+    SELECT (now() AT TIME ZONE 'Asia/Seoul')::date AS d
+),
+picked AS (
     -- 택1 그룹에서 살 것 하나만 고른다. 고른 게 있으면 그것,
     -- 아무도 안 골랐으면 첫 번째. 하나도 안 사면 요리를 못 한다.
     SELECT DISTINCT ON (ri.recipe_id, ri.choice_group) ri.id
@@ -169,20 +175,21 @@ need AS (
 SELECT n.ingredient_id, n.raw_key, n.label,
        CASE
          WHEN p.purchased_on IS NULL                      THEN 'BUY'
-         WHEN CURRENT_DATE - p.purchased_on
+         WHEN t.d - p.purchased_on
               > COALESCE(i.shelf_life_days, 7)            THEN 'BUY'
-         WHEN CURRENT_DATE - p.purchased_on
+         WHEN t.d - p.purchased_on
               > COALESCE(i.shelf_life_days, 7) / 2        THEN 'CHECK'
          ELSE 'HAVE'
        END AS bucket,
        CASE WHEN p.purchased_on IS NOT NULL THEN
-         CASE CURRENT_DATE - p.purchased_on
+         CASE t.d - p.purchased_on
            WHEN 0 THEN '오늘 샀어요'
            WHEN 1 THEN '어제 샀어요'
-           ELSE (CURRENT_DATE - p.purchased_on) || '일 전에 샀어요'
+           ELSE (t.d - p.purchased_on) || '일 전에 샀어요'
          END
        END AS reason
   FROM need n
+  CROSS JOIN today t
   LEFT JOIN ingredient i ON i.id = n.ingredient_id
   LEFT JOIN LATERAL (
        SELECT purchased_on FROM purchase
@@ -332,8 +339,12 @@ export async function groups(listId: number | null): Promise<RecipeGroup[]> {
  * 사전에 못 붙인 항목은 `ingredient_id` 가 없어서 기록을 못 남긴다.
  * 추측해서 붙이지 않는다 — 사전에 들어와야 추적이 시작된다.
  */
-export async function toggle(label: string, checked: boolean): Promise<void> {
-  const listId = await openList();
+export async function toggle(
+  label: string,
+  checked: boolean,
+  which: Which = "this",
+): Promise<void> {
+  const listId = await openList(false, which);
   if (!listId) return;
 
   await tx(async (q) => {
@@ -348,12 +359,15 @@ export async function toggle(label: string, checked: boolean): Promise<void> {
     for (const r of rows) {
       if (r.ingredient_id === null) continue;
       // 같은 날 두 번 체크해도 기록은 하나다.
+      // 날짜는 **한국 기준**으로 적는다 (lib/say.ts TZ). CURRENT_DATE 는
+      // 서버 시계(UTC)라, 한국 새벽에 체크한 게 어제 산 것으로 남는다.
       await q(
         `INSERT INTO purchase (ingredient_id, purchased_on, source)
-         SELECT $1, CURRENT_DATE, 'CHECKOFF'
+         SELECT $1, (now() AT TIME ZONE 'Asia/Seoul')::date, 'CHECKOFF'
           WHERE NOT EXISTS (
             SELECT 1 FROM purchase
-             WHERE ingredient_id = $1 AND purchased_on = CURRENT_DATE)`,
+             WHERE ingredient_id = $1
+               AND purchased_on = (now() AT TIME ZONE 'Asia/Seoul')::date)`,
         [r.ingredient_id],
       );
     }
@@ -379,11 +393,27 @@ export async function finish(): Promise<void> {
         WHERE id = $1`,
       [open[0].id],
     );
-    // 미리 짜둔 다음 주가 있으면 승격. 없으면 아무 일도 안 한다.
+    /*
+      미리 짜둔 다음 주가 있으면 승격. 없으면 아무 일도 안 한다.
+
+      **시작일을 방금 닫은 주 다음 이레로 옮겨 적는다.** 이 앱에서
+      `created_at` 은 "이 주가 시작한 날" 이다 (weekStart). 만들어진 시각을
+      그대로 두면, 수요일에 미리 짠 다음 주가 승격되는 순간 9/7~9/13 이
+      9/2~9/8 로 **한 주 뒤로 밀린다** — 화요일에 먹기로 한 게 갑자기
+      지난 화요일이 된다. 요일만 보여줄 때는 안 보이던 어긋남이다.
+
+      되돌리기(lib/weeks.ts reopen)는 이 값을 안 건드려도 된다. 다시 NEXT
+      로 내려가도 "닫힌 주 다음 이레" 라는 뜻은 그대로 맞다.
+    */
     await q(
-      `UPDATE shopping_list SET status = 'OPEN'
-        WHERE id = (SELECT id FROM shopping_list WHERE status = 'NEXT'
-                     ORDER BY id ASC LIMIT 1)`,
+      `UPDATE shopping_list nx
+          SET status = 'OPEN',
+              created_at = prev.created_at + interval '7 days'
+         FROM shopping_list prev
+        WHERE prev.id = $1
+          AND nx.id = (SELECT id FROM shopping_list WHERE status = 'NEXT'
+                        ORDER BY id ASC LIMIT 1)`,
+      [open[0].id],
     );
   });
 }

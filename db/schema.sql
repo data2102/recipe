@@ -261,7 +261,12 @@ CREATE TABLE shopping_item (
 --     구매 이력 + 대략적인 유통기한으로 BUY/CHECK/HAVE 를 가른다.
 --     확신이 없으면 CHECK 로 보내고 판정을 사용자에게 넘긴다.
 --
--- WITH picked AS (
+-- WITH today AS (
+--     -- **한국 기준 오늘.** CURRENT_DATE 는 서버 시계(UTC)라, 한국 새벽
+--     -- 0~9시에 체크하면 "오늘 샀어요" 가 "어제 샀어요" 로 나온다.
+--     SELECT (now() AT TIME ZONE 'Asia/Seoul')::date AS d
+-- ),
+-- picked AS (
 --     -- 택1 그룹에서 살 것 하나만 고른다. 고른 게 있으면 그것,
 --     -- 아무도 안 골랐으면 첫 번째. 하나도 안 사면 요리를 못 한다.
 --     SELECT DISTINCT ON (ri.recipe_id, ri.choice_group) ri.id
@@ -292,20 +297,21 @@ CREATE TABLE shopping_item (
 -- SELECT n.ingredient_id, n.raw_key, n.label,
 --        CASE
 --          WHEN p.purchased_on IS NULL                      THEN 'BUY'
---          WHEN CURRENT_DATE - p.purchased_on
+--          WHEN t.d - p.purchased_on
 --               > COALESCE(i.shelf_life_days, 7)            THEN 'BUY'
---          WHEN CURRENT_DATE - p.purchased_on
+--          WHEN t.d - p.purchased_on
 --               > COALESCE(i.shelf_life_days, 7) / 2        THEN 'CHECK'
 --          ELSE 'HAVE'
 --        END AS bucket,
 --        CASE WHEN p.purchased_on IS NOT NULL THEN
---          CASE CURRENT_DATE - p.purchased_on
+--          CASE t.d - p.purchased_on
 --            WHEN 0 THEN '오늘 샀어요'
 --            WHEN 1 THEN '어제 샀어요'
---            ELSE (CURRENT_DATE - p.purchased_on) || '일 전에 샀어요'
+--            ELSE (t.d - p.purchased_on) || '일 전에 샀어요'
 --          END
 --        END AS reason
 --   FROM need n
+--   CROSS JOIN today t
 --   LEFT JOIN ingredient i ON i.id = n.ingredient_id
 --   LEFT JOIN LATERAL (
 --        SELECT purchased_on FROM purchase

@@ -20,7 +20,14 @@ import styles from "./Shopping.module.css";
 
 const ORDER: Bucket[] = ["BUY", "CHECK", "HAVE"];
 
-export default function Shopping({ items }: { items: ShoppingItem[] }) {
+export default function Shopping({
+  items,
+  week = "this",
+}: {
+  items: ShoppingItem[];
+  /** 어느 주의 장인가. 체크가 그 주 목록에 걸린다 (app/shopping/page.tsx) */
+  week?: "this" | "next";
+}) {
   const [, startTransition] = useTransition();
   // 마트에서 누르는 것이라 응답을 기다리게 하면 안 된다.
   const [shown, setShown] = useOptimistic(
@@ -38,6 +45,7 @@ export default function Shopping({ items }: { items: ShoppingItem[] }) {
       const form = new FormData();
       form.set("label", item.label);
       form.set("checked", checked ? "1" : "0");
+      form.set("week", week);
       await toggleItem(form);
     });
   }
