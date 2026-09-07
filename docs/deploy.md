@@ -44,6 +44,12 @@ SQL Editor 에 붙여넣고 Run → 다음 것으로.
 1. [`20260831000000_init_schema.sql`](https://raw.githubusercontent.com/data2102/recipe/main/supabase/migrations/20260831000000_init_schema.sql) — 테이블 12개
 2. [`20260831000001_seed_dictionary.sql`](https://raw.githubusercontent.com/data2102/recipe/main/supabase/migrations/20260831000001_seed_dictionary.sql) — 재료 사전 40종 + 별칭 11개
 3. [`20260831000002_lock_down.sql`](https://raw.githubusercontent.com/data2102/recipe/main/supabase/migrations/20260831000002_lock_down.sql) — RLS 잠금
+4. [`20260901000000_week_plan.sql`](https://raw.githubusercontent.com/data2102/recipe/main/supabase/migrations/20260901000000_week_plan.sql) — 요일 배정 (`day_of_week`)
+5. [`20260908000000_week_by_date.sql`](https://raw.githubusercontent.com/data2102/recipe/main/supabase/migrations/20260908000000_week_by_date.sql) — 주를 날짜로 (`starts_on`)
+
+**이 목록은 `supabase/migrations/` 와 같아야 한다.** 델타를 새로 쓰면
+여기에도 줄을 추가해라 — 안 적으면 다음에 SQL Editor 로 올릴 때 빠진다
+(실제로 빠뜨려서 앱이 `column "starts_on" does not exist` 로 죽었다).
 
 > 아직 main 에 머지 안 했으면 위 주소의 `/main/` 을 작업 브랜치 이름으로 바꾼다.
 > 저장소를 받아뒀다면 `cat supabase/migrations/<파일>.sql` 로 열어 복사해도 된다.
@@ -54,6 +60,23 @@ Supabase 가 "Potential issue detected — 이 쿼리가 RLS 없이 테이블을
 물으면 **Run and enable RLS** 를 고른다. 3번이 어차피 하는 일이라 결과는 같고,
 그 사이에 테이블이 잠깐 열려 있는 것만 없앤다. 테이블 주인은 RLS 를 통과하므로
 2번 시드도 그대로 들어간다.
+
+### 이미 쓰고 있는데 델타가 새로 생겼다면
+
+**새 델타 하나만 올리면 된다.** 앞의 것들은 이미 올라가 있다.
+
+```bash
+npx supabase db push          # 안 올라간 것만 알아서 골라 올린다
+```
+
+SQL Editor 로 한다면 위 목록에서 **아직 안 올린 파일만** 순서대로 붙여넣는다.
+
+앱이 이런 화면을 내면 그게 안 올라갔다는 뜻이다.
+
+> **DB 에 못 붙었어요** — `column "starts_on" does not exist`
+
+델타는 여러 번 올려도 안전하게 써둔다 (`IF NOT EXISTS`, 이미 채워졌으면
+건너뛰기). 헷갈리면 그냥 다시 올려라.
 
 ### 올린 뒤 — 얼린다
 
