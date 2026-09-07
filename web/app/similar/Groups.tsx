@@ -36,6 +36,21 @@ function why(p: Pair): string {
   return parts.join(" · ") || "닮은 데가 있어요";
 }
 
+/**
+ * 재료 쪽 근거를 한 마디로.
+ *
+ * **겹쳤는데도 0% 인 경우가 있다** — 겹친 게 전부 양념·바탕 재료면 근거로
+ * 안 세기 때문이다 (lib/similar.ts `rareLimit`). 그냥 "재료 0%" 라고 적으면
+ * 4가지가 겹쳐 보이는데 0% 라 화면이 거짓말처럼 읽힌다.
+ */
+function items(p: Pair): string {
+  if (p.shared === 0) return "재료는 겹치는 게 없어요";
+  if (p.byItems === 0) {
+    return `재료 ${p.shared}가지가 겹치지만 바탕 재료예요`;
+  }
+  return `재료 ${Math.round(p.byItems * 100)}% (${p.shared}/${p.total}가지)`;
+}
+
 export default function Groups({ list }: { list: Group[] }) {
   /** 지우기를 누른 레시피. 한 번 더 묻는 동안만 */
   const [asking, setAsking] = useState<number | null>(null);
@@ -116,10 +131,7 @@ export default function Groups({ list }: { list: Group[] }) {
           */}
           <p className={styles.score}>
             {g.members.length > 2 && `${g.members.length}개가 묶였어요 · 가장 닮은 짝 `}
-            이름 {Math.round(g.best.byName * 100)}% · 재료{" "}
-            {g.best.total > 0
-              ? `${Math.round(g.best.byItems * 100)}% (${g.best.shared}/${g.best.total}가지)`
-              : "없음"}
+            이름 {Math.round(g.best.byName * 100)}% · {items(g.best)}
           </p>
 
           <div className={styles.pair}>

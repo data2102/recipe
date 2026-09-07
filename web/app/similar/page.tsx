@@ -19,7 +19,15 @@ import Link from "next/link";
 import Groups from "./Groups";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
-import { FLOOR, MAX_GROUPS, groups, type Group } from "@/lib/similar";
+import {
+  DEFAULT_LEVEL,
+  LEVELS,
+  MAX_GROUPS,
+  floorOf,
+  groups,
+  type Group,
+  type Level,
+} from "@/lib/similar";
 import styles from "../page.module.css";
 import weekStyles from "../weeks/weeks.module.css";
 
@@ -32,9 +40,9 @@ type Loaded =
   | { kind: "ok"; list: Group[]; recipes: number; found: number };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
-async function load(): Promise<Loaded> {
+async function load(level: Level): Promise<Loaded> {
   try {
-    const { list, recipes, found } = await groups();
+    const { list, recipes, found } = await groups(level);
     return { kind: "ok", list, recipes, found };
   } catch (e) {
     return {
@@ -44,9 +52,22 @@ async function load(): Promise<Loaded> {
   }
 }
 
-export default async function SimilarPage() {
+export default async function SimilarPage({
+  searchParams,
+}: PageProps<"/similar">) {
   if (!dbUrl()) return <Setup />;
-  const data = await load();
+
+  /*
+    얼마나 닮아야 묶을지. 주소에만 산다 — 저장하지 않는다.
+    느슨하면 아닌 것까지 딸려 오고, 엄격하면 진짜 중복을 놓친다.
+    맞는 값은 실제 레시피로만 알 수 있어서 화면에서 고르게 뒀다.
+  */
+  const params = await searchParams;
+  const raw = Array.isArray(params.min) ? params.min[0] : params.min;
+  const level: Level =
+    LEVELS.find((l) => l.key === raw)?.key ?? DEFAULT_LEVEL;
+
+  const data = await load(level);
   if (data.kind === "error") return <Broken message={data.message} />;
 
   return (
@@ -62,9 +83,27 @@ export default async function SimilarPage() {
         </p>
       </header>
 
+      {/* 문턱 고르기. 이 화면이 곧 문턱을 재는 자리다 */}
+      <div className={styles.sorts}>
+        {LEVELS.map((l) => (
+          <Link
+            key={l.key}
+            href={l.key === DEFAULT_LEVEL ? "/similar" : `/similar?min=${l.key}`}
+            className={`ds-chip ${l.key === level ? "on" : ""}`}
+            aria-current={l.key === level ? "true" : undefined}
+          >
+            {l.label} {Math.round(l.min * 100)}%
+          </Link>
+        ))}
+      </div>
+
       {data.list.length === 0 ? (
         <div className={`ds-empty ${styles.empty}`}>
-          <p>겹치는 게 없어요. 그대로 두면 돼요.</p>
+          <p>
+            {level === "loose"
+              ? "겹치는 게 없어요. 그대로 두면 돼요."
+              : "이 기준으로는 겹치는 게 없어요. 넉넉하게로 바꿔서 다시 보세요."}
+          </p>
         </div>
       ) : (
         <>
@@ -88,8 +127,13 @@ export default async function SimilarPage() {
           )}
 
           <p className={styles.note}>
-            닮은 정도가 {Math.round(FLOOR * 100)}% 를 넘으면 묶어요. 대파·양파처럼
-            어디에나 들어가는 재료는 근거로 약하게 셉니다.
+            닮은 정도가 {Math.round(floorOf(level) * 100)}% 를 넘으면 묶어요.
+            대파·양파처럼 어디에나 들어가는 재료는 근거로 약하게 셉니다.
+            <br />
+            <strong>아닌 게 섞여 있으면 더 엄격하게</strong>, 빠진 게 있으면 더
+            넉넉하게 바꿔보세요 — 여기서 맞는 값을 찾으면, 나중에 레시피를
+            저장할 때 &quot;이거 이미 있는 것 같아요&quot; 를 물어보는 기준으로
+            쓸게요.
           </p>
         </>
       )}
