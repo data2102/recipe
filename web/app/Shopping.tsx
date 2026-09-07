@@ -93,7 +93,7 @@ export default function Shopping({
         );
       })}
 
-      <ShoppingFinish bought={bought} />
+      <ShoppingFinish bought={bought} week={week} />
     </div>
   );
 }

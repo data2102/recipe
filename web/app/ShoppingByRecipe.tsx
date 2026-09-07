@@ -156,7 +156,10 @@ export default function ShoppingByRecipe({
         );
       })}
 
-      <ShoppingFinish bought={shown.filter((i) => i.checked).length} />
+      <ShoppingFinish
+        bought={shown.filter((i) => i.checked).length}
+        week={week}
+      />
     </div>
   );
 }

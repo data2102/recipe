@@ -1,8 +1,9 @@
 /**
- * 지난 주 — 끝낸 장보기들
+ * 지난 주 — 이미 지나간 주들
  *
- * 이 앱에서 한 주를 끝내는 건 날짜가 아니라 장보기 끝이다. 그래서
- * 끝낸 목록 하나가 지난 한 주다 (lib/weeks.ts).
+ * **날짜로 가른다.** 오늘이 속한 주보다 앞에서 시작한 주가 여기 온다
+ * (lib/weeks.ts). 장보기를 끝냈는지는 상관없다 — 안 끝낸 채 지나간
+ * 주도 지난 주고, 화면에 "안 끝냈어요" 라고 적힌다.
  *
  * 하는 일은 둘이다.
  *   ① 그 주에 뭘 담았는지 되짚어 본다
@@ -16,8 +17,8 @@ import Link from "next/link";
 import { reopenWeek } from "../actions";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
-import { dateRange, dateSay, monthWeek, whenShort } from "@/lib/say";
-import { justClosed, past, type PastWeek } from "@/lib/weeks";
+import { addDays, dateRange, monthWeek, whenShort } from "@/lib/say";
+import { past, type PastWeek } from "@/lib/weeks";
 import styles from "../page.module.css";
 import weekStyles from "./weeks.module.css";
 
@@ -27,12 +28,11 @@ export const metadata = { title: "지난 주" };
 
 type Loaded =
   | { kind: "error"; message: string }
-  | { kind: "ok"; list: PastWeek[]; undoable: number | null };
+  | { kind: "ok"; list: PastWeek[] };
 
 async function load(): Promise<Loaded> {
   try {
-    const [list, recent] = await Promise.all([past(), justClosed()]);
-    return { kind: "ok", list, undoable: recent?.id ?? null };
+    return { kind: "ok", list: await past() };
   } catch (e) {
     return {
       kind: "error",
@@ -53,12 +53,12 @@ export default async function WeeksPage() {
           ← 식단
         </Link>
         <h1 className={styles.title}>지난 주</h1>
-        <p className={styles.sub}>끝낸 장보기 {data.list.length}개</p>
+        <p className={styles.sub}>지나간 주 {data.list.length}개</p>
       </header>
 
       {data.list.length === 0 ? (
         <div className={`ds-empty ${styles.empty}`}>
-          <p>장보기를 끝내면 그 주가 여기 남아요.</p>
+          <p>한 주가 지나가면 여기 남아요.</p>
         </div>
       ) : (
         data.list.map((w) => (
@@ -69,11 +69,13 @@ export default async function WeeksPage() {
                 {w.closed_on ? `${whenShort(w.closed_on)} 끝냈어요` : "안 끝냈어요"}
               </span>
             </h2>
-            {/* "2026-08-31" 이 아니라 "8월 31일". 사람이 읽는 자리다 */}
+            {/*
+              **그 주 이레를 그대로 적는다.** 예전에는 "연 날 ~ 끝낸 날" 이라
+              끝낸 날이 주 중간이면 기간이 짧게 나왔다. 이제 주는 날짜가
+              정하니까 (월요일부터 이레) 끝낸 날은 위 줄이 따로 말한다.
+            */}
             <p className={weekStyles.range}>
-              {w.closed_on
-                ? dateRange(w.opened_on, w.closed_on)
-                : `${dateSay(w.opened_on)}부터`}
+              {dateRange(w.opened_on, addDays(w.opened_on, 6))}
             </p>
 
             {/*
@@ -94,15 +96,19 @@ export default async function WeeksPage() {
 
             <p className={weekStyles.bought}>{w.bought}개 샀어요</p>
 
-            {/* 되돌리기는 제일 최근 것 하나에만. 그 위의 주는 이미 지났다 */}
-            {data.undoable === w.id && (
+            {/*
+              끝낸 주는 아무거나 다시 열 수 있다. 주가 날짜로 정해지면서
+              (lib/shopping.ts weekStart) 되돌려도 "이번 주" 가 흔들리지
+              않는다 — 예전에는 승격을 되돌려야 해서 최근 것 하나만 됐다.
+            */}
+            {w.closed_on && (
               <form action={reopenWeek}>
                 <input type="hidden" name="listId" value={w.id} />
                 <button
                   type="submit"
                   className="ds-btn ds-btn-secondary ds-btn-block"
                 >
-                  이 주를 다시 열게요
+                  아직 안 끝낸 걸로 돌릴게요
                 </button>
               </form>
             )}

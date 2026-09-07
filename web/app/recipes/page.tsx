@@ -82,7 +82,7 @@ async function load(tab: TabKey, sort: Sort): Promise<Loaded> {
     const n = await counts();
     // 이미 담은 것은 또 담을 게 없다 — 배지로 알린다
     const listId = await openList();
-    const start = await weekStart();
+    const start = weekStart();
     const [list, basket] = await Promise.all([
       tab === "want" ? listWish(100, sort) : listCooked(100, sort),
       pickedRecipes(listId),

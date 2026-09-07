@@ -166,8 +166,11 @@ export async function toggleItem(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** 장보기 끝. 다음에 담으면 새 목록이 열린다. */
-export async function finishShopping() {
-  await shopping.finish();
+/**
+ * 장보기 끝 — 그 주 장을 다 봤다는 표시. **주를 옮기지 않는다.**
+ * 어느 주인지는 날짜가 정한다 (lib/shopping.ts weekStart).
+ */
+export async function finishShopping(formData: FormData) {
+  await shopping.finish(which(formData));
   revalidatePath("/", "layout");
 }

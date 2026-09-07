@@ -14,7 +14,7 @@
  */
 
 import { one, query, tx } from "./db";
-import { addDays, todayInput } from "./say";
+import { addDays, mondayOf, todayInput } from "./say";
 import { NO_HAVE, atHome, type Have } from "./fridge.types";
 import type {
   Bucket,
@@ -26,69 +26,57 @@ import type {
 export type { Bucket, PickedRecipe, ShoppingItem };
 
 /**
- * 이번 주 목록. 없으면 만든다.
+ * 어느 주를 보는가 — **날짜가 정한다.**
  *
- * 한 번에 하나만 열려 있다. "이번 주"라는 말이 곧 열려 있는 목록이다 —
- * 주차를 따로 계산하지 않는다. 장보기를 끝내면 다음 것이 열린다.
- */
-/**
- * 어느 주에 담는가.
+ * 이번 주는 오늘이 속한 월요일부터 이레, 다음 주는 그 다음 이레다.
+ * 상태(OPEN/DONE)는 주를 안 옮긴다 — "장을 다 봤나" 만 말한다.
  *
- * 목록은 한 번에 **둘까지** 열린다 — 이번 주(OPEN)와 다음 주(NEXT).
- * 일요일에 다음 주를 미리 짜는 일이 실제로 있어서 열어뒀다. 셋은 없다:
- * 다다음 주까지 짜는 사람은 없고, 늘어날수록 "이번 주" 가 흐려진다.
+ * 예전에는 OPEN 이 이번 주, NEXT 가 다음 주였다. 그러면 **장보기 끝을
+ * 안 누른 채 한 주가 지나가면 지난 주가 계속 이번 주로 남는다** —
+ * 9월 8일에 8/31~9/6 이 이번 주로 보였고, 이번 주 식단이 다음 주
+ * 자리에 있었다. 주를 사람 손에 맡겨두면 그렇게 밀린다.
  *
- * 장보기를 끝내면 이번 주가 닫히고 **다음 주가 이번 주가 된다**
- * (finish). 그래서 주가 넘어가는 자리가 한 곳뿐이다.
+ * 셋은 없다. 다다음 주까지 짜는 사람은 없고, 늘어날수록 "이번 주" 가
+ * 흐려진다 (화면도 탭 둘로 그린다).
  */
 export type Which = "this" | "next";
 
-const STATUS: Record<Which, string> = { this: "OPEN", next: "NEXT" };
+/**
+ * 그 주가 **며칠부터인가** (한국 기준, `YYYY-MM-DD`). 달력의 월요일이다.
+ *
+ * DB 를 안 본다 — 오늘 날짜만으로 정해진다. 그래서 어제 뭘 눌렀든
+ * 오늘 열면 오늘이 속한 주가 이번 주다.
+ */
+export function weekStart(which: Which = "this", today = todayInput()): string {
+  const monday = mondayOf(today);
+  return which === "next" ? addDays(monday, 7) : monday;
+}
 
+/**
+ * 그 주의 목록. 없으면 만든다 (`create`).
+ *
+ * 담기 전까지는 안 만든다 — 빈 목록이 주마다 쌓이면 "지난 주" 가
+ * 안 담은 주로 뒤덮인다.
+ */
 export async function openList(
   create = false,
   which: Which = "this",
 ): Promise<number | null> {
-  const status = STATUS[which];
+  const startsOn = weekStart(which);
   const found = await one<{ id: number }>(
-    `SELECT id FROM shopping_list WHERE status = $1
-      ORDER BY id DESC LIMIT 1`,
-    [status],
+    `SELECT id FROM shopping_list WHERE starts_on = $1`,
+    [startsOn],
   );
   if (found) return found.id;
   if (!create) return null;
+  // 담기가 동시에 두 번 들어와도 하나만 생긴다 (starts_on 이 UNIQUE)
   const made = await one<{ id: number }>(
-    `INSERT INTO shopping_list (status) VALUES ($1) RETURNING id`,
-    [status],
+    `INSERT INTO shopping_list (starts_on) VALUES ($1)
+     ON CONFLICT (starts_on) DO UPDATE SET starts_on = EXCLUDED.starts_on
+     RETURNING id`,
+    [startsOn],
   );
   return made!.id;
-}
-
-/**
- * 그 주가 **며칠부터인가** (한국 기준, `YYYY-MM-DD`).
- *
- * 이 앱의 한 주는 달력 주가 아니다. 목록이 열린 날부터 이레고, 끝나는
- * 건 일요일이 아니라 장보기 끝이다 (finish). 그래서 "이번 주" 의 시작은
- * **OPEN 목록을 연 날**이다.
- *
- * 다음 주는 거기서 정확히 7일 뒤로 잡는다. NEXT 목록을 만든 날로 재면
- * 수요일에 다음 주를 짜기 시작한 순간 두 주가 겹쳐 보인다 — 요일만
- * 보여줄 때는 안 드러났지만 날짜를 적기 시작하면 바로 티가 난다.
- *
- * 아직 아무 목록도 없으면 오늘부터다. OPEN 없이 NEXT 만 있는 경우
- * (담기 전에 다음 주 탭부터 연 경우) 는 그 목록을 연 날을 기준으로
- * 삼는다 — 오늘로 잡으면 날짜가 매일 하루씩 밀린다.
- */
-export async function weekStart(which: Which = "this"): Promise<string> {
-  const row = await one<{ on_date: string }>(
-    `SELECT (created_at AT TIME ZONE 'Asia/Seoul')::date::text AS on_date
-       FROM shopping_list
-      WHERE status IN ('OPEN', 'NEXT')
-      ORDER BY (status = 'OPEN') DESC, id DESC
-      LIMIT 1`,
-  );
-  const base = row?.on_date ?? todayInput();
-  return which === "next" ? addDays(base, 7) : base;
 }
 
 export async function picked(listId: number | null): Promise<PickedRecipe[]> {
@@ -375,45 +363,21 @@ export async function toggle(
 }
 
 /**
- * 장보기 끝. 이번 주를 닫는다.
+ * 장보기 끝 — **그 주 장을 다 봤다는 표시.**
  *
- * **다음 주를 미리 짜뒀으면 그게 이번 주가 된다.** 주가 넘어가는 자리는
- * 여기 하나뿐이다 — 날짜로 넘기지 않는다 (이 앱에서 한 주를 끊는 건
- * 장보기 끝이다). 없으면 다음에 담을 때 새 목록이 열린다.
+ * 주를 옮기지 않는다. 어느 주인지는 날짜가 정한다 (weekStart) — 이걸
+ * 안 눌러도 월요일이 오면 이번 주가 바뀐다. 예전에는 여기가 주를
+ * 넘기는 유일한 자리라, 안 누르면 지난 주가 계속 이번 주로 남았다.
+ *
+ * 그럼 이 표시는 왜 남기나 — 지난 주 화면에서 "안 끝냈어요" 를 가려내고
+ * (lib/weeks.ts), 마트에서 다 담았는지 눈으로 확인하는 자리다.
  */
-export async function finish(): Promise<void> {
-  await tx(async (q) => {
-    const open = await q<{ id: number }>(
-      `SELECT id FROM shopping_list WHERE status = 'OPEN'
-        ORDER BY id DESC LIMIT 1`,
-    );
-    if (open.length === 0) return;
-    await q(
-      `UPDATE shopping_list SET status = 'DONE', completed_at = now()
-        WHERE id = $1`,
-      [open[0].id],
-    );
-    /*
-      미리 짜둔 다음 주가 있으면 승격. 없으면 아무 일도 안 한다.
-
-      **시작일을 방금 닫은 주 다음 이레로 옮겨 적는다.** 이 앱에서
-      `created_at` 은 "이 주가 시작한 날" 이다 (weekStart). 만들어진 시각을
-      그대로 두면, 수요일에 미리 짠 다음 주가 승격되는 순간 9/7~9/13 이
-      9/2~9/8 로 **한 주 뒤로 밀린다** — 화요일에 먹기로 한 게 갑자기
-      지난 화요일이 된다. 요일만 보여줄 때는 안 보이던 어긋남이다.
-
-      되돌리기(lib/weeks.ts reopen)는 이 값을 안 건드려도 된다. 다시 NEXT
-      로 내려가도 "닫힌 주 다음 이레" 라는 뜻은 그대로 맞다.
-    */
-    await q(
-      `UPDATE shopping_list nx
-          SET status = 'OPEN',
-              created_at = prev.created_at + interval '7 days'
-         FROM shopping_list prev
-        WHERE prev.id = $1
-          AND nx.id = (SELECT id FROM shopping_list WHERE status = 'NEXT'
-                        ORDER BY id ASC LIMIT 1)`,
-      [open[0].id],
-    );
-  });
+export async function finish(which: Which = "this"): Promise<void> {
+  const listId = await openList(false, which);
+  if (!listId) return;
+  await query(
+    `UPDATE shopping_list SET status = 'DONE', completed_at = now()
+      WHERE id = $1 AND status <> 'DONE'`,
+    [listId],
+  );
 }

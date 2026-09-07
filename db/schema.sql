@@ -181,13 +181,29 @@ CREATE INDEX idx_purchase_ing ON purchase(ingredient_id, purchased_on DESC);
 
 CREATE TABLE shopping_list (
     id              BIGSERIAL PRIMARY KEY,
-    -- OPEN 이번 주 (한 개)
-    -- NEXT 미리 짜둔 다음 주 (한 개). 장보기를 끝내면 OPEN 으로 올라간다
-    -- DONE 끝낸 주. 지우지 않는다 — 되돌릴 수 있어야 한다 (lib/weeks.ts)
+
+    -- **이 주가 며칠부터인가. 달력의 월요일이다 (한국 기준).**
+    --
+    -- 어느 주인지는 이 날짜가 정한다 — 상태가 정하지 않는다. 예전에는
+    -- OPEN/NEXT 로 "이번 주/다음 주"를 가렸는데, 그러면 장보기 끝을 안
+    -- 누른 채 한 주가 지나가면 지난 주가 계속 "이번 주" 로 남았다
+    -- (9월 8일에 8/31~9/6 이 이번 주로 보였다).
+    --
+    -- 요일(day_of_week 0~6)은 여기에 그대로 더해서 날짜가 된다.
+    starts_on       DATE NOT NULL,
+
+    -- OPEN 아직 장보기를 안 끝낸 주
+    -- DONE 장을 다 본 주. 지우지 않는다 — 되돌릴 수 있어야 한다 (lib/weeks.ts)
+    --
+    -- **상태는 주를 옮기지 않는다.** 지난 주를 안 끝냈어도 오늘이 속한
+    -- 주가 이번 주다. 끝냈는지는 그 주가 마무리됐는지의 표시일 뿐이다.
     status          TEXT NOT NULL DEFAULT 'OPEN',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at    TIMESTAMPTZ
 );
+
+-- 한 주에 목록 하나. 담기가 동시에 두 번 들어와도 하나만 생긴다.
+CREATE UNIQUE INDEX idx_shopping_list_week ON shopping_list(starts_on);
 
 CREATE TABLE shopping_list_recipe (
     list_id         BIGINT NOT NULL REFERENCES shopping_list(id) ON DELETE CASCADE,

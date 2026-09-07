@@ -13,7 +13,14 @@
 import { finishShopping } from "./actions";
 import styles from "./Shopping.module.css";
 
-export default function ShoppingFinish({ bought }: { bought: number }) {
+export default function ShoppingFinish({
+  bought,
+  week = "this",
+}: {
+  bought: number;
+  /** 어느 주의 장인가. 그 주에 "다 봤다" 표시가 붙는다 */
+  week?: "this" | "next";
+}) {
   return (
     /* PC 에서 두 칸으로 벌어져도 이건 통으로 간다 (globals.css 의 .wide) */
     <div className="wide">
@@ -23,6 +30,7 @@ export default function ShoppingFinish({ bought }: { bought: number }) {
       </p>
 
       <form action={finishShopping}>
+        <input type="hidden" name="week" value={week} />
         <button
           type="submit"
           className="ds-btn ds-btn-primary ds-btn-block"

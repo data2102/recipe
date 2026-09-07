@@ -72,7 +72,7 @@ async function load(
     const { old, fresh, page, pages } = await suggest(again);
     // 그 주가 며칠부터인지 (lib/shopping.ts weekStart). 요일을 날짜로
     // 바꿔 적는 데 쓰고, 담아둔 요리의 날짜도 여기서 계산된다.
-    const start = await weekStart(which);
+    const start = weekStart(which);
     // 담은 것과 장보기는 같은 목록에서 나온다. 목록이 없으면 만들지 않는다 —
     // 담기 전까지 빈 목록이 쌓이면 "이번 주" 가 뭔지 흐려진다.
     const listId = await openList(false, which);

@@ -27,8 +27,8 @@ import {
   weekStart,
   type Which,
 } from "@/lib/shopping";
-import { addDays, dateRange, dateTiny, daysFrom } from "@/lib/say";
-import { JUST_HOURS, justClosed, type PastWeek } from "@/lib/weeks";
+import { addDays, dateRange, dateTiny, daysFrom, whenShort } from "@/lib/say";
+import { week as weekOf, type PastWeek } from "@/lib/weeks";
 import { reopenWeek } from "../actions";
 import styles from "../page.module.css";
 
@@ -44,7 +44,14 @@ type Loaded =
       cart: Awaited<ReturnType<typeof shoppingItems>>;
       basket: Awaited<ReturnType<typeof pickedRecipes>>;
       groups: Awaited<ReturnType<typeof recipeGroups>>;
-      /** 방금 끝낸 장보기. 되돌릴 수 있게 눈앞에 낸다 */
+      /**
+       * **보고 있는 주**가 끝났으면 그 주. 되돌릴 수 있게 눈앞에 낸다.
+       *
+       * 예전에는 "24시간 안에 끝낸 것" 을 찾았다. 그때는 끝내면 그 주가
+       * 통째로 사라져서 방금 것 말고는 가리킬 게 없었는데, 이제 주는
+       * 날짜가 정하니까 (lib/shopping.ts weekStart) 보고 있는 주를 그냥
+       * 물어보면 된다.
+       */
       closed: PastWeek | null;
       /** 그 주 날짜 일곱 개. 요리에 적힌 요일을 날짜로 바꿔 적는다 */
       dates: string[];
@@ -57,7 +64,7 @@ async function load(
 ): Promise<Loaded> {
   try {
     const listId = await openList(false, which);
-    const start = await weekStart(which);
+    const start = weekStart(which);
     // items() 가 shopping_item 을 다시 쓴다. groups() 는 그 결과를 읽는
     // 게 아니라 같은 이름을 따로 만들 뿐이라 순서는 상관없다.
     const [basket, cart, groups] = await Promise.all([
@@ -73,11 +80,10 @@ async function load(
     */
     const chips = await fridgeChips(basket.map((r) => r.id));
     /*
-      "장보기 끝" 은 이번 주를 통째로 닫는 일인데 되돌릴 길이 없었다.
-      끝낸 직후 이 화면은 빈 목록만 보여줘서, 잘못 눌렀는지조차 알 수
-      없었다. 방금 끝낸 게 있으면 그렇다고 말하고 되돌릴 길을 낸다.
+      끝낸 주는 화면이 그렇다고 말해야 한다. 안 그러면 "살 것 7개" 가
+      그대로 남아서 끝냈는지 아닌지 알 수가 없다 — 주가 안 사라지니까.
     */
-    const recent = await justClosed();
+    const seen = await weekOf(listId);
     return {
       kind: "ok",
       chips,
@@ -85,8 +91,7 @@ async function load(
       basket,
       groups,
       dates: daysFrom(start),
-      closed:
-        recent && (recent.hours_ago ?? Infinity) < JUST_HOURS ? recent : null,
+      closed: seen?.closed_on ? seen : null,
     };
   } catch (e) {
     return {
@@ -162,18 +167,20 @@ export default async function ShoppingPage({
           {dateRange(data.dates[0], data.dates[6])} ·{" "}
           {data.cart.length === 0
             ? "담은 요리가 없어요"
-            : buy === 0
-              ? "다 담았어요"
-              : `살 것 ${buy}개`}
+            : data.closed
+              ? "장 다 봤어요"
+              : buy === 0
+                ? "다 담았어요"
+                : `살 것 ${buy}개`}
         </p>
       </header>
 
       {data.closed && (
         <section className="ds-card">
-          <h2 className={styles.cardTitle}>방금 장보기를 끝냈어요</h2>
+          <h2 className={styles.cardTitle}>이 주 장보기는 끝냈어요</h2>
           <p className={styles.body}>
-            {data.closed.bought}개 샀고, 담았던 요리는 그대로 남아 있어요.
-            잘못 눌렀으면 다시 열 수 있어요.
+            {whenShort(data.closed.closed_on!)} {data.closed.bought}개 샀어요.
+            담았던 요리는 그대로 남아 있어요 — 잘못 눌렀으면 다시 열 수 있어요.
           </p>
           <form action={reopenWeek} className={styles.undo}>
             <input type="hidden" name="listId" value={data.closed.id} />

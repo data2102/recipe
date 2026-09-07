@@ -131,6 +131,18 @@ export function daysFrom(startIso: string, n = 7): string[] {
   return Array.from({ length: n }, (_, i) => addDays(startIso, i));
 }
 
+/**
+ * 그 날짜가 속한 주의 **월요일**.
+ *
+ * 이 앱의 한 주는 월요일에 시작한다 (`shopping_list.starts_on`).
+ * 예전에는 "목록을 연 날부터 이레" 였는데, 그러면 장보기 끝을 안 누른
+ * 채 한 주가 지나가도 주가 안 넘어갔다 — 9월 8일에 8/31~9/6 이 이번
+ * 주로 보였다. 이제 오늘이 속한 월요일이 곧 이번 주다.
+ */
+export function mondayOf(isoDate: string): string {
+  return addDays(isoDate, -dayIndex(isoDate));
+}
+
 /** "8/31" — 칸이 좁을 때 */
 export function dateTiny(isoDate: string): string {
   const [, m, d] = isoDate.split("-").map(Number);
