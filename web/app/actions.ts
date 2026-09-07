@@ -73,7 +73,7 @@ export async function markCooked(formData: FormData) {
  * 지우라고 정했다.
  *
  * **되돌릴 수 없어서 화면이 한 번 더 묻는다** (app/RecipeRow.tsx ·
- * app/similar/Pairs.tsx). 실제로 지우는 일은 `recipes.remove` 한 군데다 —
+ * app/similar/Groups.tsx). 실제로 지우는 일은 `recipes.remove` 한 군데다 —
  * CASCADE 가 안 걸린 `shopping_list_recipe` 를 먼저 떼는 것까지 거기 있다.
  */
 export async function dropRecipe(formData: FormData) {

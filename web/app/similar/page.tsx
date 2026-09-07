@@ -16,10 +16,10 @@
  */
 
 import Link from "next/link";
-import Pairs from "./Pairs";
+import Groups from "./Groups";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
-import { FLOOR, MAX_PAIRS, pairs, type Pair } from "@/lib/similar";
+import { FLOOR, MAX_GROUPS, groups, type Group } from "@/lib/similar";
 import styles from "../page.module.css";
 import weekStyles from "../weeks/weeks.module.css";
 
@@ -29,12 +29,12 @@ export const metadata = { title: "닮은 것끼리" };
 
 type Loaded =
   | { kind: "error"; message: string }
-  | { kind: "ok"; list: Pair[]; recipes: number; found: number };
+  | { kind: "ok"; list: Group[]; recipes: number; found: number };
 
 /** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
 async function load(): Promise<Loaded> {
   try {
-    const { list, recipes, found } = await pairs();
+    const { list, recipes, found } = await groups();
     return { kind: "ok", list, recipes, found };
   } catch (e) {
     return {
@@ -58,7 +58,7 @@ export default async function SimilarPage() {
         <h1 className={styles.title}>닮은 것끼리</h1>
         <p className={styles.sub}>
           레시피 {data.recipes}개에서{" "}
-          {data.found === 0 ? "닮은 짝이 없어요" : `${data.found}쌍 찾았어요`}
+          {data.found === 0 ? "닮은 게 없어요" : `${data.found}묶음 찾았어요`}
         </p>
       </header>
 
@@ -73,22 +73,23 @@ export default async function SimilarPage() {
             아닌 것도 섞여 있는데, 그걸 안 적으면 앱이 틀린 것으로 읽힌다.
           */}
           <p className={styles.note}>
-            닮은 순으로 늘어놨어요. <strong>중복이라는 뜻은 아니에요</strong> —
-            일부러 넉넉하게 걸러서 아닌 것도 섞여 있어요. 남길 걸 열어서
-            고치고 나머지를 지우면 돼요.
+            서로 닮은 것끼리 묶어서 닮은 순으로 늘어놨어요.{" "}
+            <strong>중복이라는 뜻은 아니에요</strong> — 일부러 넉넉하게 걸러서
+            아닌 것도 섞여 있어요. 남길 걸 열어서 고치고 나머지를 지우면 돼요.
           </p>
 
-          <Pairs list={data.list} />
+          <Groups list={data.list} />
 
-          {data.found > MAX_PAIRS && (
+          {data.found > MAX_GROUPS && (
             <p className={styles.note}>
-              가장 닮은 {MAX_PAIRS}쌍만 보여드렸어요. 이만큼 정리하고 다시
+              가장 닮은 {MAX_GROUPS}묶음만 보여드렸어요. 이만큼 정리하고 다시
               열면 다음 것이 나와요.
             </p>
           )}
 
           <p className={styles.note}>
-            닮은 정도가 {Math.round(FLOOR * 100)}% 를 넘는 짝만 나와요.
+            닮은 정도가 {Math.round(FLOOR * 100)}% 를 넘으면 묶어요. 대파·양파처럼
+            어디에나 들어가는 재료는 근거로 약하게 셉니다.
           </p>
         </>
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 닮은 짝 목록 — 두 레시피를 나란히 놓고 하나를 고른다
+ * 닮은 묶음 목록 — 서로 닮은 것들을 나란히 놓고 하나를 남긴다
  *
  * **판정하지 않는다.** 왜 닮았다고 봤는지만 적고, 지울지 말지는 사람이
  * 정한다 (원칙 ③). 같은 이름이어도 다른 레시피일 수 있다 — 엄마 레시피와
@@ -19,7 +19,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { dropRecipe } from "../actions";
 import { cookedAgo, dateSay } from "@/lib/say";
-import type { Pair, Side } from "@/lib/similar";
+import type { Group, Pair, Side } from "@/lib/similar";
 import styles from "./similar.module.css";
 
 /** 재료를 몇 개까지 적어 보여줄까. 판단에 필요한 만큼만 */
@@ -36,7 +36,7 @@ function why(p: Pair): string {
   return parts.join(" · ") || "닮은 데가 있어요";
 }
 
-export default function Pairs({ list }: { list: Pair[] }) {
+export default function Groups({ list }: { list: Group[] }) {
   /** 지우기를 누른 레시피. 한 번 더 묻는 동안만 */
   const [asking, setAsking] = useState<number | null>(null);
 
@@ -103,22 +103,29 @@ export default function Pairs({ list }: { list: Pair[] }) {
 
   return (
     <>
-      {list.map((p) => (
-        <section key={`${p.a.id}-${p.b.id}`} className="ds-card">
-          <h2 className={styles.why}>{why(p)}</h2>
+      {list.map((g) => (
+        <section key={g.members.map((m) => m.id).join("-")} className="ds-card">
+          <h2 className={styles.why}>{why(g.best)}</h2>
           {/*
-            문턱을 정하려면 숫자가 보여야 한다. 이 화면은 "몇 쌍이 실제로
+            문턱을 정하려면 숫자가 보여야 한다. 이 화면은 "몇 개가 실제로
             걸리나" 를 재는 자리이기도 해서, 근거를 문장으로 적고 숫자를
             작게 덧붙인다 (lib/similar.ts 머리말).
+
+            셋 이상이면 그 숫자는 **가장 닮은 짝**의 것이다 — 묶음 전체를
+            한 숫자로 말할 수는 없어서 그렇다고 적는다.
           */}
           <p className={styles.score}>
-            이름 {Math.round(p.byName * 100)}% · 재료{" "}
-            {p.total > 0 ? `${p.shared}/${p.total}` : "없음"}
+            {g.members.length > 2 && `${g.members.length}개가 묶였어요 · 가장 닮은 짝 `}
+            이름 {Math.round(g.best.byName * 100)}% · 재료{" "}
+            {g.best.total > 0
+              ? `${Math.round(g.best.byItems * 100)}% (${g.best.shared}/${g.best.total}가지)`
+              : "없음"}
           </p>
 
           <div className={styles.pair}>
-            <Row r={p.a} />
-            <Row r={p.b} />
+            {g.members.map((m) => (
+              <Row key={m.id} r={m} />
+            ))}
           </div>
         </section>
       ))}
