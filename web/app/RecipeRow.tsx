@@ -11,7 +11,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { addToWeek, markBad, markCooked } from "./actions";
+import { addToWeek, dropRecipe, markCooked } from "./actions";
 import { usePickDay } from "./PickDay";
 import styles from "./RecipeRow.module.css";
 
@@ -152,7 +152,7 @@ export default function RecipeRow({
                   이 레시피를 지울게요. 재료·만드는 법·만든 기록까지 같이
                   사라지고 되돌릴 수 없어요.
                 </p>
-                <form action={markBad}>
+                <form action={dropRecipe}>
                   <input type="hidden" name="id" value={id} />
                   <button
                     type="submit"

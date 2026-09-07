@@ -5,7 +5,7 @@
  * 정렬이 곧 추천이다 — 별도 추천 로직 없이 순서만으로 작동한다.
  */
 
-import { query } from "./db";
+import { query, tx } from "./db";
 import { SUGGEST_AFTER_DAYS } from "./say";
 
 export type RecipeRow = {
@@ -176,6 +176,24 @@ export async function suggest(again = 0) {
     page,
     pages,
   };
+}
+
+/**
+ * 레시피를 지운다. **앱 안에서 레시피가 사라지는 자리는 여기 하나뿐이다.**
+ *
+ * 재료·만드는 법·조리 기록·보관해둔 원본은 CASCADE 로 같이 지워진다
+ * (db/schema.sql). **담긴 주(`shopping_list_recipe`)만 CASCADE 가 없다** —
+ * 지난 주 기록이 요리 하나 지웠다고 사라지면 안 되니까 일부러 그렇게 뒀다.
+ * 그래서 여기서 손으로 먼저 뗀다. 안 그러면 외래키에 막혀 삭제가 실패한다.
+ *
+ * 보관함(Storage)의 사진·캡처 파일은 남는다 — 사진 지우기도 지금 그렇게
+ * 동작한다 (app/recipe/[id]/actions.ts removePhoto).
+ */
+export async function remove(id: number): Promise<void> {
+  await tx(async (q) => {
+    await q(`DELETE FROM shopping_list_recipe WHERE recipe_id = $1`, [id]);
+    await q(`DELETE FROM recipe WHERE id = $1`, [id]);
+  });
 }
 
 export async function counts() {

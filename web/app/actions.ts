@@ -16,6 +16,7 @@
  */
 import { revalidatePath } from "next/cache";
 import { tx } from "@/lib/db";
+import * as recipes from "@/lib/recipes";
 import * as shopping from "@/lib/shopping";
 import * as week from "@/lib/week";
 import * as weeks from "@/lib/weeks";
@@ -65,31 +66,18 @@ export async function markCooked(formData: FormData) {
 }
 
 /**
- * 별로였어요 — **지운다.**
+ * 레시피를 지운다 — 레시피 줄의 "별로였어요", 닮은 것끼리 화면의 "지울게요".
  *
  * 예전에는 status='BAD' 로 숨기기만 했다. 목록에서 안 보이니 같은 것이고,
  * 안 보이는 행이 쌓이면 나중에 왜 여기 있는지 아무도 모른다. 쓰는 사람이
  * 지우라고 정했다.
  *
- * 되돌릴 수 없어서 화면이 한 번 더 묻는다 (app/RecipeRow.tsx).
- *
- * 재료·만드는 법·조리 기록·보관해둔 원본은 CASCADE 로 같이 지워진다
- * (db/schema.sql). **담긴 주(shopping_list_recipe)만 CASCADE 가 없다** —
- * 지난 주 기록이 요리가 지워졌다고 사라지면 안 되니까 일부러 그렇게 뒀다.
- * 그래서 여기서 손으로 먼저 뗀다. 안 그러면 외래키에 막혀 삭제가 실패한다.
- *
- * 보관함(Storage)의 사진과 캡처 파일은 남는다 — 사진 지우기도 지금
- * 그렇게 동작한다 (app/recipe/[id]/actions.ts removePhoto).
+ * **되돌릴 수 없어서 화면이 한 번 더 묻는다** (app/RecipeRow.tsx ·
+ * app/similar/Pairs.tsx). 실제로 지우는 일은 `recipes.remove` 한 군데다 —
+ * CASCADE 가 안 걸린 `shopping_list_recipe` 를 먼저 떼는 것까지 거기 있다.
  */
-export async function markBad(formData: FormData) {
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id) || id <= 0) throw new Error("레시피를 못 찾았어요");
-
-  await tx(async (q) => {
-    await q(`DELETE FROM shopping_list_recipe WHERE recipe_id = $1`, [id]);
-    await q(`DELETE FROM recipe WHERE id = $1`, [id]);
-  });
-
+export async function dropRecipe(formData: FormData) {
+  await recipes.remove(recipeId(formData));
   revalidatePath("/", "layout");
 }
 

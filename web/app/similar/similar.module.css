@@ -1,0 +1,87 @@
+/* 닮은 짝 — 두 레시피를 나란히. 배치만 여기 있고 모양은 .ds-* 다 */
+
+.why {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* 문턱을 정하려고 보는 숫자. 정보 표시라 액션색(파랑)을 안 쓴다 */
+.score {
+  font-size: var(--fs-footnote);
+  color: var(--text-tertiary);
+  margin: 2px 0 var(--sp-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * 폰에서는 위아래로 쌓인다. 900px 부터 나란히 — 두 레시피를 견주는
+ * 화면이라 큰 화면에서는 눈이 좌우로 움직이는 게 빠르다
+ * (폰에서는 보고 PC 에서는 정리한다).
+ */
+.pair {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+@media (min-width: 900px) {
+  .pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.side {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-4);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+
+.when {
+  font-size: var(--fs-footnote);
+  color: var(--text-tertiary);
+}
+
+/* 재료가 판단 근거다 — 이름만 보고는 같은 요리인지 알 수 없다 */
+.items {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  margin: var(--sp-2) 0 var(--sp-3);
+  word-break: keep-all;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.buttons a,
+.buttons button {
+  text-decoration: none;
+}
+
+/* 되돌릴 수 없어서 한 번 더 묻는 자리 */
+.ask {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-3);
+}
+
+.askText {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  margin: 0 0 var(--sp-3);
+}

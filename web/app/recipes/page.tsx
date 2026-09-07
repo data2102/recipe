@@ -174,6 +174,14 @@ export default async function RecipesPage({
           }
         />
       </PickDayProvider>
+
+      {/*
+        중복 정리는 매일 하는 일이 아니라 딸린 화면으로 둔다 (탭은 셋이다).
+        같은 요리를 두 번 넣는 일은 캡처로 모으다 보면 실제로 생긴다.
+      */}
+      <Link href="/similar" className={styles.more}>
+        닮은 것끼리 훑어보기 →
+      </Link>
     </main>
   );
 }
