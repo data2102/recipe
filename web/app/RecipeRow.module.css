@@ -239,3 +239,10 @@
   background: transparent;
   color: var(--text-secondary);
 }
+
+/* Menu text carries the row; secondary details stay on one line. */
+.rowButton { padding: var(--sp-2) var(--sp-3); min-height: 64px; }
+.title { overflow-wrap: anywhere; line-height: 1.4; }
+.meta { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pick { min-width: 52px; padding: 0 var(--sp-3); margin-right: var(--sp-2); }
+.inBasket { padding: 0 var(--sp-2); }

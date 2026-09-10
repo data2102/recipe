@@ -65,7 +65,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const inBasket = new Set(data.basket.map((r) => r.id));
 
   return (
-    <main className="shell">
+    <main className={`shell compact-page ${styles.home}`}>
       <header className={styles.head}>
         <h1 className={styles.title}>
           {next ? "다음 주 미리 정하기" : "오늘 뭐 먹지?"}
@@ -73,7 +73,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <p className={styles.sub}>
           {next
             ? dateRange(dates[0], dates[6])
-            : "재료를 입력하지 않아도, 모아둔 레시피에서 골라드려요."}
+            : "모아둔 레시피로 오늘 한 끼."}
         </p>
       </header>
       <nav className={`ds-tabs ${styles.tabs}`} aria-label="식단 기간">
@@ -94,11 +94,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       </nav>
 
       {todays.length > 0 && (
-        <section className="ds-card">
+        <section className={`ds-card ${styles.hero}`}>
           <p className={styles.group}>오늘 먹기로 했어요</p>
           {todays.map((p) => (
             <div key={p.recipe_id} className={styles.todayDish}>
-              <h2 className={styles.cardTitle}>{p.title}</h2>
+              <h2 className={styles.heroTitle}>{p.title}</h2>
               <div className={styles.quickActions}>
                 <Link
                   href={`/recipe/${p.recipe_id}?week=this`}
@@ -123,7 +123,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </section>
       )}
       {hero && (
-        <section className="ds-card">
+        <section className={`ds-card ${styles.hero}`}>
           <p className={styles.group}>오늘의 제안</p>
           <h2 className={styles.heroTitle}>{hero.title}</h2>
           <p className={styles.body}>
@@ -142,7 +142,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             />
             <Link
               href={`/recipe/${hero.id}?week=this`}
-              className="ds-btn ds-btn-secondary"
+              className={styles.detailLink}
             >
               재료 · 만드는 법
             </Link>
@@ -157,7 +157,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               ? "먹을 메뉴를 골라보세요"
               : hero
                 ? "다른 메뉴도 있어요"
-                : "며칠 먹을 것도 담아둘까요?"}
+                : "다른 날 먹을 메뉴"}
           </h2>
           {data.pages > 1 && (
             <Link
@@ -170,7 +170,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           )}
         </div>
         <p className={styles.note}>
-          담으면 장보기 목록이 만들어져요. 날짜는 나중에 정해도 돼요.
+          담으면 필요한 재료를 장보기에 모아드려요.
         </p>
         <List
           list={alternatives.slice(0, 2)}
@@ -219,7 +219,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       >
         장보기 목록 보기 · 메뉴 {data.basket.length}개
       </Link>
-      <details className="ds-card" open={next || undefined}>
+      <details className={`ds-card ${styles.weekSummary}`} open={next || undefined}>
         <summary className={styles.summary}>
           {next ? "다음 주" : "이번 주"} 식단 · {data.basket.length}개{" "}
           <span className={styles.sub}>
