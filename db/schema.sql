@@ -198,6 +198,7 @@ CREATE TABLE shopping_list (
     -- **상태는 주를 옮기지 않는다.** 지난 주를 안 끝냈어도 오늘이 속한
     -- 주가 이번 주다. 끝냈는지는 그 주가 마무리됐는지의 표시일 뿐이다.
     status          TEXT NOT NULL DEFAULT 'OPEN',
+    excluded        TEXT NOT NULL DEFAULT '{"ids":[],"names":[]}',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at    TIMESTAMPTZ
 );

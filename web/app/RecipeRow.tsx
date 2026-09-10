@@ -1,18 +1,9 @@
 "use client";
 
-/**
- * 레시피 한 줄 (지시서 3장)
- *
- * 행을 탭하면 `만들었어요` `만드는 법 보기` `별로였어요` 가 나온다.
- * `만들었어요` 는 **한 번에 끝나야 한다** — 탭하면 오늘로 바로 기록된다.
- * 길게 누르면 날짜를 고른다 (그날 체크 못 하고 다음날 하는 경우가 흔하고,
- * 초기 데이터를 채울 때 "두 달 전쯤" 이 필요하다).
- */
-
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { addToWeek, dropRecipe, markCooked } from "./actions";
-import { usePickDay } from "./PickDay";
+import ActionButton from "./ActionButton";
 import styles from "./RecipeRow.module.css";
 
 const LONG_PRESS_MS = 450;
@@ -21,19 +12,13 @@ export type Props = {
   id: number;
   title: string;
   meta: string;
-  /** 60일 넘게 안 만든 것. 배지 대신 글자색만 바꾼다 (지시서 5장) */
+
   warm?: boolean;
   sourceUrl: string | null;
   today: string;
-  /**
-   * 이번 주 담기 버튼. 탭 3 에서만 붙는다 (지시서 3장).
-   * "in" 은 이미 담은 것 — 또 누를 게 없으니 버튼으로 두지 않는다.
-   *
-   * 빼기는 여기 없다. 담은 뒤에는 이번 주 식단에서 뺀다 (app/Week.tsx) —
-   * 추천 목록과 식단 두 군데에 빼기가 있으면 어디서 뺀 건지 헷갈린다.
-   */
+
   pick?: "add" | "in";
-  /** 어느 주에 담는가. 식단 화면이 보고 있는 주 */
+
   week?: "this" | "next";
 };
 
@@ -47,10 +32,9 @@ export default function RecipeRow({
   pick,
   week = "this",
 }: Props) {
-  const picker = usePickDay();
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
-  /** "별로였어요" 는 이제 **지운다.** 되돌릴 수 없어서 한 번 더 묻는다 */
+
   const [dropping, setDropping] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
@@ -77,14 +61,7 @@ export default function RecipeRow({
   return (
     <li className={styles.row}>
       <div className={styles.rowWrap}>
-        <button
-          type="button"
-          className={styles.rowButton}
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
-        >
-          {/* 좌측 아이콘칩 — 여백의 리스트 행 규칙 (design-system.md 6장).
-              아이콘 세트를 섞지 않으려고 요리 이름 첫 글자를 쓴다 */}
+        <Link href={`/recipe/${id}?week=${week}`} className={styles.rowButton}>
           <span className={styles.icon} aria-hidden="true">
             {Array.from(title)[0] ?? "?"}
           </span>
@@ -94,12 +71,20 @@ export default function RecipeRow({
               {meta}
             </span>
           </span>
-          {/* 오른쪽에 다른 버튼이 없을 때만. 탭하면 열린다는 표시다 */}
+
           {!pick && (
             <span className={styles.chevron} aria-hidden="true">
               ›
             </span>
           )}
+        </Link>
+        <button
+          type="button"
+          className={styles.moreAction}
+          aria-label={`${title} 더보기`}
+          onClick={() => setOpen(true)}
+        >
+          ⋯
         </button>
 
         {pick === "in" && (
@@ -108,29 +93,13 @@ export default function RecipeRow({
           </span>
         )}
 
-        {/*
-          담기는 누르면 요일 막대가 뜨고, 그대로 끌어서 요일에 놓아도 된다
-          (app/PickDay.tsx). 탭 1·2 처럼 막대가 없는 화면에서는 predefined
-          동작대로 그냥 담긴다 — 그래서 provider 가 없으면 form 으로 돌아간다.
-        */}
-        {pick === "add" && picker && (
-          <button
-            type="button"
-            className={`${styles.pick} ${styles.grab}`}
-            onPointerDown={(e) => picker.start(id, title, e)}
-          >
-            담기
-          </button>
-        )}
-
-        {pick === "add" && !picker && (
-          <form action={addToWeek}>
-            <input type="hidden" name="id" value={id} />
-            <input type="hidden" name="week" value={week} />
-            <button type="submit" className={styles.pick}>
-              담기
-            </button>
-          </form>
+        {pick === "add" && (
+          <ActionButton
+            action={addToWeek}
+            fields={{ id, week }}
+            label="담기"
+            className={styles.pick}
+          />
         )}
       </div>
 
@@ -189,7 +158,10 @@ export default function RecipeRow({
                   </span>
                 </div>
                 <div className={styles.actions}>
-                  <button type="submit" className="ds-btn ds-btn-primary ds-btn-block">
+                  <button
+                    type="submit"
+                    className="ds-btn ds-btn-primary ds-btn-block"
+                  >
                     이 날로 기록
                   </button>
                   <button
@@ -229,11 +201,6 @@ export default function RecipeRow({
                   다른 날에 만들었어요
                 </button>
 
-                {/*
-                  저장해둔 재료와 만드는 법을 읽는 자리. 캡처로 넣은 건
-                  원본 링크가 없어서, 이게 없으면 만드는 법을 다시 볼
-                  데가 아예 없다.
-                */}
                 <Link
                   href={`/recipe/${id}`}
                   className="ds-btn ds-btn-secondary ds-btn-block"
@@ -257,7 +224,7 @@ export default function RecipeRow({
                   className="ds-btn ds-btn-secondary ds-btn-block"
                   onClick={() => setDropping(true)}
                 >
-                  별로였어요 (지울게요)
+                  레시피 삭제
                 </button>
               </div>
             )}

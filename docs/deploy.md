@@ -276,3 +276,23 @@ python tools/build_migrations.py     # FROZEN 에 넣었으면 델타를 새로 
 > **4주 뒤, 마트에서 실제로 열었는가.**
 
 이거 하나만 본다. 만든 사람이 안 열면 아무도 안 연다.
+
+
+## 2026-09-10 UX 변경 배포
+
+새 앱 코드를 배포하기 **전에** `supabase/migrations/20260910000000_list_exclusions.sql`
+을 적용한다. 기존 마이그레이션은 수정하지 않는다. `shopping_list.excluded`라는
+TEXT 컬럼 하나를 추가하며, 기존 목록은 제외 재료가 없는 상태로 시작한다.
+데이터 삭제·주차 이동은 없다. 앱만 이전 버전으로 되돌려도 추가 컬럼은 유지할 수 있다.
+
+검증은 `web/`에서 `npm run lint`, `npm run build`로 한다. 회귀 테스트는
+마이그레이션이 적용된 **별도 로컬 `recipe_ux_test` DB**에 대해 실행한다.
+장보기 목록이 이미 있는 DB에서는 실행을 거부한다. 운영 DB를 사용하지 않는다.
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/recipe_ux_test npm run test:ux
+```
+
+회귀 범위: 주차별 날짜 지정, 완료 후 날짜 수정, 재료 중복 제거·수량 근거,
+목록별 보유 제외, 구매 체크 중복 방지·취소, 최근 메뉴 추천, 제목·재료 검색.
+기존 `CHECKOFF` 구매 이력은 소속 목록을 추정해 삭제하지 않는다.

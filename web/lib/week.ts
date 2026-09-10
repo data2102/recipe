@@ -10,6 +10,7 @@
  */
 
 import { query } from "./db";
+import { weekStart } from "./shopping";
 import type { Planned, PlannedItem } from "./week.types";
 
 export type { Planned, PlannedItem };
@@ -111,8 +112,7 @@ export async function plan(
 /**
  * 요일을 정한다. null 이면 "아직 안 정함" 으로 되돌린다.
  *
- * 열려 있는 목록에만 손댄다 — 지난 주 목록은 이미 닫혀서 과거다.
- * 이번 주와 다음 주가 따로 열려 있어서 어느 쪽인지 받는다.
+ * 날짜로 해당 주만 지정한다. 장보기 완료 여부는 식사 날짜 변경과 무관하다.
  */
 export async function setDay(
   recipeId: number,
@@ -127,8 +127,8 @@ export async function setDay(
         SET day_of_week = $2
        FROM shopping_list sl
       WHERE sl.id = slr.list_id
-        AND sl.status = $3
+        AND sl.starts_on = $3::date
         AND slr.recipe_id = $1`,
-    [recipeId, day, which === "next" ? "NEXT" : "OPEN"],
+    [recipeId, day, weekStart(which)],
   );
 }

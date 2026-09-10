@@ -6,7 +6,6 @@
  */
 
 import { query, tx } from "./db";
-import { SUGGEST_AFTER_DAYS } from "./say";
 
 export type RecipeRow = {
   id: number;
@@ -61,13 +60,13 @@ const SELECT_ROW = `
     FROM recipe r`;
 
 /** 탭 1 — 아직 만들기 전. 기본은 최근 저장 순 */
-export function listWish(limit = 100, sort: Sort = "default") {
+export function listWish(limit = 100, sort: Sort = "default", offset = 0) {
   return query<RecipeRow>(
     `${SELECT_ROW}
       WHERE r.status = 'WISH'
       ORDER BY ${WISH_ORDER[sort] ?? WISH_ORDER.default}
-      LIMIT $1`,
-    [limit],
+      LIMIT $1 OFFSET $2`,
+    [limit, offset],
   );
 }
 
@@ -75,33 +74,18 @@ export function listWish(limit = 100, sort: Sort = "default") {
  * 탭 2 — 최근 만든 것. **오래된 순으로 정렬한다.**
  * 이 정렬이 곧 추천이다 (지시서 3장). 뒤집지 마라.
  */
-export function listCooked(limit = 100, sort: Sort = "default") {
+export function listCooked(limit = 100, sort: Sort = "default", offset = 0) {
   return query<RecipeRow>(
     `${SELECT_ROW}
       WHERE r.status = 'GOOD'
       ORDER BY ${COOKED_ORDER[sort] ?? COOKED_ORDER.default}
-      LIMIT $1`,
-    [limit],
+      LIMIT $1 OFFSET $2`,
+    [limit, offset],
   );
 }
 
-/**
- * 탭 3 — 이번 주 추천. 두 갈래로 낸다 (지시서 3장).
- *
- * 가르는 기준은 상태가 아니라 **만든 적이 있는가**다.
- *
- *   오랜만에 어때요    만든 적 있고 + 30일 지남
- *   아직 안 만들어본 것 만든 적 없음 (GOOD 이든 WISH 든)
- *
- * 만든 적 없는 건 아무리 GOOD 이어도 "오랜만" 이 성립하지 않는다. 노션에서
- * "괜찮았다" 로 옮겨왔지만 날짜가 없는 것들이 그렇다 — 예전에는 그게
- * 오랜만에 어때요 맨 위에 "아직 안 만들어봤어요" 라고 붙어 나왔다.
- *
- * BAD 는 양쪽 다 안 나온다. 별로였던 걸 30일 뒤 다시 밀면 앱이 바보처럼
- * 보인다 (지시서 3장).
- *
- * 30일이 안 된 게 없으면 위쪽은 빈다. 아래 목록과 이번 주 식단이 항상
- * 있으니 화면이 통째로 비지는 않는다.
+/** Previously cooked dishes first, but recent dishes remain valid fallbacks.
+ * Selected dishes are excluded before paging. Each candidate appears once per cycle.
  */
 const SHOW_OLD = 3;
 const SHOW_FRESH = 2;
@@ -142,23 +126,25 @@ function weave<T>(a: T[], b: T[], na: number, nb: number): T[] {
  * 고장난 것처럼 보인다 — 대신 몇 번째 장인지 같이 내서, 다시 처음이라는
  * 걸 화면이 말한다 (app/page.tsx).
  */
-export async function suggest(again = 0) {
+export async function suggest(again = 0, exclude: number[] = []) {
   const [oldPool, freshPool] = await Promise.all([
     query<RecipeRow>(
       `${SELECT_ROW}
         WHERE r.status = 'GOOD'
           AND r.last_cooked_on IS NOT NULL
-          AND CURRENT_DATE - r.last_cooked_on >= $1
+          AND NOT (r.id = ANY($1::bigint[]))
         ORDER BY r.last_cooked_on ASC, r.id ASC
         LIMIT ${POOL}`,
-      [SUGGEST_AFTER_DAYS],
+      [exclude],
     ),
     query<RecipeRow>(
       `${SELECT_ROW}
         WHERE r.last_cooked_on IS NULL
           AND r.status <> 'BAD'
-        ORDER BY r.created_at DESC
+          AND NOT (r.id = ANY($1::bigint[]))
+        ORDER BY r.created_at DESC, r.id DESC
         LIMIT ${POOL}`,
+      [exclude],
     ),
   ]);
 
@@ -266,4 +252,17 @@ export async function detail(id: number): Promise<RecipeDetail | null> {
 
   if (rows.length === 0) return null;
   return { ...rows[0], items, steps: steps.map((s) => s.body) };
+}
+
+/** Search titles and original ingredient names; values never enter SQL syntax. */
+export async function searchRecipes(term: string, offset = 0) {
+  return query<RecipeRow>(
+    `${SELECT_ROW}
+    WHERE r.status <> 'BAD' AND
+      (strpos(lower(r.title), lower($1)) > 0 OR EXISTS (
+        SELECT 1 FROM recipe_ingredient ri WHERE ri.recipe_id = r.id
+          AND strpos(lower(ri.raw_name), lower($1)) > 0))
+    ORDER BY r.title, r.id LIMIT 101 OFFSET $2`,
+    [term, offset],
+  );
 }

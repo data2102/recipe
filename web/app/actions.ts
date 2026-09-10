@@ -81,7 +81,6 @@ export async function dropRecipe(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-
 /* ---------------------------------------------------------------- */
 /*  이번 주 담기 · 장보기 (작업 순서 6번)                              */
 /* ---------------------------------------------------------------- */
@@ -162,7 +161,11 @@ export async function addToWeekOn(formData: FormData) {
 export async function toggleItem(formData: FormData) {
   const label = String(formData.get("label") || "");
   if (!label) return;
-  await shopping.toggle(label, formData.get("checked") === "1", which(formData));
+  await shopping.toggle(
+    label,
+    formData.get("checked") === "1",
+    which(formData),
+  );
   revalidatePath("/", "layout");
 }
 
@@ -172,5 +175,17 @@ export async function toggleItem(formData: FormData) {
  */
 export async function finishShopping(formData: FormData) {
   await shopping.finish(which(formData));
+  revalidatePath("/", "layout");
+}
+
+/** Mark an ingredient as excluded for this shopping list only. */
+export async function excludeItem(formData: FormData) {
+  const label = String(formData.get("label") || "");
+  if (!label || label.length > 500) return;
+  await shopping.setExclusion(
+    label,
+    formData.get("excluded") === "1",
+    which(formData),
+  );
   revalidatePath("/", "layout");
 }

@@ -1,99 +1,192 @@
 "use client";
 
-/**
- * 장보기 목록 — 마트에서 여는 화면 (지시서 3장)
- *
- * 판정하지 않고 근거를 보여준다 (원칙 ③).
- *   사야 해요        산 적이 없거나 유통기한이 지났다
- *   있는지 봐주세요  "6일 전에 샀어요" — 판정은 사용자가 한다
- *   집에 있을 거예요 최근에 샀다
- *
- * 체크하면 구매 기록이 생긴다. 새 입력을 요구하지 않고 이미 하는 행동에
- * 얹는 것이라, 이 데이터는 틀릴 수가 없다.
- */
-
-import { useOptimistic, useTransition } from "react";
-import { toggleItem } from "./actions";
+import Link from "next/link";
+import { useOptimistic, useState, useTransition } from "react";
+import { excludeItem, toggleItem } from "./actions";
 import ShoppingFinish from "./ShoppingFinish";
-import { BUCKET_TITLE, type Bucket, type ShoppingItem } from "@/lib/shopping.types";
+import {
+  BUCKET_TITLE,
+  remaining,
+  type RecipeGroup,
+  type ShoppingItem,
+} from "@/lib/shopping.types";
 import styles from "./Shopping.module.css";
 
-const ORDER: Bucket[] = ["BUY", "CHECK", "HAVE"];
-
+/** One state model and the same controls in both shopping views. */
 export default function Shopping({
   items,
+  groups = [],
   week = "this",
+  byRecipe = false,
+  closed = false,
 }: {
   items: ShoppingItem[];
-  /** 어느 주의 장인가. 체크가 그 주 목록에 걸린다 (app/shopping/page.tsx) */
+  groups?: RecipeGroup[];
   week?: "this" | "next";
+  byRecipe?: boolean;
+  closed?: boolean;
 }) {
-  const [, startTransition] = useTransition();
-  // 마트에서 누르는 것이라 응답을 기다리게 하면 안 된다.
-  const [shown, setShown] = useOptimistic(
+  const [pending, start] = useTransition();
+  const [error, setError] = useState(false);
+  const [shown, update] = useOptimistic(
     items,
-    (state: ShoppingItem[], changed: { label: string; checked: boolean }) =>
-      state.map((it) =>
-        it.label === changed.label ? { ...it, checked: changed.checked } : it,
+    (state: ShoppingItem[], change: { label: string; checked: boolean }) =>
+      state.map((i) =>
+        i.label === change.label ? { ...i, checked: change.checked } : i,
       ),
   );
 
-  function onToggle(item: ShoppingItem) {
-    const checked = !item.checked;
-    startTransition(async () => {
-      setShown({ label: item.label, checked });
+  function mutate(item: ShoppingItem, exclude?: boolean) {
+    setError(false);
+    start(async () => {
       const form = new FormData();
       form.set("label", item.label);
-      form.set("checked", checked ? "1" : "0");
       form.set("week", week);
-      await toggleItem(form);
+      try {
+        if (exclude === undefined) {
+          update({ label: item.label, checked: !item.checked });
+          form.set("checked", item.checked ? "0" : "1");
+          await toggleItem(form);
+        } else {
+          form.set("excluded", exclude ? "1" : "0");
+          await excludeItem(form);
+        }
+      } catch {
+        setError(true);
+      }
     });
   }
 
-  const bought = shown.filter((i) => i.checked).length;
+  function row(item: ShoppingItem) {
+    const uses = groups.filter((g) => g.labels.includes(item.label));
+    return (
+      <li key={item.label} className={styles.line}>
+        <div className={styles.itemHead}>
+          {item.bucket === "HAVE" && !item.checked ? (
+            <span className={styles.name}>{item.label}</span>
+          ) : (
+            <label className="ds-check">
+              <input
+                type="checkbox"
+                checked={item.checked}
+                disabled={pending || closed}
+                onChange={() => mutate(item)}
+              />
+              <span className="box" />
+              <span className={styles.name}>{item.label}</span>
+            </label>
+          )}
+          {!item.checked && (
+            <button
+              type="button"
+              className={styles.exclude}
+              disabled={pending || closed}
+              onClick={() => mutate(item, item.bucket !== "HAVE")}
+            >
+              {item.bucket === "HAVE" ? "다시 살 것에 넣기" : "집에 있어요"}
+            </button>
+          )}
+        </div>
+        {item.reason && <p className={styles.reason}>{item.reason}</p>}
+        <div className={styles.uses}>
+          {uses.map((g) => (
+            <div key={g.recipe_id}>
+              <Link href={`/recipe/${g.recipe_id}?week=${week}`}>
+                {g.title}
+              </Link>
+              {" · "}
+              {g.quantities
+                .filter((q) => q.label === item.label)
+                .map((q) => q.qty || "수량 확인 필요")
+                .join(" + ")}
+            </div>
+          ))}
+        </div>
+      </li>
+    );
+  }
 
   return (
-    /* PC 에서는 두 칸으로 벌어진다 (globals.css) */
-    <div className="board board-tight">
-      {ORDER.map((bucket) => {
-        const picked = shown.filter((i) => i.bucket === bucket);
-        if (picked.length === 0) return null;
-        return (
-          <div key={bucket} className={styles.group}>
-            <h3 className={styles.bucket}>
-              {BUCKET_TITLE[bucket]}
-              <span className={styles.count}>{picked.length}</span>
-            </h3>
+    <div>
+      <p role="status" className={styles.note}>
+        남은 항목 {remaining(shown)}개 · 구매{" "}
+        {shown.filter((i) => i.checked).length}개
+      </p>
+      {error && (
+        <p role="alert">변경하지 못했어요. 연결을 확인하고 다시 눌러주세요.</p>
+      )}
+      <p className={styles.note}>
+        수량은 저장된 레시피 기준이에요. 서로 다른 단위는 그대로 표시해요.
+      </p>
+      {byRecipe ? (
+        groups.map((g) => (
+          <details key={g.recipe_id} className="ds-card">
+            <summary className={styles.summary}>
+              {g.title} · 남은 항목{" "}
+              {remaining(shown.filter((i) => g.labels.includes(i.label)))}개
+            </summary>
             <ul className={styles.list}>
-              {picked.map((item) => (
-                /*
-                 * 여백의 .ds-check 를 쓴다 — 보이는 네모는 .box 가 그리고
-                 * 진짜 <input> 이 안에 숨어 있어서 키보드·스크린리더가 그대로
-                 * 동작한다 (components.css Phase 1). 줄 전체가 라벨이라
-                 * 마트에서 아무 데나 눌러도 체크된다.
-                 */
-                <li key={item.label} className={styles.line}>
-                  <label className="ds-check">
-                    <input
-                      type="checkbox"
-                      checked={item.checked}
-                      onChange={() => onToggle(item)}
-                    />
-                    <span className="box" />
-                    <span className={styles.name}>{item.label}</span>
-                    {/* 근거만 보여준다. "없음" 이라고 단정하지 않는다 */}
-                    {item.reason && (
-                      <span className={styles.reason}>{item.reason}</span>
-                    )}
-                  </label>
-                </li>
-              ))}
+              {shown.filter((i) => g.labels.includes(i.label)).map(row)}
             </ul>
-          </div>
-        );
-      })}
-
-      <ShoppingFinish bought={bought} week={week} />
+            {!g.labels.length && (
+              <p>
+                재료가 아직 없어요.{" "}
+                <Link href={`/recipe/${g.recipe_id}?week=${week}`}>
+                  레시피 확인하기
+                </Link>
+              </p>
+            )}
+          </details>
+        ))
+      ) : (
+        <>
+          {(["BUY", "CHECK"] as const).map((bucket) => {
+            const rows = shown.filter((i) => i.bucket === bucket && !i.checked);
+            return (
+              rows.length > 0 && (
+                <section key={bucket} className={styles.group}>
+                  <h2 className={styles.bucket}>
+                    {BUCKET_TITLE[bucket]} · {rows.length}
+                  </h2>
+                  <ul className={styles.list}>{rows.map(row)}</ul>
+                </section>
+              )
+            );
+          })}
+          {shown.some((i) => i.bucket === "HAVE" && !i.checked) && (
+            <details className="ds-card">
+              <summary className={styles.summary}>
+                집에 있어요 ·{" "}
+                {shown.filter((i) => i.bucket === "HAVE" && !i.checked).length}
+                개
+              </summary>
+              <ul className={styles.list}>
+                {shown
+                  .filter((i) => i.bucket === "HAVE" && !i.checked)
+                  .map(row)}
+              </ul>
+            </details>
+          )}
+          {shown.some((i) => i.checked) && (
+            <details className="ds-card" open>
+              <summary className={styles.summary}>
+                구매했어요 · {shown.filter((i) => i.checked).length}개
+              </summary>
+              <ul className={styles.list}>
+                {shown.filter((i) => i.checked).map(row)}
+              </ul>
+            </details>
+          )}
+        </>
+      )}
+      {!closed && (
+        <ShoppingFinish
+          bought={shown.filter((i) => i.checked).length}
+          week={week}
+          remaining={remaining(shown)}
+          total={shown.length}
+        />
+      )}
     </div>
   );
 }

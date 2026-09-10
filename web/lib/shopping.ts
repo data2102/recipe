@@ -96,11 +96,19 @@ export async function addRecipe(
   which: Which = "this",
 ): Promise<void> {
   const listId = await openList(true, which);
-  await query(
-    `INSERT INTO shopping_list_recipe (list_id, recipe_id) VALUES ($1, $2)
-     ON CONFLICT DO NOTHING`,
-    [listId, recipeId],
-  );
+  await tx(async (q) => {
+    await q(`SELECT id FROM shopping_list WHERE id = $1 FOR UPDATE`, [listId]);
+    const added = await q(
+      `INSERT INTO shopping_list_recipe (list_id, recipe_id) VALUES ($1, $2)
+      ON CONFLICT DO NOTHING RETURNING recipe_id`,
+      [listId, recipeId],
+    );
+    if (added.length)
+      await q(
+        `UPDATE shopping_list SET status = 'OPEN', completed_at = NULL WHERE id = $1`,
+        [listId],
+      );
+  });
 }
 
 export async function removeRecipe(
@@ -193,31 +201,25 @@ SELECT n.ingredient_id, n.raw_key, n.label,
  * 담은 요리가 바뀌면 필요한 재료도 바뀐다. 굳혀두면 틀린 걸 보여준다.
  * 사용자가 체크해둔 것만 이름으로 물려준다.
  */
-export async function items(
-  listId: number | null,
-  /**
-   * 집에 있다고 눌러둔 재료. 저장하지 않는다 — 주소에만 산다 (지시서 6장).
-   * 상시 재고를 만들면 갱신을 안 해서 어긋난다.
-   *
-   * 사전에 붙은 것은 id 로, 안 붙은 것은 레시피에 적힌 표기로 맞춘다
-   * (lib/fridge.types.ts). 사전에 없는 재료가 더 많아서, id 만 보면
-   * 대부분을 "집에 있어요" 라고 말할 수가 없다.
-   *
-   * 여기 있는 재료는 "집에 있을 거예요" 로 내린다. 구매 기록을 만들지는
-   * **않는다** — 집에 있다는 건 오늘 샀다는 뜻이 아니다. 없는 날짜를
-   * 지어내면 다음 주에 "3일 전에 샀어요" 같은 거짓말이 나온다.
-   */
-  have: Have = NO_HAVE,
-): Promise<ShoppingItem[]> {
+export async function items(listId: number | null): Promise<ShoppingItem[]> {
   if (!listId) return [];
 
   return tx(async (q) => {
+    const [list] = await q<{ excluded: string }>(
+      `SELECT excluded FROM shopping_list WHERE id = $1 FOR UPDATE`,
+      [listId],
+    );
+    const have = list ? (JSON.parse(list.excluded) as Have) : NO_HAVE;
     // 이미 체크한 것은 있던 칸에 그대로 둔다.
     //
     // 체크하면 구매 기록이 생기고, 다시 재면 그 항목은 "집에 있을 거예요"
     // 로 옮겨간다 — 맞는 계산이지만 마트에서 담자마자 칸이 바뀌면 어디까지
     // 샀는지 놓친다. 장보기가 끝나면 어차피 새 목록이 열린다.
-    const before = await q<{ label: string; bucket: Bucket; reason: string | null }>(
+    const before = await q<{
+      label: string;
+      bucket: Bucket;
+      reason: string | null;
+    }>(
       `SELECT label, bucket, reason FROM shopping_item
         WHERE list_id = $1 AND checked`,
       [listId],
@@ -242,7 +244,13 @@ export async function items(
       const row: ShoppingItem = {
         ingredient_id: r.ingredient_id,
         label: r.label,
-        bucket: kept ? kept.bucket : athomeNow ? "HAVE" : r.bucket,
+        bucket: kept
+          ? kept.bucket
+          : athomeNow
+            ? "HAVE"
+            : r.bucket === "HAVE"
+              ? "CHECK"
+              : r.bucket,
         reason: kept
           ? kept.reason
           : athomeNow
@@ -254,7 +262,14 @@ export async function items(
         `INSERT INTO shopping_item
            (list_id, ingredient_id, label, bucket, reason, checked)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [listId, row.ingredient_id, row.label, row.bucket, row.reason, row.checked],
+        [
+          listId,
+          row.ingredient_id,
+          row.label,
+          row.bucket,
+          row.reason,
+          row.checked,
+        ],
       );
       rows.push(row);
     }
@@ -286,7 +301,7 @@ export async function groups(listId: number | null): Promise<RecipeGroup[]> {
           ORDER BY ri.recipe_id, ri.choice_group, ri.confirmed DESC, ri.id
      ),
      need AS (
-         SELECT ri.recipe_id, ri.ingredient_id, ri.raw_name,
+         SELECT ri.recipe_id, ri.ingredient_id, ri.raw_name, ri.raw_qty,
                 CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END AS raw_key
            FROM recipe_ingredient ri
            JOIN shopping_list_recipe slr ON slr.recipe_id = ri.recipe_id
@@ -306,7 +321,9 @@ export async function groups(listId: number | null): Promise<RecipeGroup[]> {
             COALESCE(
               array_agg(DISTINCT m.label) FILTER (WHERE m.label IS NOT NULL),
               '{}'
-            ) AS labels
+            ) AS labels,
+            COALESCE(json_agg(json_build_object('label', m.label, 'qty', n.raw_qty))
+              FILTER (WHERE m.label IS NOT NULL), '[]') AS quantities
        FROM shopping_list_recipe slr
        JOIN recipe r ON r.id = slr.recipe_id
        LEFT JOIN need n ON n.recipe_id = slr.recipe_id
@@ -336,28 +353,30 @@ export async function toggle(
   if (!listId) return;
 
   await tx(async (q) => {
+    await q(`SELECT id FROM shopping_list WHERE id = $1 FOR UPDATE`, [listId]);
     const rows = await q<{ ingredient_id: number | null }>(
       `UPDATE shopping_item SET checked = $3
-        WHERE list_id = $1 AND label = $2
-        RETURNING ingredient_id`,
+       WHERE list_id = $1 AND label = $2 AND checked IS DISTINCT FROM $3
+       RETURNING ingredient_id`,
       [listId, label, checked],
     );
-    if (!checked) return;
-
     for (const r of rows) {
       if (r.ingredient_id === null) continue;
-      // 같은 날 두 번 체크해도 기록은 하나다.
-      // 날짜는 **한국 기준**으로 적는다 (lib/say.ts TZ). CURRENT_DATE 는
-      // 서버 시계(UTC)라, 한국 새벽에 체크한 게 어제 산 것으로 남는다.
-      await q(
-        `INSERT INTO purchase (ingredient_id, purchased_on, source)
-         SELECT $1, (now() AT TIME ZONE 'Asia/Seoul')::date, 'CHECKOFF'
-          WHERE NOT EXISTS (
-            SELECT 1 FROM purchase
-             WHERE ingredient_id = $1
-               AND purchased_on = (now() AT TIME ZONE 'Asia/Seoul')::date)`,
-        [r.ingredient_id],
-      );
+      const source = `CHECKOFF:${listId}:${r.ingredient_id}`;
+      if (!checked) {
+        // Only undo this list's event. Other lists, receipts and legacy events survive.
+        await q(
+          `DELETE FROM purchase WHERE source = $1 AND ingredient_id = $2`,
+          [source, r.ingredient_id],
+        );
+      } else {
+        await q(
+          `INSERT INTO purchase (ingredient_id, purchased_on, source)
+          SELECT $1, (now() AT TIME ZONE 'Asia/Seoul')::date, $2
+          WHERE NOT EXISTS (SELECT 1 FROM purchase WHERE source = $2 AND ingredient_id = $1)`,
+          [r.ingredient_id, source],
+        );
+      }
     }
   });
 }
@@ -380,4 +399,49 @@ export async function finish(which: Which = "this"): Promise<void> {
       WHERE id = $1 AND status <> 'DONE'`,
     [listId],
   );
+}
+
+/** Exclusions expire with this dated list. They never become household inventory. */
+export async function exclusions(listId: number | null): Promise<Have> {
+  if (!listId) return NO_HAVE;
+  const row = await one<{ excluded: string }>(
+    `SELECT excluded FROM shopping_list WHERE id = $1`,
+    [listId],
+  );
+  return row ? (JSON.parse(row.excluded) as Have) : NO_HAVE;
+}
+
+export async function setExclusion(
+  label: string,
+  excluded: boolean,
+  which: Which,
+) {
+  const listId = await openList(false, which);
+  if (!listId) return;
+  await tx(async (q) => {
+    const [list] = await q<{ excluded: string }>(
+      `SELECT excluded FROM shopping_list WHERE id = $1 FOR UPDATE`,
+      [listId],
+    );
+    if (!list) return;
+    const [item] = await q<{ ingredient_id: number | null }>(
+      `SELECT ingredient_id FROM shopping_item WHERE list_id = $1 AND label = $2`,
+      [listId, label],
+    );
+    if (!item) return;
+    const have = JSON.parse(list.excluded) as Have;
+    const ids = new Set(have.ids);
+    const names = new Set(have.names);
+    if (item.ingredient_id !== null) {
+      if (excluded) ids.add(item.ingredient_id);
+      else ids.delete(item.ingredient_id);
+    } else {
+      if (excluded) names.add(label);
+      else names.delete(label);
+    }
+    await q(`UPDATE shopping_list SET excluded = $2 WHERE id = $1`, [
+      listId,
+      JSON.stringify({ ids: [...ids], names: [...names] }),
+    ]);
+  });
 }

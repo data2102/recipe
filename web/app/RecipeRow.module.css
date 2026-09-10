@@ -148,7 +148,6 @@
   display: contents;
 }
 
-
 .close {
   display: block;
   width: 100%;
@@ -219,5 +218,24 @@
  */
 .quietBadge {
   background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+
+.rowButton {
+  text-decoration: none;
+}
+.pick {
+  min-height: 44px;
+}
+
+.rowWrap > div {
+  align-self: center;
+}
+.moreAction {
+  align-self: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
   color: var(--text-secondary);
 }
