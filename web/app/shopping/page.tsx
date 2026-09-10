@@ -105,7 +105,7 @@ export default async function ShoppingPage({
   const nextStart = addDays(thisStart, 7);
 
   return (
-    <main className="shell">
+    <main className="shell compact-page">
       <header className={styles.head}>
         <h1 className={styles.title}>
           {next ? "다음 주 장보기" : "이번 주 장보기"}
@@ -159,8 +159,7 @@ export default async function ShoppingPage({
       </nav>
 
       <p className={styles.note}>
-        집에 있는 재료만 목록에서 빼면 돼요. 아무것도 선택하지 않아도 장볼 수
-        있어요.
+        집에 있는 재료는 ‘집에 있어요’를 눌러 빼주세요.
       </p>
 
       {data.cart.length > 0 && (

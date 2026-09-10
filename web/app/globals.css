@@ -199,3 +199,11 @@ a.ds-btn {
   --fs-caption: 14px;
   --fs-footnote: 13px;
 }
+
+/* Compact meal and shopping surfaces; keep readable type and 44px targets. */
+.compact-page { padding-top: var(--sp-3); }
+.compact-page .ds-card { padding: var(--sp-4); margin-bottom: var(--sp-3); }
+.compact-page .ds-btn { min-height: 44px; padding: var(--sp-3) var(--sp-4); }
+@media (min-width: 900px) {
+  .compact-page { max-width: 760px; padding-top: calc(52px + var(--sp-4)); }
+}

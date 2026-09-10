@@ -62,9 +62,6 @@ export default function RecipeRow({
     <li className={styles.row}>
       <div className={styles.rowWrap}>
         <Link href={`/recipe/${id}?week=${week}`} className={styles.rowButton}>
-          <span className={styles.icon} aria-hidden="true">
-            {Array.from(title)[0] ?? "?"}
-          </span>
           <span className={styles.texts}>
             <span className={styles.title}>{title}</span>
             <span className={`${styles.meta} ${warm ? styles.warm : ""}`}>

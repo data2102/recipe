@@ -88,7 +88,11 @@ export default function Shopping({
           )}
         </div>
         {item.reason && <p className={styles.reason}>{item.reason}</p>}
-        <div className={styles.uses}>
+        <div className={styles.quantities}>
+          {uses.flatMap((g) => g.quantities.filter((q) => q.label === item.label).map((q) => q.qty || "수량 확인 필요")).join(" + ") || "수량 확인 필요"}
+        </div>
+        <details className={styles.uses}>
+          <summary>사용할 요리 {uses.length}개</summary>
           {uses.map((g) => (
             <div key={g.recipe_id}>
               <Link href={`/recipe/${g.recipe_id}?week=${week}`}>
@@ -101,7 +105,7 @@ export default function Shopping({
                 .join(" + ")}
             </div>
           ))}
-        </div>
+        </details>
       </li>
     );
   }
@@ -115,9 +119,10 @@ export default function Shopping({
       {error && (
         <p role="alert">변경하지 못했어요. 연결을 확인하고 다시 눌러주세요.</p>
       )}
-      <p className={styles.note}>
-        수량은 저장된 레시피 기준이에요. 서로 다른 단위는 그대로 표시해요.
-      </p>
+      <details className={styles.help}>
+        <summary>수량 표시 기준</summary>
+        <p className={styles.note}>레시피에 저장된 수량이며, 서로 다른 단위는 그대로 표시해요.</p>
+      </details>
       {byRecipe ? (
         groups.map((g) => (
           <details key={g.recipe_id} className="ds-card">
