@@ -1,39 +1,18 @@
-/**
- * 레시피 — 모아둔 것 전부 (세 축 중 하나)
- *
- *   만들기 전   저장만 해둔 것.        최근 저장 순
- *   만든 것     만들어보고 괜찮았던 것. **오래된 순 — 뒤집지 마라**
- *
- * 오래된 순 정렬이 곧 추천이다 (지시서 3장). 여기서 오래된 것이
- * 식단 화면의 "오랜만에 어때요" 로 올라간다.
- *
- * **여기서도 담는다.** 식단 화면의 "담을 것" 은 추천이라 몇 개만 낸다
- * (오랜만에 3 · 아직 안 만들어본 것 2). 그런데 월요일에 뭘 먹을지
- * 고르다 보면 추천에 없는, 예전에 만들어본 것 중에서 생각나는 게 있다.
- * 그때 갈 데가 없으면 이 화면은 구경만 하는 자리가 된다.
- *
- * 담기를 누르면 요일 막대가 뜬다 (PickDayProvider). "이번 주" 가 이
- * 화면에 안 보여도, 담는 사람 머릿속에는 이미 무슨 요일인지 있다.
- */
-
 import Link from "next/link";
 import List from "../RecipeList";
-import PickDayProvider from "../PickDay";
+
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
 import {
   counts,
+  searchRecipes,
   listCooked,
   listWish,
   type RecipeRow as Row,
   type Sort,
 } from "@/lib/recipes";
 import { daysFrom, todayInput } from "@/lib/say";
-import {
-  openList,
-  picked as pickedRecipes,
-  weekStart,
-} from "@/lib/shopping";
+import { openList, picked as pickedRecipes, weekStart } from "@/lib/shopping";
 import styles from "../page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -47,14 +26,6 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-/*
- * 정렬. 탭마다 기본이 다르다 — **그 탭의 추천 순서가 기본이다**
- * (만든 것은 오래된 순, 만들기 전은 최근 추가순). 이름순은 "그거 어디
- * 있더라" 로 찾을 때 쓴다.
- *
- * 기본값 이름을 탭마다 따로 적는 이유: 같은 "default" 라도 사람에게는
- * 다른 순서라, 화면에 "기본" 이라고 쓰면 무슨 순서인지 알 수가 없다.
- */
 const SORTS: Record<TabKey, { key: Sort; label: string }[]> = {
   want: [
     { key: "default", label: "최근 추가순" },
@@ -73,18 +44,28 @@ type Loaded =
       total: number;
       list: Row[];
       inBasket: Set<number>;
-      /** 이번 주 날짜 일곱 개. 담을 때 뜨는 막대가 날짜로 묻는다 */
+
       dates: string[];
     };
 
-async function load(tab: TabKey, sort: Sort): Promise<Loaded> {
+async function load(
+  tab: TabKey,
+  sort: Sort,
+  which: "this" | "next",
+  term: string,
+  page: number,
+): Promise<Loaded> {
   try {
     const n = await counts();
     // 이미 담은 것은 또 담을 게 없다 — 배지로 알린다
-    const listId = await openList();
-    const start = weekStart();
+    const listId = await openList(false, which);
+    const start = weekStart(which);
     const [list, basket] = await Promise.all([
-      tab === "want" ? listWish(100, sort) : listCooked(100, sort),
+      term
+        ? searchRecipes(term, page * 100)
+        : tab === "want"
+          ? listWish(101, sort, page * 100)
+          : listCooked(101, sort, page * 100),
       pickedRecipes(listId),
     ]);
     return {
@@ -116,16 +97,47 @@ export default async function RecipesPage({
   const rawSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
   const sort: Sort = rawSort === "name" ? "name" : "default";
 
-  const data = await load(tab, sort);
+  const which = params.week === "next" ? "next" : "this";
+  const term = (typeof params.q === "string" ? params.q : "")
+    .trim()
+    .slice(0, 100);
+  const page = Math.max(
+    0,
+    Math.min(10000, Math.floor(Number(params.page) || 0)),
+  );
+  const data = await load(tab, sort, which, term, page);
   if (data.kind === "error") return <Broken message={data.message} />;
 
   return (
     <main className="shell">
       <header className={styles.head}>
         <h1 className={styles.title}>레시피</h1>
-        <p className={styles.sub}>{data.total}개</p>
+        <p className={styles.sub}>
+          {data.total}개 · {which === "next" ? "다음 주" : "이번 주"} 식단에
+          담아요
+        </p>
       </header>
 
+      <form action="/recipes" className="ds-card" role="search">
+        <input type="hidden" name="week" value={which} />
+        <label className="ds-label" htmlFor="recipe-search">
+          요리명이나 재료로 찾기
+        </label>
+        <input
+          id="recipe-search"
+          type="search"
+          name="q"
+          defaultValue={term}
+          maxLength={100}
+          className="ds-input"
+          placeholder="예: 김치, 제육볶음"
+        />
+        <button type="submit" className="ds-btn ds-btn-secondary">
+          검색
+        </button>
+        {term && <Link href={`/recipes?week=${which}`}>검색 지우기</Link>}
+      </form>
+      {term && <p>전체 레시피에서 ‘{term}’ 검색</p>}
       <Link
         href="/add"
         className={`ds-btn ds-btn-primary ds-btn-block ${styles.add}`}
@@ -133,52 +145,74 @@ export default async function RecipesPage({
         레시피 추가
       </Link>
 
-      <nav className={`ds-tabs ${styles.tabs}`}>
-        {TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={`/recipes?tab=${t.key}${sort === "name" ? "&sort=name" : ""}`}
-            className={`ds-tab ${t.key === tab ? "on" : ""}`}
-            aria-current={t.key === tab ? "page" : undefined}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </nav>
+      {!term && (
+        <nav className={`ds-tabs ${styles.tabs}`}>
+          {TABS.map((t) => (
+            <Link
+              key={t.key}
+              href={`/recipes?week=${which}&tab=${t.key}${sort === "name" ? "&sort=name" : ""}`}
+              className={`ds-tab ${t.key === tab ? "on" : ""}`}
+              aria-current={t.key === tab ? "page" : undefined}
+            >
+              {t.label}
+            </Link>
+          ))}
+        </nav>
+      )}
 
-      {/* 정렬. 목록이 길어지면 "그거 어디 있더라" 가 생긴다 */}
-      <div className={styles.sorts}>
-        {SORTS[tab].map((o) => (
-          <Link
-            key={o.key}
-            href={`/recipes?tab=${tab}${o.key === "name" ? "&sort=name" : ""}`}
-            className={`ds-chip ${o.key === sort ? "on" : ""}`}
-            aria-current={o.key === sort ? "true" : undefined}
-          >
-            {o.label}
-          </Link>
-        ))}
-      </div>
+      {!term && (
+        <div className={styles.sorts}>
+          {SORTS[tab].map((o) => (
+            <Link
+              key={o.key}
+              href={`/recipes?week=${which}&tab=${tab}${o.key === "name" ? "&sort=name" : ""}`}
+              className={`ds-chip ${o.key === sort ? "on" : ""}`}
+              aria-current={o.key === sort ? "true" : undefined}
+            >
+              {o.label}
+            </Link>
+          ))}
+        </div>
+      )}
 
-      <PickDayProvider dates={data.dates}>
+      <>
         <List
-          list={data.list}
+          list={data.list.slice(0, 100)}
+          week={which}
           today={today}
-          mode={tab === "want" ? "wish" : "cooked"}
+          mode={tab === "want" || term ? "wish" : "cooked"}
           pick="add"
           inBasket={data.inBasket}
           empty={
-            tab === "want"
-              ? "해보고 싶은 요리를 아직 안 담았어요."
-              : "만들어본 게 아직 없어요. 하나 만들고 체크해보세요."
+            term
+              ? "찾는 레시피가 없어요. 다른 이름이나 재료로 검색해보세요."
+              : tab === "want"
+                ? "해보고 싶은 요리를 아직 안 담았어요."
+                : "만들어본 게 아직 없어요. 하나 만들고 체크해보세요."
           }
         />
-      </PickDayProvider>
+      </>
 
-      {/*
-        중복 정리는 매일 하는 일이 아니라 딸린 화면으로 둔다 (탭은 셋이다).
-        같은 요리를 두 번 넣는 일은 캡처로 모으다 보면 실제로 생긴다.
-      */}
+      <nav aria-label="레시피 페이지" className={styles.sorts}>
+        {page > 0 && (
+          <Link
+            href={`/recipes?${new URLSearchParams({ week: which, tab, sort, q: term, page: String(page - 1) })}`}
+          >
+            이전
+          </Link>
+        )}
+        {data.list.length > 100 && (
+          <Link
+            href={`/recipes?${new URLSearchParams({ week: which, tab, sort, q: term, page: String(page + 1) })}`}
+          >
+            다음
+          </Link>
+        )}
+      </nav>
+      <Link href={`/?week=${which}`} className={styles.more}>
+        담은 식단 확인하기 →
+      </Link>
+
       <Link href="/similar" className={styles.more}>
         닮은 것끼리 훑어보기 →
       </Link>

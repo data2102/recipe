@@ -1,24 +1,11 @@
-/**
- * 장보기 — 마트에서 여는 화면 (세 축 중 하나)
- *
- * 이 화면은 **마트에서 한 손으로** 본다. 그래서 여기 있는 건 둘뿐이다.
- *   ① 집에 있는 재료를 눌러서 목록에서 뺀다
- *   ② 살 것을 체크한다
- *
- * 냉장고 칩이 여기 있는 이유: 칩이 묻는 건 "살 것 중에 뭐가 이미 집에
- * 있나" 라서, 답을 쓰는 자리가 장보기다. 눌러둔 값은 주소(`?have=`)에만
- * 살고 (지시서 6장) 탭바가 화면을 옮길 때 들고 다닌다 — 식단 화면도
- * 같은 값을 읽어서 "다 있어요" 를 낸다.
- */
-
 import Link from "next/link";
-import Fridge from "../Fridge";
+
 import Shopping from "../Shopping";
 import ShoppingByRecipe from "../ShoppingByRecipe";
 import { Empty } from "../RecipeList";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
-import { chips as fridgeChips, parseHave } from "@/lib/fridge";
+
 import {
   groups as recipeGroups,
   items as shoppingItems,
@@ -31,6 +18,7 @@ import { addDays, dateRange, dateTiny, daysFrom, whenShort } from "@/lib/say";
 import { week as weekOf, type PastWeek } from "@/lib/weeks";
 import { reopenWeek } from "../actions";
 import styles from "../page.module.css";
+import { remaining } from "@/lib/shopping.types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,53 +28,33 @@ type Loaded =
   | { kind: "error"; message: string }
   | {
       kind: "ok";
-      chips: Awaited<ReturnType<typeof fridgeChips>>;
+
       cart: Awaited<ReturnType<typeof shoppingItems>>;
       basket: Awaited<ReturnType<typeof pickedRecipes>>;
       groups: Awaited<ReturnType<typeof recipeGroups>>;
-      /**
-       * **보고 있는 주**가 끝났으면 그 주. 되돌릴 수 있게 눈앞에 낸다.
-       *
-       * 예전에는 "24시간 안에 끝낸 것" 을 찾았다. 그때는 끝내면 그 주가
-       * 통째로 사라져서 방금 것 말고는 가리킬 게 없었는데, 이제 주는
-       * 날짜가 정하니까 (lib/shopping.ts weekStart) 보고 있는 주를 그냥
-       * 물어보면 된다.
-       */
+
       closed: PastWeek | null;
-      /** 그 주 날짜 일곱 개. 요리에 적힌 요일을 날짜로 바꿔 적는다 */
+
       dates: string[];
     };
 
-/** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
-async function load(
-  have: ReturnType<typeof parseHave>,
-  which: Which,
-): Promise<Loaded> {
+async function load(which: Which): Promise<Loaded> {
   try {
     const listId = await openList(false, which);
     const start = weekStart(which);
+
     // items() 가 shopping_item 을 다시 쓴다. groups() 는 그 결과를 읽는
     // 게 아니라 같은 이름을 따로 만들 뿐이라 순서는 상관없다.
     const [basket, cart, groups] = await Promise.all([
       pickedRecipes(listId),
-      // 집에 있다고 눌러둔 재료는 "집에 있을 거예요" 로 내려간다.
-      shoppingItems(listId, have),
+      // 집에 있다고 눌러둔 재료는 "집에 있어요" 로 내려간다.
+      shoppingItems(listId),
       recipeGroups(listId),
     ]);
-    /*
-      칩은 **이번 주에 담은 요리들이 쓰는 재료**다. 담은 것 기준이면
-      장보기 목록의 범위와 정확히 같아진다 — 칩은 "살 것 중에 뭐가 이미
-      집에 있나" 를 묻는 것이니 그게 맞다. 담거나 빼면 칩도 따라 바뀐다.
-    */
-    const chips = await fridgeChips(basket.map((r) => r.id));
-    /*
-      끝낸 주는 화면이 그렇다고 말해야 한다. 안 그러면 "살 것 7개" 가
-      그대로 남아서 끝냈는지 아닌지 알 수가 없다 — 주가 안 사라지니까.
-    */
+
     const seen = await weekOf(listId);
     return {
       kind: "ok",
-      chips,
       cart,
       basket,
       groups,
@@ -107,53 +75,30 @@ export default async function ShoppingPage({
   if (!dbUrl()) return <Setup />;
 
   const params = await searchParams;
-  const have = parseHave(params.have, params.haveRaw);
-  /*
-    보는 방식은 주소에 둔다. 요리별이 기본이다 — 왜 사는지가 같이
-    보이는 쪽이 고르기 쉽다. 합친 목록은 한 번 눌러 갈 수 있게 남긴다:
-    진열대를 돌 때는 합친 게 낫고, **두 번 사지 않으려면 그 화면이 답이다.**
-  */
+
   const raw = Array.isArray(params.view) ? params.view[0] : params.view;
-  const merged = raw === "merged";
+  const merged = raw !== "recipe";
 
-  /*
-    어느 주의 장을 보는가. **기본은 다음 주다** — 식단 화면과 같은
-    기본값이라야 두 화면이 같은 주를 본다 (app/page.tsx). 이번 주에
-    다음 주 먹을 걸 정하고 주말에 그 장을 본다.
-
-    "장보기 끝" 은 어느 쪽을 보고 있든 하는 일이 같다: 이번 주를 닫고
-    다음 주를 이번 주로 올린다 (lib/shopping.ts finish). 다음 주 장을
-    보고 끝냈다면, 방금 산 그 주가 이번 주가 된다.
-  */
   const rawWeek = Array.isArray(params.week) ? params.week[0] : params.week;
-  const which: Which = rawWeek === "this" ? "this" : "next";
+  const which: Which = rawWeek === "next" ? "next" : "this";
   const next = which === "next";
 
   const q = new URLSearchParams();
-  if (params.have) q.set("have", String(params.have));
-  if (params.haveRaw) q.set("haveRaw", String(params.haveRaw));
-  if (next) q.set("week", "next");
+  q.set("week", which);
 
-  const data = await load(have, which);
+  const data = await load(which);
   if (data.kind === "error") return <Broken message={data.message} />;
 
-  const buy = data.cart.filter((i) => !i.checked).length;
+  const buy = remaining(data.cart);
   const byRecipe = new URLSearchParams(q);
+  byRecipe.set("view", "recipe");
   const flat = new URLSearchParams(q);
   flat.set("view", "merged");
 
-  /*
-    주 바꾸기는 보기(요리별/합쳐서)를 그대로 들고 간다.
-
-    **기본이 다음 주라 `?week=` 가 없으면 다음 주다** — "이번 주" 는 반드시
-    `?week=this` 를 붙여야 한다. 안 붙이면 눌러도 같은 화면이라 아무 일도
-    안 일어난다 (app/page.tsx 도 같은 규칙).
-  */
   const weekLink = (to: Which) => {
     const u = new URLSearchParams(q);
-    if (to === "this") u.set("week", "this");
-    else u.delete("week");
-    if (merged) u.set("view", "merged");
+    u.set("week", to);
+    u.set("view", merged ? "merged" : "recipe");
     return u.toString() ? `/shopping?${u}` : "/shopping";
   };
   const thisStart = next ? addDays(data.dates[0], -7) : data.dates[0];
@@ -162,7 +107,9 @@ export default async function ShoppingPage({
   return (
     <main className="shell">
       <header className={styles.head}>
-        <h1 className={styles.title}>{next ? "다음 주 장보기" : "이번 주 장보기"}</h1>
+        <h1 className={styles.title}>
+          {next ? "다음 주 장보기" : "이번 주 장보기"}
+        </h1>
         <p className={styles.sub}>
           {dateRange(data.dates[0], data.dates[6])} ·{" "}
           {data.cart.length === 0
@@ -170,7 +117,7 @@ export default async function ShoppingPage({
             : data.closed
               ? "장 다 봤어요"
               : buy === 0
-                ? "다 담았어요"
+                ? "더 살 것이 없어요"
                 : `살 것 ${buy}개`}
         </p>
       </header>
@@ -194,9 +141,6 @@ export default async function ShoppingPage({
         </section>
       )}
 
-      {/*
-        어느 주의 장인가. 식단 화면과 같은 자리, 같은 이름이다.
-      */}
       <nav className={`ds-tabs ${styles.tabs}`}>
         <Link
           href={weekLink("this")}
@@ -214,8 +158,10 @@ export default async function ShoppingPage({
         </Link>
       </nav>
 
-      <h2 className={styles.section}>집에 있는 재료 (선택)</h2>
-      <Fridge chips={data.chips} have={have} />
+      <p className={styles.note}>
+        집에 있는 재료만 목록에서 빼면 돼요. 아무것도 선택하지 않아도 장볼 수
+        있어요.
+      </p>
 
       {data.cart.length > 0 && (
         <nav className={`ds-tabs ${styles.tabs}`}>
@@ -236,17 +182,21 @@ export default async function ShoppingPage({
         </nav>
       )}
 
-      {/* 섹션 제목을 따로 두지 않는다 — 칸 이름이 그 자리를 한다.
-          PC 에서는 목록이 두 칸으로 벌어진다 (globals.css 의 .board) */}
       {data.cart.length > 0 ? (
         merged ? (
-          <Shopping items={data.cart} week={which} />
+          <Shopping
+            items={data.cart}
+            week={which}
+            groups={data.groups}
+            closed={!!data.closed}
+          />
         ) : (
           <ShoppingByRecipe
             groups={data.groups}
             items={data.cart}
             dates={data.dates}
             week={which}
+            closed={!!data.closed}
           />
         )
       ) : (

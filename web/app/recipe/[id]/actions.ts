@@ -107,7 +107,6 @@ export async function removePhoto(formData: FormData): Promise<void> {
   revalidatePath("/", "layout");
 }
 
-
 /* ---------------------------------------------------------------- */
 /*  레시피 고치기                                                     */
 /* ---------------------------------------------------------------- */
@@ -231,5 +230,7 @@ export async function saveEdits(formData: FormData): Promise<void> {
   });
 
   revalidatePath("/", "layout");
-  redirect(`/recipe/${id}`);
+  redirect(
+    `/recipe/${id}?week=${formData.get("week") === "next" ? "next" : "this"}`,
+  );
 }

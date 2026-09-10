@@ -13,6 +13,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Edit from "./Edit";
+import ActionButton from "../../ActionButton";
+import { markCooked, addToWeek } from "../../actions";
 import Photos from "./Photos";
 import { attachTarget, list as listPhotos } from "@/lib/photos";
 import { detail } from "@/lib/recipes";
@@ -27,6 +29,7 @@ export default async function RecipePage({
 }: PageProps<"/recipe/[id]">) {
   const { id } = await params;
   const q = await searchParams;
+  const week = q.week === "next" ? "next" : "this";
   const editing = (Array.isArray(q.edit) ? q.edit[0] : q.edit) === "1";
   const n = Number(id);
   if (!Number.isInteger(n) || n <= 0) notFound();
@@ -59,7 +62,7 @@ export default async function RecipePage({
     return (
       <main className="shell">
         <header className={styles.head}>
-          <Link href={`/recipe/${r.id}`} className={styles.back}>
+          <Link href={`/recipe/${r.id}?week=${week}`} className={styles.back}>
             ← 그만두기
           </Link>
           <h1 className={styles.title}>고치기</h1>
@@ -67,7 +70,13 @@ export default async function RecipePage({
             조리 기록과 사진, 보관해둔 원본은 그대로예요.
           </p>
         </header>
-        <Edit id={r.id} title={r.title} items={r.items} steps={r.steps} />
+        <Edit
+          week={week}
+          id={r.id}
+          title={r.title}
+          items={r.items}
+          steps={r.steps}
+        />
       </main>
     );
   }
@@ -75,8 +84,8 @@ export default async function RecipePage({
   return (
     <main className="shell">
       <header className={styles.head}>
-        <Link href="/" className={styles.back}>
-          ← 목록
+        <Link href={`/?week=${week}`} className={styles.back}>
+          ← 식단
         </Link>
         <h1 className={styles.title}>{r.title}</h1>
         <p className={styles.sub}>
@@ -90,6 +99,22 @@ export default async function RecipePage({
         만든 사진이 먼저다. 재료·만드는 법보다 이게 이 요리를 기억하게
         한다 — "저번에 이렇게 나왔지" 가 다시 만들 이유가 된다.
       */}
+      <section className="ds-card">
+        <ActionButton
+          action={addToWeek}
+          fields={{ id: r.id, week }}
+          label={`${week === "next" ? "다음 주" : "이번 주"} 식단에 담기`}
+          doneLabel="담았어요"
+          className="ds-btn ds-btn-secondary ds-btn-block"
+        />
+        <ActionButton
+          action={markCooked}
+          fields={{ id: r.id }}
+          label="오늘 만들었어요"
+          doneLabel="기록했어요"
+          className="ds-btn ds-btn-primary ds-btn-block"
+        />
+      </section>
       <Photos recipeId={r.id} photos={photos} attachesTo={attachesTo} />
 
       <section className="ds-card">
@@ -133,15 +158,14 @@ export default async function RecipePage({
           /* 없으면 없다고 말한다. 빈 자리를 그냥 두면 저장이 덜 된 건지
              원래 없는 건지 알 수 없다 (원칙 ③) */
           <p className={styles.body}>
-            만드는 법은 저장돼 있지 않아요. 캡처에 안 보였거나 못 읽은
-            거예요 — 만드는 법이 보이는 화면을 캡처해서 새로 올리면 같이
-            저장돼요.
+            만드는 법은 저장돼 있지 않아요. 캡처에 안 보였거나 못 읽은 거예요 —
+            만드는 법이 보이는 화면을 캡처해서 새로 올리면 같이 저장돼요.
           </p>
         )}
       </section>
 
       <Link
-        href={`/recipe/${r.id}?edit=1`}
+        href={`/recipe/${r.id}?edit=1&week=${week}`}
         className="ds-btn ds-btn-secondary ds-btn-block"
       >
         고칠게요

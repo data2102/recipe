@@ -29,6 +29,7 @@ export type RecipeGroup = {
   /** 0=월 … 6=일. 안 정했으면 null */
   day: number | null;
   labels: string[];
+  quantities: { label: string; qty: string | null }[];
 };
 
 export type PickedRecipe = {
@@ -41,5 +42,9 @@ export type PickedRecipe = {
 export const BUCKET_TITLE: Record<Bucket, string> = {
   BUY: "사야 해요",
   CHECK: "있는지 봐주세요",
-  HAVE: "집에 있을 거예요",
+  HAVE: "집에 있어요 · 이번 목록에서 제외",
 };
+
+export function remaining(items: ShoppingItem[]) {
+  return items.filter((i) => !i.checked && i.bucket !== "HAVE").length;
+}

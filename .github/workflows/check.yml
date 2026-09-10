@@ -72,6 +72,19 @@ jobs:
   web:
     name: 앱
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: recipe_ux_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: web
@@ -95,3 +108,16 @@ jobs:
       # 키가 없으면 화면이 "아직 DB 를 안 붙였어요" 를 띄우는 게 설계다.
       - name: 빌드
         run: npm run build
+
+      - name: UX 회귀 테스트용 DB 준비
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/recipe_ux_test
+        run: |
+          for migration in ../supabase/migrations/*.sql; do
+            psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
+
+      - name: 주차 · 장보기 · 추천 회귀 테스트
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/recipe_ux_test
+        run: npm run test:ux

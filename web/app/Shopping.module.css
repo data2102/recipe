@@ -84,3 +84,48 @@
   color: var(--text-tertiary);
   margin: 0 0 var(--sp-4);
 }
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.exclude {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  flex-shrink: 0;
+  padding: var(--sp-2);
+}
+.uses {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  padding: var(--sp-2) 0;
+  overflow-wrap: anywhere;
+}
+.uses a {
+  color: var(--accent-strong);
+}
+.summary {
+  cursor: pointer;
+  padding: var(--sp-2) 0;
+}
+
+.line > .reason {
+  margin: 0;
+  padding: 0 var(--sp-4) var(--sp-2);
+}
+.line .uses {
+  padding: 0 var(--sp-4) var(--sp-3);
+}
+.itemHead > .name {
+  padding: var(--sp-3) var(--sp-4);
+}
+.line label {
+  min-width: 0;
+}
+.name {
+  overflow-wrap: anywhere;
+}

@@ -1,315 +1,244 @@
-/**
- * 식단 — 이번 주에 뭘 먹을지 (세 축 중 가운데)
- *
- * 예전에는 이 화면 하나에 레시피 목록·추천·식단·장보기가 다 있었다.
- * 폰에서 2,200px 짜리 한 장이라 마트에서 쓰는 장보기까지 여섯 번을
- * 밀어야 했다. 아래 탭바로 셋으로 갈랐다 (app/TabBar.tsx).
- *
- * 이 화면이 하는 일은 하나다 — **다음에 먹을 것을 정한다.**
- *   ① 한 줄로 그 주 전체를 본다 (WeekStrip)
- *   ② 담은 것을 날짜에 놓고, 지난 날짜는 만들었는지 물어본다 (Week)
- *   ③ 아래에서 담는다 (오랜만에 / 아직 안 만들어본 것)
- *
- * **열면 다음 주가 보인다.** 이번 주 먹을 건 지난 주말에 이미 장을 봐서
- * 정해져 있다. 지금 정할 게 남은 건 다음 주고, 그래야 이번 주말에 장을
- * 본다 — 장보기가 뒤에 있으니 식단이 먼저다.
- *
- * 정렬이 곧 추천이다. 별도 추천 로직 없이 순서만으로 작동한다.
- */
-
+/** Today first; weekly planning remains optional and keeps an explicit week. */
 import Link from "next/link";
 import List from "./RecipeList";
 import Week from "./Week";
 import WeekStrip from "./WeekStrip";
-import PickDayProvider from "./PickDay";
+import ActionButton from "./ActionButton";
+import { addToWeekOn, markCooked } from "./actions";
 import { Broken, Setup } from "./Shell";
 import { dbUrl } from "@/lib/db";
-import { suggest, type RecipeRow as Row } from "@/lib/recipes";
+import { suggest } from "@/lib/recipes";
 import {
   addDays,
   dateRange,
-  dateTiny,
+  dayIndex,
   daysFrom,
   todayInput,
+  cookedAgo,
 } from "@/lib/say";
-import { haveParams, parseHave } from "@/lib/fridge";
-import type { Have } from "@/lib/fridge.types";
 import {
   openList,
-  picked as pickedRecipes,
+  picked,
   weekStart,
+  exclusions,
   type Which,
 } from "@/lib/shopping";
 import { plan as weekPlan } from "@/lib/week";
-import type { Planned } from "@/lib/week.types";
-import type { PickedRecipe } from "@/lib/shopping.types";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 
-type Loaded =
-  | { kind: "error"; message: string }
-  | {
-      kind: "ok";
-      old: Row[];
-      fresh: Row[];
-      basket: PickedRecipe[];
-      plan: Planned[];
-      /** 보고 있는 주가 며칠부터인가 (`YYYY-MM-DD`) */
-      start: string;
-      /** 추천 몇 번째 장인가 (0부터) · 전부 몇 장인가 */
-      page: number;
-      pages: number;
-    };
-
-/** 읽기만 한다. 화면 만들기는 아래에서 — 섞으면 오류를 못 잡는다 */
-async function load(
-  have: Have,
-  which: Which,
-  again: number,
-): Promise<Loaded> {
-  try {
-    const { old, fresh, page, pages } = await suggest(again);
-    // 그 주가 며칠부터인지 (lib/shopping.ts weekStart). 요일을 날짜로
-    // 바꿔 적는 데 쓰고, 담아둔 요리의 날짜도 여기서 계산된다.
-    const start = weekStart(which);
-    // 담은 것과 장보기는 같은 목록에서 나온다. 목록이 없으면 만들지 않는다 —
-    // 담기 전까지 빈 목록이 쌓이면 "이번 주" 가 뭔지 흐려진다.
-    const listId = await openList(false, which);
-    const [basket, plan] = await Promise.all([
-      pickedRecipes(listId),
-      weekPlan(listId, start),
-    ]);
-
-    return {
-      kind: "ok",
-      old,
-      fresh,
-      basket,
-      plan,
-      start,
-      page,
-      pages,
-    };
-  } catch (e) {
-    return {
-      kind: "error",
-      message: e instanceof Error ? e.message : String(e),
-    };
-  }
+async function load(which: Which, again: number) {
+  const listId = await openList(false, which);
+  const start = weekStart(which);
+  const [basket, plan, have] = await Promise.all([
+    picked(listId),
+    weekPlan(listId, start),
+    exclusions(listId),
+  ]);
+  const recommendations = await suggest(
+    again,
+    basket.map((r) => r.id),
+  );
+  return { basket, plan, have, start, ...recommendations };
 }
 
 export default async function Home({ searchParams }: PageProps<"/">) {
-  const today = todayInput();
   if (!dbUrl()) return <Setup />;
-
   const params = await searchParams;
-  const have = parseHave(params.have, params.haveRaw);
-
-  /*
-    이번 주 / 다음 주. 주소에 둔다 — 새로고침해도, 링크를 눌러도 같은
-    주를 본다. 담기·요일 옮기기는 **지금 보고 있는 주**에 걸린다.
-
-    **기본은 다음 주다.** 이번 주 먹을 건 이미 지난 주말에 장을 봐서
-    정해져 있고, 지금 정할 게 남은 건 다음 주다 — 그걸 이번 주에 정해야
-    주말에 장을 본다. 장보기 화면도 같은 기본값이라 두 화면이 늘 같은
-    주를 본다 (app/shopping/page.tsx).
-  */
-  const raw = Array.isArray(params.week) ? params.week[0] : params.week;
-  const which: Which = raw === "this" ? "this" : "next";
+  const which: Which = params.week === "next" ? "next" : "this";
   const next = which === "next";
-
-  /*
-    추천을 몇 번 넘겼나. **주소에만 산다** — 다음에 열면 다시 처음부터다.
-
-    "당분간 이건 먹기 싫다" 를 DB 에 적지 않는 이유: 언제까지 싫은지
-    사람도 모른다. 지금 화면에서 넘기는 것으로 충분하고, 영영 싫으면
-    레시피 줄에서 지운다 (RecipeRow 의 "별로였어요").
-  */
-  const againRaw = Array.isArray(params.again) ? params.again[0] : params.again;
-  const again = Math.max(0, Math.min(999, Number(againRaw) || 0));
-
-  const data = await load(have, which, again);
-  if (data.kind === "error") return <Broken message={data.message} />;
-
-  /*
-    "이번 주 / 다음 주" 만으로는 며칠 건지 알 수가 없다. 화요일에 담아둔
-    게 이번 주 화요일인지 다음 주 화요일인지 화면에 없었다 — 그래서
-    이 화면의 요일은 전부 날짜를 달고 나온다.
-
-    다음 주는 이번 주에서 정확히 7일 뒤다 (lib/shopping.ts weekStart).
-    그래서 어느 쪽을 보고 있든 나머지 한 쪽을 셈으로 알 수 있다.
-  */
+  const again = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(params.again) || 0)),
+  );
+  const data = await load(which, again).catch((e: Error) => ({
+    error: e.message,
+  }));
+  if ("error" in data) return <Broken message={data.error} />;
+  const today = todayInput();
   const dates = daysFrom(data.start);
-  const thisStart = next ? addDays(data.start, -7) : data.start;
-  const nextStart = addDays(thisStart, 7);
-
+  const todays = next ? [] : data.plan.filter((p) => p.plannedOn === today);
+  const options = [...data.old, ...data.fresh];
+  const hero = !next && todays.length === 0 ? options[0] : null;
+  const alternatives = options.filter((r) => r.id !== hero?.id);
   const inBasket = new Set(data.basket.map((r) => r.id));
-  /*
-    주 바꾸기 링크. **기본이 다음 주라 `?week=` 가 없으면 다음 주다** —
-    그래서 "이번 주" 는 반드시 `?week=this` 를 붙여야 한다. 예전에는
-    기본이 이번 주였어서 여기가 그냥 "/" 였고, 기본을 뒤집은 뒤로는
-    눌러도 같은 화면으로 돌아와 **아무 일도 안 일어났다.**
-  */
-  const keep = haveParams(have);
-  const weekLink = (to: Which) => {
-    const u = new URLSearchParams(keep);
-    if (to === "this") u.set("week", "this");
-    else u.delete("week");
-    return u.toString() ? `/?${u}` : "/";
-  };
-
-  // 다음 추천 묶음. 보고 있는 주와 냉장고 재료는 그대로 들고 간다.
-  const againLink = (() => {
-    const u = new URLSearchParams(keep);
-    if (!next) u.set("week", "this");
-    u.set("again", String(again + 1));
-    return `/?${u}`;
-  })();
 
   return (
     <main className="shell">
       <header className={styles.head}>
-        <h1 className={styles.title}>{next ? "다음 주 식단" : "이번 주 식단"}</h1>
+        <h1 className={styles.title}>
+          {next ? "다음 주 미리 정하기" : "오늘 뭐 먹지?"}
+        </h1>
         <p className={styles.sub}>
-          {dateRange(dates[0], dates[6])} ·{" "}
-          {data.basket.length > 0
-            ? `${data.basket.length}개 담았어요`
-            : "아직 안 담았어요"}
+          {next
+            ? dateRange(dates[0], dates[6])
+            : "재료를 입력하지 않아도, 모아둔 레시피에서 골라드려요."}
         </p>
       </header>
-
-      {/*
-        다음 주를 미리 짠다. 일요일에 다음 주를 정해두는 일이 실제로 있다.
-        **장보기는 이번 주 것만 나온다** — 다음 주 장은 다음 주에 본다.
-        장보기를 끝내면 다음 주가 이번 주가 된다 (lib/shopping.ts finish).
-      */}
-      <nav className={`ds-tabs ${styles.tabs}`}>
+      <nav className={`ds-tabs ${styles.tabs}`} aria-label="식단 기간">
         <Link
-          href={weekLink("this")}
-          className={`ds-tab ${next ? "" : "on"}`}
-          aria-current={next ? undefined : "page"}
+          href="/?week=this"
+          className={`ds-tab ${!next ? "on" : ""}`}
+          aria-current={!next ? "page" : undefined}
         >
-          이번 주 {dateTiny(thisStart)}~{dateTiny(addDays(thisStart, 6))}
+          오늘 · 이번 주
         </Link>
         <Link
-          href={weekLink("next")}
+          href="/?week=next"
           className={`ds-tab ${next ? "on" : ""}`}
           aria-current={next ? "page" : undefined}
         >
-          다음 주 {dateTiny(nextStart)}~{dateTiny(addDays(nextStart, 6))}
+          다음 주
         </Link>
       </nav>
 
-      {/*
-        담기 버튼이 요일 막대를 띄우고 끌기를 따라간다. provider 는 이
-        화면에만 있다 — 레시피 화면에는 이번 주라는 게 없어서 요일을
-        물을 자리가 아니다 (RecipeRow 가 provider 없으면 그냥 담는다).
-      */}
-      <PickDayProvider week={which} dates={dates}>
-        {/*
-          PC 에서는 두 칸으로 나눈다 — 왼쪽에 짜둔 주, 오른쪽에 담을 것.
-          담으면서 이번 주가 어떻게 차는지 같이 보인다 (폰에서는 그냥
-          세로로 쌓인다). globals.css 의 .board 참조.
-        */}
-        <div className="board">
-          {/* 다음 주에는 보통 "오늘" 이 없다 — 그러면 아무 칸도 안 짚는다 */}
-          <div className="wide">
-            <WeekStrip plan={data.plan} dates={dates} today={today} />
-          </div>
-
-          <div>
-            <Week
-              plan={data.plan}
-              have={have}
-              dates={dates}
-              today={today}
-              week={which}
+      {todays.length > 0 && (
+        <section className="ds-card">
+          <p className={styles.group}>오늘 먹기로 했어요</p>
+          {todays.map((p) => (
+            <div key={p.recipe_id} className={styles.todayDish}>
+              <h2 className={styles.cardTitle}>{p.title}</h2>
+              <div className={styles.quickActions}>
+                <Link
+                  href={`/recipe/${p.recipe_id}?week=this`}
+                  className="ds-btn ds-btn-primary"
+                >
+                  만드는 법 보기
+                </Link>
+                {p.cooked ? (
+                  <span>만들었어요</span>
+                ) : (
+                  <ActionButton
+                    action={markCooked}
+                    fields={{ id: p.recipe_id }}
+                    label="만들었어요"
+                    doneLabel="기록했어요"
+                    className="ds-btn ds-btn-secondary"
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+      {hero && (
+        <section className="ds-card">
+          <p className={styles.group}>오늘의 제안</p>
+          <h2 className={styles.heroTitle}>{hero.title}</h2>
+          <p className={styles.body}>
+            {hero.last_cooked_on
+              ? cookedAgo(hero.last_cooked_on)
+              : "저장해둔 요리, 이번에 만들어볼까요?"}
+          </p>
+          {hero.ingredients.length > 0 && (
+            <p className={styles.note}>{hero.ingredients.join(" · ")}</p>
+          )}
+          <div className={styles.quickActions}>
+            <ActionButton
+              action={addToWeekOn}
+              fields={{ id: hero.id, week: "this", day: dayIndex(today) }}
+              label="오늘 먹기"
             />
+            <Link
+              href={`/recipe/${hero.id}?week=this`}
+              className="ds-btn ds-btn-secondary"
+            >
+              재료 · 만드는 법
+            </Link>
           </div>
+        </section>
+      )}
 
-          <div>
-        {/*
-          담을 곳이 바로 위에 있으니 목록은 그 아래다.
-          셋을 **같이** 낸다 — 재료를 넣는 건 보기를 좁히자는 게 아니라
-          하나 더 얹자는 것이다. 소제목은 작게 둔다. 셋 다 "담을 것" 이라
-          섹션을 세 개로 세우면 화면이 다시 길어진다.
-        */}
+      <section aria-label="추천 메뉴">
         <div className={styles.sectionRow}>
-          <h2 className={styles.section}>담을 것</h2>
-          {/*
-            지금 나온 게 안 당길 수도 있다. 그렇다고 만들 때까지 같은
-            셋이 계속 붙어 있으면 화면이 굳는다 — 다음 것으로 넘긴다.
-
-            **한 바퀴 도는 동안 같은 요리가 두 번 안 나온다**
-            (lib/recipes.ts suggest). 마지막 장에서는 다음이 처음이라고
-            글자로 말한다 — 안 그러면 방금 본 게 또 나와서 고장으로 읽힌다.
-          */}
+          <h2 className={styles.section}>
+            {next
+              ? "먹을 메뉴를 골라보세요"
+              : hero
+                ? "다른 메뉴도 있어요"
+                : "며칠 먹을 것도 담아둘까요?"}
+          </h2>
           {data.pages > 1 && (
-            <Link href={againLink} className={styles.again} scroll={false}>
-              {data.page === data.pages - 1 ? "처음부터 다시" : "다른 거 볼래요"}
+            <Link
+              href={`/?week=${which}&again=${again + 1}`}
+              className={styles.again}
+              scroll={false}
+            >
+              {data.page === data.pages - 1 ? "처음부터 다시" : "다른 메뉴"}
             </Link>
           )}
         </div>
-
-        {/*
-          한 장에 다섯이고, 한 갈래가 바닥나면 나머지가 그 자리를 채운다.
-          그래서 장을 넘기다 보면 한 갈래가 빌 수 있다 — 그때는 소제목까지
-          같이 뺀다. 빈 줄이 남으면 넘길 때마다 화면이 덜컹인다.
-        */}
-        {data.old.length > 0 && (
-          <>
-            <p className={styles.group}>오랜만에 어때요</p>
+        <p className={styles.note}>
+          담으면 장보기 목록이 만들어져요. 날짜는 나중에 정해도 돼요.
+        </p>
+        <List
+          list={alternatives.slice(0, 2)}
+          today={today}
+          mode="wish"
+          pick="add"
+          inBasket={inBasket}
+          week={which}
+          empty={
+            data.basket.length
+              ? "다른 후보는 모두 담았어요. 식단에서 확인해보세요."
+              : hero
+                ? "아래에서 다른 레시피를 추가할 수 있어요."
+                : "레시피를 추가하면 여기서 메뉴를 골라드려요."
+          }
+        />
+        {alternatives.length > 2 && (
+          <details className={styles.extraOptions}>
+            <summary className={styles.summary}>
+              추천 메뉴 {alternatives.length - 2}개 더 보기
+            </summary>
             <List
-              list={data.old}
-              today={today}
-              mode="cooked"
-              empty="만든 지 30일 지난 요리가 여기 나와요."
-              pick="add"
-              inBasket={inBasket}
-              week={which}
-            />
-          </>
-        )}
-
-        {data.fresh.length > 0 && (
-          <>
-            <p className={styles.group}>아직 안 만들어본 것</p>
-            <List
-              list={data.fresh}
+              list={alternatives.slice(2)}
               today={today}
               mode="wish"
-              empty="아직 안 만들어본 게 없어요."
               pick="add"
               inBasket={inBasket}
               week={which}
+              empty=""
             />
-          </>
+          </details>
         )}
-
-        {/* 둘 다 비었다 = 담을 만한 게 아예 없다. 다음 할 일을 적는다 */}
-        {data.old.length === 0 && data.fresh.length === 0 && (
-          <div className={`ds-empty ${styles.empty}`}>
-            <p>레시피를 넣으면 여기서 추천해드려요.</p>
-          </div>
-        )}
-
-        {/*
-          여기 나오는 건 추천이라 몇 개뿐이다. 오늘 먹고 싶은 게 그 안에
-          없을 때 갈 데가 없으면 식단 짜기가 거기서 막힌다 — 모아둔 것
-          전부에서 고르는 길을 낸다. 거기서도 담기가 된다.
-        */}
-        <Link href="/recipes?tab=done" className={styles.more}>
+        <Link href={`/recipes?week=${which}`} className={styles.more}>
           모아둔 레시피에서 고르기 →
         </Link>
+        {!options.length && !data.basket.length && (
+          <Link href="/add" className="ds-btn ds-btn-primary ds-btn-block">
+            첫 레시피 추가하기
+          </Link>
+        )}
+      </section>
 
-        {/* 끝낸 주는 지워지지 않는다. 되짚어 보고 되돌릴 수도 있다 */}
-        <Link href="/weeks" className={styles.more}>
-          지난 주 보기 →
-        </Link>
-          </div>
-        </div>
-      </PickDayProvider>
+      <Link
+        href={`/shopping?week=${which}`}
+        className={`ds-btn ds-btn-secondary ds-btn-block ${styles.add}`}
+      >
+        장보기 목록 보기 · 메뉴 {data.basket.length}개
+      </Link>
+      <details className="ds-card" open={next || undefined}>
+        <summary className={styles.summary}>
+          {next ? "다음 주" : "이번 주"} 식단 · {data.basket.length}개{" "}
+          <span className={styles.sub}>
+            {dateRange(dates[0], addDays(dates[0], 6))}
+          </span>
+        </summary>
+        <p className={styles.note}>날짜를 옮기거나 담은 메뉴를 뺄 수 있어요.</p>
+        <WeekStrip plan={data.plan} dates={dates} today={today} />
+        <Week
+          plan={data.plan}
+          have={data.have}
+          dates={dates}
+          today={today}
+          week={which}
+        />
+      </details>
+      <Link href="/weeks" className={styles.more}>
+        지난 식단 보기 →
+      </Link>
     </main>
   );
 }

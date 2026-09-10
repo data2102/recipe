@@ -24,12 +24,14 @@ import styles from "./edit.module.css";
 type Row = DetailItem & { origin: string };
 
 export default function Edit({
+  week = "this",
   id,
   title: initialTitle,
   items,
   steps,
 }: {
   id: number;
+  week?: "this" | "next";
   title: string;
   items: Row[];
   steps: string[];
@@ -44,6 +46,7 @@ export default function Edit({
   return (
     <form action={saveEdits}>
       <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="week" value={week} />
 
       <section className="ds-card">
         <div className={`ds-field ${styles.last}`}>
@@ -150,7 +153,7 @@ export default function Edit({
         고친 걸 저장할게요
       </button>
       <Link
-        href={`/recipe/${id}`}
+        href={`/recipe/${id}?week=${week}`}
         className="ds-btn ds-btn-secondary ds-btn-block"
       >
         그만둘래요
