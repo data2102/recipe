@@ -69,3 +69,13 @@ CDN 이나 서브모듈로 걸면 디자인 시스템이 바뀔 때 앱 화면�
 
 라이트가 기본이다. `tokens.css` 의 다크(`.theme-dark`)는 모니터링 도구용이라
 이 앱에서는 쓰지 않는다.
+
+## 2026-09-11 서비스 적용 검토
+
+원본 main 커밋 `5e42ad5f755b9ccdb84b633d0ce283a3e1ca434d`의 tokens.css·components.css와 비교했다.
+현재 사본이 최신이며 원본 CSS를 임의 수정하지 않았다.
+
+- 검색: ds-search / ds-input, 버튼: ds-btn, 진행 표시: ds-progress, 오류: ds-banner-danger.
+- 다이얼로그: ds-modal + 네이티브 dialog로 Escape·포커스 제한·복귀 제공.
+- 하단 식단 바는 앱 전용 어댑터이며 공통 간격·색·그림자·z-index 토큰을 사용한다.
+- 입력을 늘리지 않고 담은 메뉴 수와 장보기 바로가기를 제공한다. 냉장고 등록은 필수화하지 않는다.

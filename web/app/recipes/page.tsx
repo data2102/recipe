@@ -1,5 +1,6 @@
 import Link from "next/link";
 import List from "../RecipeList";
+import MealBasket from "../MealBasket";
 
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
@@ -109,42 +110,44 @@ export default async function RecipesPage({
   if (data.kind === "error") return <Broken message={data.message} />;
 
   return (
-    <main className="shell">
-      <header className={styles.head}>
-        <h1 className={styles.title}>레시피</h1>
-        <p className={styles.sub}>
-          {data.total}개 · {which === "next" ? "다음 주" : "이번 주"} 식단에
-          담아요
-        </p>
+    <main
+      className={`shell compact-page ${data.inBasket.size ? "has-meal-basket" : ""}`}
+    >
+      <header className={`${styles.head} ${styles.libraryHead}`}>
+        <div>
+          <h1 className={styles.title}>레시피</h1>
+          <p className={styles.sub}>
+            {data.total}개 · {which === "next" ? "다음 주" : "이번 주"} 식단에
+            담아요
+          </p>
+        </div>
+        <Link href="/add" className="ds-btn ds-btn-secondary">
+          레시피 추가
+        </Link>
       </header>
 
-      <form action="/recipes" className="ds-card" role="search">
+      <form action="/recipes" className={styles.searchForm} role="search">
         <input type="hidden" name="week" value={which} />
         <label className="ds-label" htmlFor="recipe-search">
           요리명이나 재료로 찾기
         </label>
-        <input
-          id="recipe-search"
-          type="search"
-          name="q"
-          defaultValue={term}
-          maxLength={100}
-          className="ds-input"
-          placeholder="예: 김치, 제육볶음"
-        />
+        <div className="ds-search">
+          <input
+            id="recipe-search"
+            type="search"
+            name="q"
+            defaultValue={term}
+            maxLength={100}
+            className="ds-input"
+            placeholder="예: 김치, 제육볶음"
+          />
+        </div>
         <button type="submit" className="ds-btn ds-btn-secondary">
           검색
         </button>
         {term && <Link href={`/recipes?week=${which}`}>검색 지우기</Link>}
       </form>
       {term && <p>전체 레시피에서 ‘{term}’ 검색</p>}
-      <Link
-        href="/add"
-        className={`ds-btn ds-btn-primary ds-btn-block ${styles.add}`}
-      >
-        레시피 추가
-      </Link>
-
       {!term && (
         <nav className={`ds-tabs ${styles.tabs}`}>
           {TABS.map((t) => (
@@ -209,9 +212,7 @@ export default async function RecipesPage({
           </Link>
         )}
       </nav>
-      <Link href={`/?week=${which}`} className={styles.more}>
-        담은 식단 확인하기 →
-      </Link>
+      <MealBasket count={data.inBasket.size} week={which} />
 
       <Link href="/similar" className={styles.more}>
         닮은 것끼리 훑어보기 →

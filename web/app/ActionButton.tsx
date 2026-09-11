@@ -25,6 +25,7 @@ export default function ActionButton({
         type="button"
         className={className}
         disabled={pending || (done && !!doneLabel)}
+        aria-busy={pending}
         onClick={() => {
           setError(false);
           start(async () => {
@@ -43,7 +44,11 @@ export default function ActionButton({
       >
         {pending ? "저장 중…" : done && doneLabel ? doneLabel : label}
       </button>
-      {error && <p role="alert">저장하지 못했어요. 다시 눌러주세요.</p>}
+      {error && (
+        <p className="ds-banner ds-banner-danger" role="alert">
+          저장하지 못했어요. 다시 눌러주세요.
+        </p>
+      )}
     </div>
   );
 }

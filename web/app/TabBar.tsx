@@ -5,8 +5,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import styles from "./TabBar.module.css";
 
 const TABS = [
-  { href: "/recipes", label: "레시피" },
   { href: "/", label: "오늘 · 식단" },
+  { href: "/recipes", label: "레시피" },
   { href: "/shopping", label: "장보기" },
 ] as const;
 

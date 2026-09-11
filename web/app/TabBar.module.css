@@ -8,7 +8,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 40;
+  z-index: var(--z-sticky);
   display: flex;
   background: var(--surface);
   border-top: 1px solid var(--border);
@@ -24,7 +24,7 @@
   min-height: 56px;
   font-size: var(--fs-caption);
   font-weight: var(--fw-medium);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   text-decoration: none;
 }
 

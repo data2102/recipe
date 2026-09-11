@@ -141,7 +141,7 @@ export default async function ShoppingPage({
         </section>
       )}
 
-      <nav className={`ds-tabs ${styles.tabs}`}>
+      <nav className={`ds-tabs ${styles.tabs}`} aria-label="장보기 기간">
         <Link
           href={weekLink("this")}
           className={`ds-tab ${next ? "" : "on"}`}
@@ -163,17 +163,17 @@ export default async function ShoppingPage({
       </p>
 
       {data.cart.length > 0 && (
-        <nav className={`ds-tabs ${styles.tabs}`}>
+        <nav className={styles.viewSwitch} aria-label="장보기 보기 방식">
           <Link
             href={`/shopping?${byRecipe}`}
-            className={`ds-tab ${merged ? "" : "on"}`}
+            className={`ds-chip ${merged ? "" : "on"}`}
             aria-current={merged ? undefined : "page"}
           >
             요리별
           </Link>
           <Link
             href={`/shopping?${flat}`}
-            className={`ds-tab ${merged ? "on" : ""}`}
+            className={`ds-chip ${merged ? "on" : ""}`}
             aria-current={merged ? "page" : undefined}
           >
             합쳐서
