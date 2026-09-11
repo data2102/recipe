@@ -131,19 +131,105 @@
 }
 
 /* Keep ingredient and quantity visible; recipe provenance expands on demand. */
-.bucket { font-size: var(--fs-body); }
-.group { margin-bottom: var(--sp-4); }
-.line label { padding: var(--sp-2) var(--sp-3); min-height: 44px; }
-.exclude { font-size: var(--fs-caption); color: var(--text-secondary); }
-.quantities { padding: 0 var(--sp-3) var(--sp-1) calc(var(--sp-3) + 22px + var(--sp-3)); font-size: var(--fs-caption); color: var(--text-secondary); overflow-wrap: anywhere; }
-.line .uses { padding: 0 var(--sp-3) var(--sp-1); }
-.uses summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--text-secondary); }
-.uses summary::before { content: "›"; margin-right: var(--sp-2); }
-.uses[open] summary::before { content: "⌄"; }
-.help { font-size: var(--fs-caption); color: var(--text-secondary); margin-bottom: var(--sp-3); }
-.help summary { cursor: pointer; min-height: 44px; padding: var(--sp-2) 0; }
-.line { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-.itemHead, .line > .reason { grid-column: 1 / -1; }
-.quantities { align-self: center; padding-bottom: var(--sp-2); }
-.line .uses { min-width: 0; }
-.uses[open] { grid-column: 1 / -1; }
+.bucket {
+  font-size: var(--fs-body);
+}
+.group {
+  margin-bottom: var(--sp-4);
+}
+.line label {
+  padding: var(--sp-2) var(--sp-3);
+  min-height: 44px;
+}
+.exclude {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+.quantities {
+  padding: 0 var(--sp-3) var(--sp-1) calc(var(--sp-3) + 22px + var(--sp-3));
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.line .uses {
+  padding: 0 var(--sp-3) var(--sp-1);
+}
+.uses summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.uses summary::before {
+  content: "›";
+  margin-right: var(--sp-2);
+}
+.uses[open] summary::before {
+  content: "⌄";
+}
+.help {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-3);
+}
+.help summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: var(--sp-2) 0;
+}
+.line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.itemHead,
+.line > .reason {
+  grid-column: 1 / -1;
+}
+.quantities {
+  align-self: center;
+  padding-bottom: var(--sp-2);
+}
+.line .uses {
+  min-width: 0;
+}
+.uses[open] {
+  grid-column: 1 / -1;
+}
+
+.quantityInline {
+  display: block;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  font-weight: var(--fw-regular);
+  text-decoration: none;
+}
+.line .uses {
+  grid-column: 1 / -1;
+  padding-left: calc(var(--sp-3) + 22px + var(--sp-3));
+}
+.progressHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.progressHead strong {
+  font-size: var(--fs-heading);
+}
+.progressHead span {
+  font-size: var(--fs-footnote);
+  color: var(--text-secondary);
+}
+.progressCard {
+  position: sticky;
+  top: var(--sp-2);
+  z-index: 1;
+}
+@media (min-width: 900px) {
+  .progressCard {
+    top: 60px;
+  }
+}

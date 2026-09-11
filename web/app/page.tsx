@@ -1,6 +1,7 @@
 /** Today first; weekly planning remains optional and keeps an explicit week. */
 import Link from "next/link";
 import List from "./RecipeList";
+import MealBasket from "./MealBasket";
 import Week from "./Week";
 import WeekStrip from "./WeekStrip";
 import ActionButton from "./ActionButton";
@@ -65,15 +66,15 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const inBasket = new Set(data.basket.map((r) => r.id));
 
   return (
-    <main className={`shell compact-page ${styles.home}`}>
+    <main
+      className={`shell compact-page ${data.basket.length ? "has-meal-basket" : ""} ${styles.home}`}
+    >
       <header className={styles.head}>
         <h1 className={styles.title}>
           {next ? "다음 주 미리 정하기" : "오늘 뭐 먹지?"}
         </h1>
         <p className={styles.sub}>
-          {next
-            ? dateRange(dates[0], dates[6])
-            : "모아둔 레시피로 오늘 한 끼."}
+          {next ? dateRange(dates[0], dates[6]) : "모아둔 레시피로 오늘 한 끼."}
         </p>
       </header>
       <nav className={`ds-tabs ${styles.tabs}`} aria-label="식단 기간">
@@ -169,9 +170,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </Link>
           )}
         </div>
-        <p className={styles.note}>
-          담으면 필요한 재료를 장보기에 모아드려요.
-        </p>
+        <p className={styles.note}>담으면 필요한 재료를 장보기에 모아드려요.</p>
         <List
           list={alternatives.slice(0, 2)}
           today={today}
@@ -213,13 +212,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         )}
       </section>
 
-      <Link
-        href={`/shopping?week=${which}`}
-        className={`ds-btn ds-btn-secondary ds-btn-block ${styles.add}`}
+      <details
+        id="week-plan"
+        className={`ds-card ${styles.weekSummary}`}
+        open={next || undefined}
       >
-        장보기 목록 보기 · 메뉴 {data.basket.length}개
-      </Link>
-      <details className={`ds-card ${styles.weekSummary}`} open={next || undefined}>
         <summary className={styles.summary}>
           {next ? "다음 주" : "이번 주"} 식단 · {data.basket.length}개{" "}
           <span className={styles.sub}>
@@ -239,6 +236,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <Link href="/weeks" className={styles.more}>
         지난 식단 보기 →
       </Link>
+      <MealBasket count={data.basket.length} week={which} />
     </main>
   );
 }

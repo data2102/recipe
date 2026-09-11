@@ -57,13 +57,28 @@ export default function Shopping({
     });
   }
 
+  const left = remaining(shown);
+  const checked = shown.filter((i) => i.checked).length;
+  const confirmed = shown.length - left;
+
   function row(item: ShoppingItem) {
     const uses = groups.filter((g) => g.labels.includes(item.label));
+    const quantity =
+      uses
+        .flatMap((g) =>
+          g.quantities
+            .filter((q) => q.label === item.label)
+            .map((q) => q.qty || "수량 확인 필요"),
+        )
+        .join(" + ") || "수량 확인 필요";
     return (
       <li key={item.label} className={styles.line}>
         <div className={styles.itemHead}>
           {item.bucket === "HAVE" && !item.checked ? (
-            <span className={styles.name}>{item.label}</span>
+            <span className={styles.name}>
+              <span>{item.label}</span>
+              <span className={styles.quantityInline}>{quantity}</span>
+            </span>
           ) : (
             <label className="ds-check">
               <input
@@ -73,7 +88,10 @@ export default function Shopping({
                 onChange={() => mutate(item)}
               />
               <span className="box" />
-              <span className={styles.name}>{item.label}</span>
+              <span className={styles.name}>
+                <span>{item.label}</span>
+                <span className={styles.quantityInline}>{quantity}</span>
+              </span>
             </label>
           )}
           {!item.checked && (
@@ -88,9 +106,6 @@ export default function Shopping({
           )}
         </div>
         {item.reason && <p className={styles.reason}>{item.reason}</p>}
-        <div className={styles.quantities}>
-          {uses.flatMap((g) => g.quantities.filter((q) => q.label === item.label).map((q) => q.qty || "수량 확인 필요")).join(" + ") || "수량 확인 필요"}
-        </div>
         <details className={styles.uses}>
           <summary>사용할 요리 {uses.length}개</summary>
           {uses.map((g) => (
@@ -112,16 +127,43 @@ export default function Shopping({
 
   return (
     <div>
-      <p role="status" className={styles.note}>
-        남은 항목 {remaining(shown)}개 · 구매{" "}
-        {shown.filter((i) => i.checked).length}개
-      </p>
+      <section
+        className={`ds-card ${styles.progressCard}`}
+        aria-label="장보기 진행"
+      >
+        <div className={styles.progressHead} role="status" aria-live="polite">
+          <strong>{left ? `살 것 ${left}개` : "필요한 재료 준비 끝"}</strong>
+          <span>
+            구매 {checked}개 · 집에 있음{" "}
+            {shown.filter((i) => i.bucket === "HAVE" && !i.checked).length}개
+          </span>
+        </div>
+        <div
+          className="ds-progress"
+          role="progressbar"
+          aria-label="재료 준비"
+          aria-valuemin={0}
+          aria-valuemax={shown.length || 1}
+          aria-valuenow={confirmed}
+        >
+          <div
+            className="bar"
+            style={{
+              width: `${shown.length ? (confirmed / shown.length) * 100 : 0}%`,
+            }}
+          />
+        </div>
+      </section>
       {error && (
-        <p role="alert">변경하지 못했어요. 연결을 확인하고 다시 눌러주세요.</p>
+        <p className="ds-banner ds-banner-danger" role="alert">
+          변경하지 못했어요. 연결을 확인하고 다시 눌러주세요.
+        </p>
       )}
       <details className={styles.help}>
         <summary>수량 표시 기준</summary>
-        <p className={styles.note}>레시피에 저장된 수량이며, 서로 다른 단위는 그대로 표시해요.</p>
+        <p className={styles.note}>
+          레시피에 저장된 수량이며, 서로 다른 단위는 그대로 표시해요.
+        </p>
       </details>
       {byRecipe ? (
         groups.map((g) => (
@@ -173,7 +215,7 @@ export default function Shopping({
             </details>
           )}
           {shown.some((i) => i.checked) && (
-            <details className="ds-card" open>
+            <details className="ds-card">
               <summary className={styles.summary}>
                 구매했어요 · {shown.filter((i) => i.checked).length}개
               </summary>

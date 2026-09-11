@@ -201,9 +201,87 @@ a.ds-btn {
 }
 
 /* Compact meal and shopping surfaces; keep readable type and 44px targets. */
-.compact-page { padding-top: var(--sp-3); }
-.compact-page .ds-card { padding: var(--sp-4); margin-bottom: var(--sp-3); }
-.compact-page .ds-btn { min-height: 44px; padding: var(--sp-3) var(--sp-4); }
+.compact-page {
+  padding-top: var(--sp-3);
+}
+.compact-page .ds-card {
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+.compact-page .ds-btn {
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-4);
+}
 @media (min-width: 900px) {
-  .compact-page { max-width: 760px; padding-top: calc(52px + var(--sp-4)); }
+  .compact-page {
+    max-width: 760px;
+    padding-top: calc(52px + var(--sp-4));
+  }
+}
+
+/* Yeobaek adapters: mobile navigation, readable hints and native dialogs. */
+:where(a, button, summary, select, input, textarea):focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 3px;
+  box-shadow: var(--shadow-focus);
+}
+.compact-page {
+  --text-tertiary: var(--text-secondary);
+}
+.has-meal-basket {
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+}
+.meal-basket {
+  position: fixed;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 480px);
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+.meal-basket > div {
+  min-width: 0;
+}
+.meal-basket strong {
+  display: block;
+  font-size: var(--fs-caption);
+}
+.meal-basket > div > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--fs-footnote);
+  color: var(--text-secondary);
+}
+.meal-basket > .ds-btn {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+}
+.recipe-sheet {
+  border: 0;
+  max-height: 85dvh;
+  overflow-y: auto;
+  margin: auto auto 0;
+}
+.recipe-sheet::backdrop {
+  background: rgb(0 0 0 / 0.35);
+}
+@media (min-width: 900px) {
+  .meal-basket {
+    bottom: var(--sp-4);
+    width: min(calc(100% - 48px), 712px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .recipe-sheet {
+    margin: auto;
+  }
 }
