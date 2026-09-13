@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Add from "./Add";
+import { youtubeRecipe } from "@/lib/youtube-search";
 import { dbUrl } from "@/lib/db";
 import { hasKey } from "@/lib/parse/claude";
 import styles from "./add.module.css";
@@ -21,6 +22,7 @@ export type Shared = {
   url: string | null;
   text: string | null;
   problem: string | null;
+  youtube?: boolean;
 };
 
 function one(v: string | string[] | undefined): string | null {
@@ -32,7 +34,7 @@ export default async function AddPage({ searchParams }: PageProps<"/add">) {
   const ready = dbUrl() && hasKey();
   const params = await searchParams;
 
-  const shared: Shared | null = one(params.shared)
+  let shared: Shared | null = one(params.shared)
     ? {
         assetIds: (one(params.assets) ?? "")
           .split(",")
@@ -44,6 +46,15 @@ export default async function AddPage({ searchParams }: PageProps<"/add">) {
       }
     : null;
 
+  let youtubeError: string | null = null;
+  const videoId = one(params.youtube);
+  if (videoId) {
+    try {
+      const video = await youtubeRecipe(videoId);
+      shared = { assetIds: [], url: `https://www.youtube.com/watch?v=${video.id}`, text: `${video.title}\n${video.description}`, problem: null, youtube: true };
+    } catch (error) { youtubeError = error instanceof Error ? error.message : "영상을 확인하지 못했어요."; }
+  }
+
   return (
     <main className="shell">
       <header className={styles.head}>
@@ -53,6 +64,8 @@ export default async function AddPage({ searchParams }: PageProps<"/add">) {
         <h1 className={styles.title}>레시피 추가</h1>
       </header>
 
+      {!shared && <Link href="/youtube" className="ds-btn ds-btn-secondary ds-btn-block">유튜브에서 레시피 찾기</Link>}
+      {youtubeError && <p role="alert">{youtubeError} <Link href="/youtube">다시 검색하기</Link></p>}
       {ready ? (
         <Add shared={shared} />
       ) : (
