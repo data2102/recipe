@@ -1,0 +1,211 @@
+.shell {
+  max-width: 1000px;
+  padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px));
+  --text-tertiary: var(--text-secondary);
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.head h1 {
+  font-size: var(--fs-title);
+  margin: var(--sp-1) 0;
+}
+.head > a {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  padding: var(--sp-2);
+}
+.eyebrow {
+  font-size: var(--fs-footnote);
+  color: var(--text-secondary);
+  margin: 0;
+}
+.weeks,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.weeks {
+  margin-bottom: var(--sp-4);
+}
+.weeks a {
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-caption);
+}
+.weeks a:last-child {
+  margin-left: auto;
+}
+.tools {
+  background: var(--surface);
+  padding: var(--sp-3);
+  border-radius: var(--radius-lg);
+}
+.filters {
+  margin-top: var(--sp-3);
+}
+.filters button {
+  padding: var(--sp-2) var(--sp-3);
+}
+.ingredients summary {
+  min-height: 44px;
+  padding-top: var(--sp-3);
+  cursor: pointer;
+  font-size: var(--fs-caption);
+}
+.results {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-5) 0 var(--sp-3);
+}
+.results h2 {
+  font-size: var(--fs-heading);
+  margin: 0;
+}
+.results h2 span {
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.selected {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 1px var(--accent-strong);
+}
+.cover {
+  display: block;
+  aspect-ratio: 4/3;
+  text-decoration: none;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.noPhoto {
+  height: 100%;
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--sp-2);
+  color: var(--text-primary);
+}
+.noPhoto span {
+  font-size: var(--fs-footnote);
+  color: var(--text-secondary);
+}
+.noPhoto strong {
+  font-size: var(--fs-heading);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cardBody {
+  padding: var(--sp-3);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.title {
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.cardBody p {
+  font-size: var(--fs-footnote);
+  color: var(--text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+.cardBody button {
+  margin-top: auto;
+  width: 100%;
+  min-height: 44px;
+  font-size: var(--fs-caption);
+  padding: var(--sp-2);
+}
+.basket {
+  position: fixed;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 1000px);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: var(--z-sticky);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  align-items: center;
+}
+.basket > button {
+  background: none;
+  border: 0;
+  text-align: left;
+  color: var(--text-primary);
+  min-height: 48px;
+}
+.basket strong,
+.basket span {
+  display: block;
+}
+.basket span {
+  font-size: var(--fs-footnote);
+  margin-top: var(--sp-1);
+  color: var(--text-secondary);
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (min-width: 650px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .basket {
+    bottom: 0;
+  }
+}

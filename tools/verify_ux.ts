@@ -16,7 +16,7 @@ import {
   finish,
 } from "../web/lib/shopping";
 import { setDay, plan } from "../web/lib/week";
-import { suggest, searchRecipes } from "../web/lib/recipes";
+import { suggest, searchRecipes, recipeCatalog } from "../web/lib/recipes";
 import { remaining } from "../web/lib/shopping.types";
 
 async function main() {
@@ -52,6 +52,26 @@ async function main() {
       ($1, 'UXTEST 미분류', '약간', NULL, 'LIST', true),
       ($1, '확인 안 된 재료', '1개', NULL, 'BODY', false)`,
       [a, b, ing.id],
+    );
+    await query(
+      `INSERT INTO recipe_ingredient (recipe_id, raw_name, origin, confirmed)
+      SELECT $1, '추가재료' || n, 'USER', true FROM generate_series(1, 5) n`,
+      [a],
+    );
+    const catalog = await recipeCatalog();
+    const card = catalog.find((r) => r.id === a)!;
+    assert(
+      card.ingredients.includes("추가재료5"),
+      "Search includes ingredients beyond first four",
+    );
+    assert(
+      !card.ingredients.includes("확인 안 된 재료"),
+      "Unconfirmed BODY candidates excluded",
+    );
+    assert.equal(card.photoId, null);
+    await query(
+      `DELETE FROM recipe_ingredient WHERE recipe_id = $1 AND raw_name LIKE '추가재료%'`,
+      [a],
     );
     await addRecipe(a, "this");
     await addRecipe(a, "next");

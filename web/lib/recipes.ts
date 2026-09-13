@@ -266,3 +266,28 @@ export async function searchRecipes(term: string, offset = 0) {
     [term, offset],
   );
 }
+
+/** Full searchable catalog and latest cover in one database round trip. */
+export type RecipeCard = RecipeRow & { photoId: number | null };
+export function recipeCatalog() {
+  return query<RecipeCard>(`
+    SELECT r.id, r.title, r.status, r.source_url,
+           r.last_cooked_on::text AS last_cooked_on, r.cook_count,
+           COALESCE(i.ingredients, '{}') AS ingredients,
+           p.id AS "photoId"
+      FROM recipe r
+      LEFT JOIN (
+        SELECT recipe_id, array_agg(raw_name ORDER BY id) AS ingredients
+          FROM recipe_ingredient
+         WHERE origin <> 'BODY' OR confirmed
+         GROUP BY recipe_id
+      ) i ON i.recipe_id = r.id
+      LEFT JOIN (
+        SELECT DISTINCT ON (recipe_id) recipe_id, id
+          FROM cook_log WHERE photo_key IS NOT NULL
+         ORDER BY recipe_id, cooked_on DESC, id DESC
+      ) p ON p.recipe_id = r.id
+     WHERE r.status <> 'BAD'
+     ORDER BY r.title, r.id
+  `);
+}

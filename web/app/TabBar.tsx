@@ -6,7 +6,7 @@ import styles from "./TabBar.module.css";
 
 const TABS = [
   { href: "/", label: "오늘 · 식단" },
-  { href: "/recipes", label: "레시피" },
+  { href: "/recipes", label: "메뉴 고르기" },
   { href: "/shopping", label: "장보기" },
 ] as const;
 
@@ -22,6 +22,7 @@ export default function TabBar() {
     const v = params.get(key);
     if (v) carry.set(key, v);
   }
+  if (path === "/recipes" && !carry.has("week")) carry.set("week", "next");
   const q = carry.toString();
 
   return (
