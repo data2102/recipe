@@ -296,3 +296,12 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/recipe_ux_test n
 회귀 범위: 주차별 날짜 지정, 완료 후 날짜 수정, 재료 중복 제거·수량 근거,
 목록별 보유 제외, 구매 체크 중복 방지·취소, 최근 메뉴 추천, 제목·재료 검색.
 기존 `CHECKOFF` 구매 이력은 소속 목록을 추정해 삭제하지 않는다.
+
+
+## 유튜브 검색 설정
+
+Vercel Production·Preview의 서버 환경변수 YOUTUBE_API_KEY에 YouTube Data API v3가 활성화된 키가 필요하다.
+검색은 search.list 1회 + videos.list 1회로 한 페이지 20개를 확인한다. 동일 요청은 15분 캐시한다.
+추가 페이지는 사용자가 요청할 때만 검색한다. 검색 중 AI 호출은 하지 않는다. 선택한 영상의 파싱에는 기존 ANTHROPIC_API_KEY가 필요하다.
+키 미설정·한도 초과·네트워크 실패는 사용자 안내로 처리한다. 새 DB migration은 없다.
+공식 근거: https://developers.google.com/youtube/v3/docs/search/list 및 https://developers.google.com/youtube/v3/docs/videos/list

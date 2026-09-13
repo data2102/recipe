@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:ux": "node --import tsx ../tools/verify_ux.ts"
+    "test:ux": "node --import tsx ../tools/verify_ux.ts",
+    "test:youtube": "node --import tsx ../tools/verify_youtube.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

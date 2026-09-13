@@ -86,6 +86,7 @@ type Auto = "assets" | "text" | "link" | null;
  */
 function autoStart(shared?: Shared | null): Auto {
   if (!shared || shared.problem) return null;
+  if (shared.youtube && shared.text) return "text";
   if (shared.assetIds.length > 0) return "assets";
   if ((shared.text?.trim().length ?? 0) >= BODY_ENOUGH) return "text";
   return null;

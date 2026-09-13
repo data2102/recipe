@@ -1,0 +1,8 @@
+.search { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: var(--sp-2); margin: var(--sp-5) 0; }
+.search label { grid-column: 1 / -1; }
+.card { display: grid; gap: var(--sp-3); }
+.card img { display: block; width: 100%; height: auto; border-radius: var(--radius-md); }
+.card h2 { font-size: var(--fs-heading); margin: 0; overflow-wrap: anywhere; }
+.card p { font-size: var(--fs-caption); color: var(--text-secondary); }
+.evidence { background: var(--surface-sunken); padding: var(--sp-2); border-radius: var(--radius-sm); }
+@media (min-width: 650px) { .card { grid-template-columns: 200px minmax(0,1fr); } }
