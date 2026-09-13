@@ -86,7 +86,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           오늘 · 이번 주
         </Link>
         <Link
-          href="/?week=next"
+          href="/recipes?week=next"
           className={`ds-tab ${next ? "on" : ""}`}
           aria-current={next ? "page" : undefined}
         >
