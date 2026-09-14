@@ -268,10 +268,10 @@ export async function searchRecipes(term: string, offset = 0) {
 }
 
 /** Full searchable catalog and latest cover in one database round trip. */
-export type RecipeCard = RecipeRow & { photoId: number | null };
+export type RecipeCard = RecipeRow & { photoId: number | null; created_at: string };
 export function recipeCatalog() {
   return query<RecipeCard>(`
-    SELECT r.id, r.title, r.status, r.source_url,
+    SELECT r.id, r.title, r.status, r.source_url, r.created_at::text AS created_at,
            r.last_cooked_on::text AS last_cooked_on, r.cook_count,
            COALESCE(i.ingredients, '{}') AS ingredients,
            p.id AS "photoId"
