@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState, useOptimistic, useTransition, useRef } from "react";
-import type { RecipeRow } from "@/lib/recipes";
+import type { RecipeCard } from "@/lib/recipes";
 import { addToWeek, removeFromWeek } from "../actions";
 import styles from "./picker.module.css";
-type Card = RecipeRow & { photoId: number | null };
+type Card = RecipeCard;
+import { sortRecipes, type RecipeOrder } from "@/lib/recipe-sort";
 function imageFor(r: Card) {
   if (r.photoId) return `/photo/${r.photoId}`;
   try {
@@ -62,6 +63,8 @@ export default function Picker({
   const [busy, setBusy] = useState(new Set<number>());
   const [term, setTerm] = useState(initialTerm);
   const [filter, setFilter] = useState("all");
+  const [orders, setOrders] = useState<Record<string, RecipeOrder>>({});
+  const order = orders[filter] ?? "default";
   const [ingredient, setIngredient] = useState("");
   const [review, setReview] = useState(false);
   const [error, setError] = useState("");
@@ -78,15 +81,19 @@ export default function Picker({
       .slice(0, 8)
       .map(([name]) => name);
   }, [recipes]);
-  const visible = recipes.filter(
-    (r) =>
-      (!review || selected.has(r.id)) &&
-      (filter === "all" ||
-        (filter === "new" ? !r.last_cooked_on : !!r.last_cooked_on)) &&
-      (!ingredient || r.ingredients.includes(ingredient)) &&
-      `${r.title} ${r.ingredients.join(" ")}`
-        .toLocaleLowerCase()
-        .includes(term.trim().toLocaleLowerCase()),
+  const visible = sortRecipes(
+    recipes.filter(
+      (r) =>
+        (!review || selected.has(r.id)) &&
+        (filter === "all" ||
+          (filter === "new" ? !r.last_cooked_on : !!r.last_cooked_on)) &&
+        (!ingredient || r.ingredients.includes(ingredient)) &&
+        `${r.title} ${r.ingredients.join(" ")}`
+          .toLocaleLowerCase()
+          .includes(term.trim().toLocaleLowerCase()),
+    ),
+    filter,
+    order,
   );
   async function toggle(r: Card) {
     if (pendingIds.current.has(r.id)) return;
@@ -169,6 +176,24 @@ export default function Picker({
             </button>
           ))}
         </div>
+        <label className={styles.sort}>
+          <span>정렬</span>
+          <select
+            className="ds-input"
+            value={order}
+            onChange={(e) =>
+              setOrders((previous) => ({
+                ...previous,
+                [filter]: e.target.value as RecipeOrder,
+              }))
+            }
+          >
+            <option value="default">
+              {filter === "cooked" ? "만든 일자순 · 오래된 순" : "최근 등록순"}
+            </option>
+            <option value="name">이름순</option>
+          </select>
+        </label>
         <details className={styles.ingredients}>
           <summary>
             재료로 좁혀보기{ingredient ? ` · ${ingredient}` : ""}

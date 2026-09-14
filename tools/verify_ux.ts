@@ -3,6 +3,7 @@
  * TEST_DATABASE_URL must explicitly name a local recipe_ux_test database.
  */
 import assert from "node:assert/strict";
+import { sortRecipes } from "../web/lib/recipe-sort";
 import { query } from "../web/lib/db";
 import {
   addRecipe,
@@ -20,6 +21,16 @@ import { suggest, searchRecipes, recipeCatalog } from "../web/lib/recipes";
 import { remaining } from "../web/lib/shopping.types";
 
 async function main() {
+  const sorting = [
+    { id: 1, title: '가 요리', created_at: '2026-01-01T00:00:00Z', last_cooked_on: '2026-09-10' },
+    { id: 2, title: '나 요리', created_at: '2026-02-01T00:00:00Z', last_cooked_on: '2026-09-01' },
+    { id: 3, title: '다 요리', created_at: '2026-03-01T00:00:00Z', last_cooked_on: '2026-09-05' },
+  ];
+  for (const filter of ['all', 'new', 'cooked']) {
+    assert.deepEqual(sortRecipes(sorting, filter, 'name').map(r => r.id), [1, 2, 3]);
+    assert.deepEqual(sortRecipes(sorting, filter, 'default').map(r => r.id), filter === 'cooked' ? [2, 3, 1] : [3, 2, 1]);
+  }
+  assert.deepEqual(sorting.map(r => r.id), [1, 2, 3], 'Sorting does not mutate catalog');
   const raw = process.env.TEST_DATABASE_URL;
   assert(raw, "TEST_DATABASE_URL is required (never uses DATABASE_URL)");
   const url = new URL(raw);
@@ -69,6 +80,7 @@ async function main() {
       "Unconfirmed BODY candidates excluded",
     );
     assert.equal(card.photoId, null);
+    assert(Number.isFinite(Date.parse(card.created_at)), "Catalog includes registration timestamp");
     await query(
       `DELETE FROM recipe_ingredient WHERE recipe_id = $1 AND raw_name LIKE '추가재료%'`,
       [a],
