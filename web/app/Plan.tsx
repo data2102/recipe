@@ -19,7 +19,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { markCooked, planOnDate, removeFromWeek, setDayNote } from "./actions";
-import { dateFull, dateSay, dayIndex } from "@/lib/say";
+import PlanButton from "./PlanButton";
+import { dateFull, dateSay, dateTiny, dayIndex } from "@/lib/say";
 import { DAYS, type Planned } from "@/lib/week.types";
 import { NOTE_MAX } from "@/lib/notes.types";
 import { atHome, type Have } from "@/lib/fridge.types";
@@ -58,23 +59,16 @@ export default function Plan({
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
 
-  const options = days.map((d) => d.iso);
-
-  function move(dish: PlanDish, date: string) {
-    setError("");
-    start(async () => {
-      const form = new FormData();
-      form.set("id", String(dish.recipe_id));
-      form.set("date", date);
-      form.set("from", dish.which);
-      form.set("week", dish.which);
-      try {
-        await planOnDate(form);
-      } catch {
-        setError("날짜를 저장하지 못했어요. 다시 골라주세요.");
-      }
-    });
-  }
+  /*
+    날짜를 고르는 판에 넘길 것 (app/PlanButton.tsx). 담기 화면과 **같은
+    판**이다 — 날짜를 고르는 길이 둘이면 한쪽만 좋아진다.
+  */
+  const pickDays = days.map((d) => ({
+    iso: d.iso,
+    which: d.which,
+    note: d.note,
+    titles: d.dishes.map((x) => x.title),
+  }));
 
   function saveNote(date: string, note: string) {
     setError("");
@@ -120,21 +114,21 @@ export default function Plan({
             </span>
           </button>
 
-          <div className={`ds-select ${styles.when}`}>
-            <select
-              disabled={pending}
-              aria-label={`${p.title} 날짜`}
-              value={p.plannedOn ?? ""}
-              onChange={(e) => move(p, e.target.value)}
-            >
-              <option value="">미정</option>
-              {options.map((iso) => (
-                <option key={iso} value={iso}>
-                  {dateFull(iso)}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/*
+            **날짜를 누르면 고르는 판이 뜬다.** 예전에는 <select> 였는데,
+            네모와 화살표가 줄마다 서 있어서 요리 이름을 밀어냈고 (날짜가
+            길어 화살표에 글자가 겹치기도 했다), 무엇보다 그 목록에는
+            **그날 뭐가 있는지**가 안 보였다. 담기와 같은 판을 쓴다.
+          */}
+          <PlanButton
+            recipeId={p.recipe_id}
+            title={p.title}
+            days={pickDays}
+            today={today}
+            placed={[{ date: p.plannedOn, which: p.which }]}
+            label={p.plannedOn ? dateTiny(p.plannedOn) : "날짜 고르기"}
+            className={styles.when}
+          />
         </div>
 
         {/*
