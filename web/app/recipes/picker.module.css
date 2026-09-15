@@ -24,25 +24,11 @@
   color: var(--text-secondary);
   margin: 0;
 }
-.weeks,
 .filters {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-2);
   align-items: center;
-}
-.weeks {
-  margin-bottom: var(--sp-4);
-}
-.weeks a {
-  text-decoration: none;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-caption);
-}
-.weeks a:last-child {
-  margin-left: auto;
 }
 .tools {
   background: var(--surface);
@@ -141,6 +127,10 @@
   text-decoration: none;
   overflow-wrap: anywhere;
 }
+/* 언제 먹기로 했는지. 정보라서 액션색을 안 쓴다 (지시서 5장) */
+.when {
+  color: var(--text-secondary);
+}
 .cardBody p {
   font-size: var(--fs-footnote);
   color: var(--text-secondary);
@@ -149,7 +139,7 @@
   text-overflow: ellipsis;
   margin: var(--sp-2) 0 var(--sp-3);
 }
-.cardBody button {
+.cardBody > button {
   margin-top: auto;
   width: 100%;
   min-height: 44px;
@@ -171,21 +161,15 @@
   gap: var(--sp-3);
   align-items: center;
 }
-.basket > button {
-  background: none;
-  border: 0;
-  text-align: left;
-  color: var(--text-primary);
-  min-height: 48px;
-}
-.basket strong,
-.basket span {
+.basket > div > strong,
+.basket > div > a {
   display: block;
 }
-.basket span {
+.basket > div > a {
   font-size: var(--fs-footnote);
   margin-top: var(--sp-1);
-  color: var(--text-secondary);
+  color: var(--accent-strong);
+  text-decoration: none;
 }
 .sr {
   position: absolute;

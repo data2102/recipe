@@ -1,0 +1,180 @@
+/*
+ * 날짜 고르기 — 아래에서 올라오는 판.
+ *
+ * 폰에서 열나흘을 다 보려면 스크롤이 필요하다. 가운데 작은 상자에
+ * 넣으면 목록이 더 좁아져서, 아래에 붙이고 위로 키운다.
+ * 큰 화면에서는 가운데로 모은다.
+ */
+
+/*
+ * 탭바와 아래 띠(--z-sticky)보다 위다. 안 그러면 판의 아랫부분 —
+ * "식단에서 빼기" 가 있는 자리 — 이 탭바에 가린다.
+ */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--sp-5) var(--sp-5)
+    calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+}
+
+@media (min-width: 900px) {
+  .scrim {
+    align-items: center;
+  }
+
+  .sheet {
+    border-radius: var(--radius-lg);
+  }
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.dish {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.ask {
+  font-size: var(--fs-subhead);
+  font-weight: var(--fw-medium);
+  margin: var(--sp-1) 0 0;
+}
+
+.close {
+  flex: none;
+  background: none;
+  border: 0;
+  min-height: 44px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.weekName {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  letter-spacing: 0.08em;
+  margin: 0;
+  padding: var(--sp-2) 0;
+}
+
+.days {
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+}
+
+.day {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  min-height: 52px;
+  padding: var(--sp-3) var(--sp-2);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  cursor: pointer;
+}
+
+.day:hover {
+  background: var(--surface-sunken);
+}
+
+/* 이미 담겨 있는 날. 색만으로 알리지 않는다 — 오른쪽에 글자가 붙는다 */
+.mine {
+  background: var(--surface-sunken);
+}
+
+/* 지난 날도 고를 수 있다 (어제 만든 걸 적어둘 수 있어야 한다) */
+.gone .when {
+  color: var(--text-tertiary);
+}
+
+/* 날짜는 줄바꿈하지 않는다 — "9월 15일" 과 "(화)" 가 갈리면 못 읽는다 */
+.when {
+  flex: none;
+  min-width: 7em;
+  white-space: nowrap;
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+}
+
+.badge {
+  flex: none;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.what {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tick {
+  flex: none;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
+.someday .when {
+  color: var(--text-secondary);
+}
+
+/* 빼기는 되돌리는 것이라 조용하게 (지시서 5장) */
+.remove {
+  flex: none;
+  width: 100%;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin-top: var(--sp-2);
+  padding: var(--sp-3) 0;
+  min-height: 48px;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}

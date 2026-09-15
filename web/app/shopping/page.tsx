@@ -2,8 +2,7 @@ import Link from "next/link";
 
 import Shopping from "../Shopping";
 import ShoppingByRecipe from "../ShoppingByRecipe";
-import { Empty } from "../RecipeList";
-import { Broken, Setup } from "../Shell";
+import { Broken, Empty, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
 
 import {
@@ -202,9 +201,7 @@ export default async function ShoppingPage({
         <Empty>
           {data.basket.length > 0
             ? "담은 요리에 재료가 아직 안 붙어 있어요."
-            : next
-              ? "식단에서 다음 주에 담으면 살 것을 합쳐서 보여드려요."
-              : "식단에서 요리를 담으면 살 것을 합쳐서 보여드려요."}
+            : "메뉴 고르기에서 담으면 살 것을 합쳐서 보여드려요."}
         </Empty>
       )}
     </main>

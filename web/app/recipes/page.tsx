@@ -1,22 +1,22 @@
 import { recipeCatalog } from "@/lib/recipes";
-import { openList, picked } from "@/lib/shopping";
+import { pickable } from "@/lib/week";
+import { todayInput } from "@/lib/say";
 import { dbUrl } from "@/lib/db";
 import { Broken, Setup } from "../Shell";
 import Picker from "./Picker";
+
 export const dynamic = "force-dynamic";
 export const metadata = { title: "메뉴 고르기" };
+
 export default async function RecipesPage({
   searchParams,
 }: PageProps<"/recipes">) {
   if (!dbUrl()) return <Setup />;
   const params = await searchParams;
-  const week = params.week === "this" ? "this" : "next";
-  let cards, basket;
+
+  let cards, dates;
   try {
-    const loaded = await Promise.all([recipeCatalog(), openList(false, week)]);
-    cards = loaded[0];
-    const listId = loaded[1];
-    basket = await picked(listId);
+    [cards, dates] = await Promise.all([recipeCatalog(), pickable()]);
   } catch (e) {
     return (
       <Broken
@@ -24,12 +24,13 @@ export default async function RecipesPage({
       />
     );
   }
+
   return (
     <Picker
-      key={week}
       recipes={cards}
-      initialPicked={basket.map((r) => r.id)}
-      week={week}
+      days={dates.days}
+      placed={dates.placed}
+      today={todayInput()}
       initialTerm={typeof params.q === "string" ? params.q : ""}
     />
   );

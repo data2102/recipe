@@ -14,11 +14,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Edit from "./Edit";
 import ActionButton from "../../ActionButton";
-import { markCooked, addToWeek } from "../../actions";
+import PlanButton from "../../PlanButton";
+import More from "./More";
+import { markCooked } from "../../actions";
 import Photos from "./Photos";
 import { attachTarget, list as listPhotos } from "@/lib/photos";
 import { detail } from "@/lib/recipes";
-import { cookedAgo } from "@/lib/say";
+import { pickable } from "@/lib/week";
+import { cookedAgo, dateFull, todayInput } from "@/lib/say";
 import styles from "./recipe.module.css";
 
 export const dynamic = "force-dynamic";
@@ -34,12 +37,25 @@ export default async function RecipePage({
   const n = Number(id);
   if (!Number.isInteger(n) || n <= 0) notFound();
 
-  const [r, photos, attach] = await Promise.all([
+  const [r, photos, attach, dates] = await Promise.all([
     detail(n),
     listPhotos(n),
     attachTarget(n),
+    pickable(),
   ]);
   if (!r) notFound();
+
+  /*
+    담기는 날짜를 묻는다 (app/PlanButton.tsx) — 고르기 화면과 같은 길이다.
+    여기만 "이번 주에 담기" 로 두면 날짜는 또 식단에서 정해야 한다.
+  */
+  const placed = dates.placed[r.id] ?? [];
+  const planLabel =
+    placed.length === 0
+      ? "식단에 담기"
+      : placed[0].date
+        ? `${dateFull(placed[0].date)}에 먹어요 · 날짜 바꾸기`
+        : `${placed[0].which === "next" ? "다음 주" : "이번 주"}에 담았어요 · 날짜 고르기`;
 
   /*
     사진이 어느 날짜에 붙을지 미리 보여준다. 액션이 같은 규칙으로 다시
@@ -84,7 +100,7 @@ export default async function RecipePage({
   return (
     <main className="shell">
       <header className={styles.head}>
-        <Link href={`/?week=${week}`} className={styles.back}>
+        <Link href="/" className={styles.back}>
           ← 식단
         </Link>
         <h1 className={styles.title}>{r.title}</h1>
@@ -96,15 +112,19 @@ export default async function RecipePage({
       </header>
 
       {/*
-        만든 사진이 먼저다. 재료·만드는 법보다 이게 이 요리를 기억하게
-        한다 — "저번에 이렇게 나왔지" 가 다시 만들 이유가 된다.
+        버튼 둘이 붙어 있었다. ActionButton 이 <div> 로 감싸고 있어서
+        여백의 `.ds-btn-block + .ds-btn-block` 규칙이 안 걸렸고, 담기와
+        기록하기가 맞닿아 있으면 누를 때 손가락이 옆을 짚는다.
+        간격은 여기서 한 번 준다 (recipe.module.css `.actions`).
       */}
-      <section className="ds-card">
-        <ActionButton
-          action={addToWeek}
-          fields={{ id: r.id, week }}
-          label={`${week === "next" ? "다음 주" : "이번 주"} 식단에 담기`}
-          doneLabel="담았어요"
+      <section className={`ds-card ${styles.actions}`}>
+        <PlanButton
+          recipeId={r.id}
+          title={r.title}
+          days={dates.days}
+          today={todayInput()}
+          placed={placed}
+          label={planLabel}
           className="ds-btn ds-btn-secondary ds-btn-block"
         />
         <ActionButton
@@ -115,6 +135,10 @@ export default async function RecipePage({
           className="ds-btn ds-btn-primary ds-btn-block"
         />
       </section>
+      {/*
+        만든 사진이 먼저다. 재료·만드는 법보다 이게 이 요리를 기억하게
+        한다 — "저번에 이렇게 나왔지" 가 다시 만들 이유가 된다.
+      */}
       <Photos recipeId={r.id} photos={photos} attachesTo={attachesTo} />
 
       <section className="ds-card">
@@ -181,6 +205,8 @@ export default async function RecipePage({
           원본 열기
         </a>
       )}
+
+      <More id={r.id} today={todayInput()} />
     </main>
   );
 }

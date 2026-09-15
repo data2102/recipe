@@ -53,6 +53,21 @@ export function weekStart(which: Which = "this", today = todayInput()): string {
 }
 
 /**
+ * 그 **날짜**가 어느 주인가. 이번 주도 다음 주도 아니면 null 이다.
+ *
+ * 화면이 날짜로 말하기 시작하면서 (식단은 이레가 아니라 두 주를 쭉
+ * 늘어놓는다) 거꾸로 가는 길이 필요해졌다 — "9월 24일에 담아줘" 가
+ * 어느 목록으로 가는지는 날짜만 보면 안다. weekStart 와 같은 규칙을
+ * 거꾸로 읽는 것뿐이라 DB 를 안 본다.
+ */
+export function whichOf(dateIso: string, today = todayInput()): Which | null {
+  const monday = mondayOf(dateIso);
+  if (monday === weekStart("this", today)) return "this";
+  if (monday === weekStart("next", today)) return "next";
+  return null;
+}
+
+/**
  * 그 주의 목록. 없으면 만든다 (`create`).
  *
  * 담기 전까지는 안 만든다 — 빈 목록이 주마다 쌓이면 "지난 주" 가
@@ -273,7 +288,41 @@ export async function items(listId: number | null): Promise<ShoppingItem[]> {
       );
       rows.push(row);
     }
-    return rows;
+
+    /*
+      **화면에는 이름마다 한 줄이다.**
+
+      같은 표기가 두 줄로 나올 수 있다 — 사전에 붙은 '대파'(ingredient_id
+      있음)와 아직 못 붙인 '대파'(NULL)는 여기서 다른 행이다 (한쪽 레시피를
+      저장할 때는 사전에 없었던 경우). 마트에서 같은 이름이 두 번 뜨면
+      두 단을 산다.
+
+      DB 행은 그대로 둔다. 체크는 이름으로 두 행을 같이 바꾸고 (toggle),
+      구매 기록은 재료 id 마다 남아야 하기 때문이다. 합칠 때는
+
+        - **사전에 붙은 줄**을 남긴다. 체크가 구매 기록으로 이어져야 한다 —
+          미분류 줄을 남기면 눌러도 "언제 샀는지" 가 안 쌓인다.
+        - 칸은 **덜 확신하는 쪽**으로. 사는 게 안 사는 것보다 되돌리기 쉽다.
+    */
+    const SURE: Record<Bucket, number> = { BUY: 0, CHECK: 1, HAVE: 2 };
+    const oneEach = new Map<string, ShoppingItem>();
+    for (const r of rows) {
+      const kept = oneEach.get(r.label);
+      if (!kept) {
+        oneEach.set(r.label, r);
+        continue;
+      }
+      const named =
+        kept.ingredient_id === null && r.ingredient_id !== null ? r : kept;
+      const unsure = SURE[r.bucket] < SURE[kept.bucket] ? r : kept;
+      oneEach.set(r.label, {
+        ...named,
+        bucket: unsure.bucket,
+        reason: unsure.reason,
+        checked: kept.checked || r.checked,
+      });
+    }
+    return [...oneEach.values()];
   });
 }
 

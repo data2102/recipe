@@ -298,6 +298,33 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/recipe_ux_test n
 기존 `CHECKOFF` 구매 이력은 소속 목록을 추정해 삭제하지 않는다.
 
 
+## 2026-09-15 식단 날짜 전환 배포
+
+새 앱 코드를 배포하기 **전에** `supabase/migrations/20260915000000_day_note.sql`
+을 적용한다. 기존 마이그레이션은 수정하지 않는다. `day_note` 테이블 하나가
+새로 생길 뿐이라 **기존 데이터는 건드리지 않는다** — 담아둔 요리도, 요일도,
+구매 이력도 그대로다. 앱만 이전 버전으로 되돌려도 이 테이블은 남아 있어도
+문제가 없다 (예전 코드는 읽지 않는다).
+
+테이블은 RLS 를 켠 채 정책 없이 만든다 (`db/policy.sql` 과 같은 이유 —
+anon 키로 REST 가 열리면 안 된다). 앱은 서버에서 직접 붙으므로 영향이 없다.
+
+적용 순서:
+
+```bash
+supabase db push            # 또는 대시보드 SQL 편집기에 파일 내용 붙여넣기
+```
+
+검증은 `web/` 에서 `npm run lint`, `npm run build`, 그리고 회귀 테스트다.
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/recipe_ux_test npm run test:ux
+```
+
+추가된 회귀 범위: 날짜가 주를 정하는 규칙(`whichOf`), 열나흘 범위(`horizon`),
+그날의 메모 저장·삭제, 날짜를 고르는 창이 받는 값(`pickable`), 장보기에서
+같은 이름이 한 줄로 합쳐지는 것.
+
 ## 유튜브 검색 설정
 
 Vercel Production·Preview의 서버 환경변수 YOUTUBE_API_KEY에 YouTube Data API v3가 활성화된 키가 필요하다.
