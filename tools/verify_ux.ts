@@ -50,6 +50,14 @@ import {
   dishesOf,
 } from "../web/lib/weeks";
 import { attachTarget } from "../web/lib/photos";
+import {
+  recordAsset,
+  recordParsed,
+  save,
+  saveTitleOnly,
+  assetKeys,
+} from "../web/lib/parse/store";
+import { loadDictionary, normalize } from "../web/lib/parse/normalize";
 import { remaining } from "../web/lib/shopping.types";
 
 async function main() {
@@ -142,6 +150,7 @@ async function main() {
   const [a, b] = inserted.map((r) => r.id);
   const listIds: number[] = [];
   const extra: number[] = []; // 테스트가 새로 만드는 레시피 — 실패해도 치운다
+  const assets: number[] = [];
   try {
     await query(
       `INSERT INTO recipe_ingredient (recipe_id, raw_name, raw_qty, ingredient_id, origin, confirmed)
@@ -535,6 +544,219 @@ async function main() {
     );
     await query(`DELETE FROM cook_log WHERE id = $1`, [shot.id]);
     console.log("PASS: photos attach to a cook log, never overwrite, never invent a date");
+
+    /* ---------------------------------------------------------------- */
+    /*  저장 흐름 (/add) — lib/parse/store.ts                            */
+    /* ---------------------------------------------------------------- */
+
+    const dict = await loadDictionary();
+
+    // 원본은 파싱보다 **먼저** 보관한다 (원칙 ⑤). 파싱이 실패해도 남아야
+    // 재파싱할 수 있다.
+    const assetId = await recordAsset(
+      { kind: "IMAGE", storageKey: "uxtest/capture.png", rawText: null },
+      "UXTEST-1",
+    );
+    assets.push(assetId);
+    assert.deepEqual(
+      (await assetKeys([assetId])).map((r) => r.storage_key),
+      ["uxtest/capture.png"],
+      "아직 레시피가 안 된 원본은 다시 꺼내 쓸 수 있다 (공유받은 캡처 되살리기)",
+    );
+
+    const rows = normalize(
+      [
+        { raw_name: "양파", raw_qty: "1개", section: "재료", origin: "LIST", evidence: null },
+        { raw_name: "간장", raw_qty: "2T", section: "양념", origin: "LIST", evidence: null },
+        { raw_name: "UXTEST 듣보재료", raw_qty: "약간", section: null, origin: "LIST", evidence: null },
+        { raw_name: "참기름", raw_qty: null, section: null, origin: "BODY", evidence: "조리 단계에만 나와요" },
+      ],
+      [],
+      dict,
+    );
+    assert.equal(rows[0].ingredient_id, ing.id, "사전에 있는 건 붙는다");
+    assert.equal(rows[1].ingredient_id, null, "AMBIGUOUS 는 단정하지 않는다");
+    assert.equal(
+      rows[1].recordUnmapped,
+      false,
+      "**AMBIGUOUS 는 미분류가 아니다** — 사전에 후보가 있으니 쌓지 않는다",
+    );
+    assert.equal(rows[2].recordUnmapped, true, "사전에 없는 표기만 쌓는다");
+
+    const before = await query<{ hit_count: number }>(
+      `SELECT hit_count FROM unmapped_term WHERE raw_name = 'UXTEST 듣보재료'`,
+    );
+    const saved = await save({
+      title: "UXTEST 저장 흐름",
+      steps: ["양파를 볶는다", "간장을 넣고 조린다"],
+      rows,
+      confirmed: (r) => r.origin !== "BODY", // 화면이 하는 것과 같다
+      assetIds: [assetId],
+      sourceUrl: "https://example.com/uxtest",
+      sourceKind: "IMAGE",
+    });
+    extra.push(saved);
+
+    const [made] = await query<{ status: string; source_url: string }>(
+      `SELECT status, source_url FROM recipe WHERE id = $1`,
+      [saved],
+    );
+    assert.equal(made.status, "WISH", "저장 시점은 '해보고 싶다' 이지 '맛있었다' 가 아니다");
+    assert.equal(
+      made.source_url,
+      "https://example.com/uxtest",
+      "화면에 안 보여도 원문 주소는 남는다 (저작권)",
+    );
+
+    // 배열로 한 번에 넣는다. 그러면서 **순서가 안 흐트러져야** 한다 —
+    // 목록의 재료 요약이 ri.id 순으로 앞 넷을 자른다.
+    const stored = await query<{
+      raw_name: string;
+      raw_qty: string | null;
+      section: string | null;
+      ingredient_id: number | null;
+      confirmed: boolean;
+    }>(
+      `SELECT raw_name, raw_qty, section, ingredient_id, confirmed
+         FROM recipe_ingredient WHERE recipe_id = $1 ORDER BY id`,
+      [saved],
+    );
+    assert.deepEqual(
+      stored.map((r) => r.raw_name),
+      ["양파", "간장", "UXTEST 듣보재료", "참기름"],
+      "배열 순서가 그대로 박힌다",
+    );
+    assert.equal(stored[0].raw_qty, "1개", "수량은 원문 그대로 (원칙 ①)");
+    assert.equal(stored[0].section, "재료");
+    assert.equal(stored[0].ingredient_id, ing.id);
+    assert.equal(stored[2].ingredient_id, null, "못 붙인 건 NULL 로 둔다 — 추측하지 않는다");
+    assert.equal(
+      stored[3].confirmed,
+      false,
+      "조리 단계에만 나온 재료는 사용자가 확인해야 TRUE 다",
+    );
+    assert.deepEqual(
+      (
+        await query<{ seq: number; body: string }>(
+          `SELECT seq, body FROM recipe_step WHERE recipe_id = $1 ORDER BY seq`,
+          [saved],
+        )
+      ).map((r) => [r.seq, r.body]),
+      [
+        [1, "양파를 볶는다"],
+        [2, "간장을 넣고 조린다"],
+      ],
+      "만드는 법도 순서대로",
+    );
+
+    const after = await query<{ hit_count: number }>(
+      `SELECT hit_count FROM unmapped_term WHERE raw_name = 'UXTEST 듣보재료'`,
+    );
+    assert.equal(
+      Number(after[0].hit_count) - Number(before[0]?.hit_count ?? 0),
+      1,
+      "사전을 키우는 유일한 경로 — 못 붙인 표기가 쌓인다",
+    );
+    assert.equal(
+      (await query(`SELECT 1 FROM unmapped_term WHERE raw_name = '간장'`)).length,
+      0,
+      "AMBIGUOUS 는 여기 안 들어온다",
+    );
+
+    assert.equal(
+      (await query<{ recipe_id: number }>(
+        `SELECT recipe_id FROM source_asset WHERE id = $1`,
+        [assetId],
+      ))[0].recipe_id,
+      saved,
+      "저장이 끝나면 원본에 레시피가 박힌다",
+    );
+    assert.deepEqual(
+      await assetKeys([assetId]),
+      [],
+      "이미 레시피가 된 원본은 다시 안 준다",
+    );
+    console.log("PASS: one save writes raw text, dictionary hits, order, and unmapped terms");
+
+    /*
+      **같은 초안을 두 번 저장하지 않는다.**
+
+      폰이 잠기거나 지하철에 들어가면 서버는 저장을 끝냈는데 응답만
+      사라진다. 사용자 눈에는 실패라서 다시 누른다 — 실제로 두 건이 생겼다.
+      화면에서 버튼을 막는 것만으로는 못 막는다.
+
+      (여기서는 접속이 하나라 두 번째가 첫 번째 뒤에 선다. 진짜 동시
+       두 트랜잭션의 FOR UPDATE 경합까지는 못 재지만, 다시 누르는 길은
+       정확히 이 길이다.)
+    */
+    const again = await save({
+      title: "UXTEST 저장 흐름 (다시 누름)",
+      steps: ["다른 내용"],
+      rows,
+      confirmed: () => true,
+      assetIds: [assetId],
+      sourceUrl: null,
+      sourceKind: "IMAGE",
+    });
+    assert.equal(again, saved, "두 번째는 새로 만들지 않고 아까 그 id 를 돌려준다");
+    assert.equal(
+      (await query(`SELECT 1 FROM recipe WHERE title LIKE 'UXTEST 저장 흐름%'`)).length,
+      1,
+      "레시피는 한 건뿐이다",
+    );
+    assert.deepEqual(
+      (
+        await query<{ body: string }>(
+          `SELECT body FROM recipe_step WHERE recipe_id = $1 ORDER BY seq`,
+          [saved],
+        )
+      ).map((r) => r.body),
+      ["양파를 볶는다", "간장을 넣고 조린다"],
+      "먼저 저장된 것을 덮어쓰지도 않는다",
+    );
+
+    // 이름만 저장(링크를 못 읽었을 때)도 같은 일을 겪는다. 여긴 붙잡을
+    // 원본이 없어서 **몇 분 안쪽 같은 주소**로 본다.
+    const linkA = await saveTitleOnly("UXTEST 이름만", "https://example.com/only", "LINK");
+    const linkB = await saveTitleOnly("UXTEST 이름만", "https://example.com/only", "LINK");
+    extra.push(linkA);
+    assert.equal(linkB, linkA, "몇 분 안에 같은 주소면 다시 누른 것이다");
+    const linkC = await saveTitleOnly("UXTEST 이름만 2", "https://example.com/other", "LINK");
+    extra.push(linkC);
+    assert.notEqual(linkC, linkA, "다른 주소는 다른 레시피다");
+    const noUrlA = await saveTitleOnly("UXTEST 주소 없음", null, "TEXT");
+    const noUrlB = await saveTitleOnly("UXTEST 주소 없음", null, "TEXT");
+    extra.push(noUrlA, noUrlB);
+    assert.notEqual(
+      noUrlB,
+      noUrlA,
+      "주소가 없으면 같은 것인지 알 수 없다 — 지어내서 합치지 않는다",
+    );
+    console.log("PASS: the same draft never saves twice");
+
+    /*
+      파싱 응답 원문도 적어둔다. **먼저 보관한 원문을 덮어쓰지 않는다** —
+      붙여넣기로 들어온 글은 그 자체가 원본이다.
+    */
+    const pasted = await recordAsset(
+      { kind: "TEXT", storageKey: null, rawText: "사용자가 붙여넣은 글" },
+      "UXTEST-1",
+    );
+    const empty = await recordAsset(
+      { kind: "IMAGE", storageKey: "uxtest/b.png", rawText: null },
+      "UXTEST-1",
+    );
+    assets.push(pasted, empty);
+    await recordParsed([pasted, empty], "파서가 돌려준 응답");
+    const texts = await query<{ id: number; raw_text: string; parsed_at: string | null }>(
+      `SELECT id, raw_text, parsed_at::text AS parsed_at FROM source_asset
+        WHERE id = ANY($1::bigint[]) ORDER BY id`,
+      [[pasted, empty]],
+    );
+    assert.equal(texts[0].raw_text, "사용자가 붙여넣은 글", "있던 원문은 그대로 둔다");
+    assert.equal(texts[1].raw_text, "파서가 돌려준 응답", "비어 있던 자리만 채운다");
+    assert(texts[0].parsed_at && texts[1].parsed_at, "언제 파싱했는지는 둘 다 적힌다");
+    console.log("PASS: the original text is never overwritten by the parser output");
   } finally {
     for (const id of listIds)
       await query(`DELETE FROM purchase WHERE source LIKE $1`, [
@@ -546,6 +768,18 @@ async function main() {
     await query(`DELETE FROM recipe WHERE id=ANY($1::bigint[])`, [
       [a, b, ...extra],
     ]);
+    await query(`DELETE FROM source_asset WHERE id=ANY($1::bigint[])`, [assets]);
+    /*
+      **어디서 실패해도 다음 실행이 깨끗해야 한다.**
+
+      위의 id 목록은 실패 지점까지 모은 것만 들고 있다. 중간에 걸리면
+      그 뒤에 만들어진 행은 아무도 모르는 채 남고, 다음 실행이 "레시피는
+      한 건뿐이다" 같은 데서 엉뚱하게 실패한다 (실제로 겪었다).
+      이 DB 는 버리는 것이라(`recipe_ux_test` 만 허용한다) 이름으로 쓸어낸다.
+    */
+    await query(`DELETE FROM recipe WHERE title LIKE 'UXTEST %'`);
+    await query(`DELETE FROM source_asset WHERE parser_version = 'UXTEST-1'`);
+    await query(`DELETE FROM unmapped_term WHERE raw_name LIKE 'UXTEST %'`);
     await globalThis.__recipePool?.end();
   }
 }
