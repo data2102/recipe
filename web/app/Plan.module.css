@@ -185,15 +185,24 @@
   white-space: nowrap;
 }
 
+/*
+ * 날짜를 누르면 고르는 판이 뜬다. 네모도 화살표도 없다 —
+ * 줄마다 입력칸이 서 있으면 요리 이름이 밀린다.
+ */
 .when {
   flex: none;
-  max-width: 120px;
+  background: none;
+  border: 0;
+  padding: var(--sp-2) var(--sp-1);
+  min-height: 44px;
+  font-size: var(--fs-caption);
+  color: var(--accent-strong);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.when select {
-  height: 40px;
-  padding: 0 var(--sp-2);
-  font-size: var(--fs-caption);
+.when:disabled {
+  color: var(--text-tertiary);
 }
 
 .read {

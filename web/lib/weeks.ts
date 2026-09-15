@@ -93,3 +93,41 @@ export async function reopen(listId: number): Promise<void> {
     [listId],
   );
 }
+
+/** 지난 주의 요리 한 건. 날짜는 그 주 월요일에 요일을 더해서 나온다 */
+export type PastDish = {
+  list_id: number;
+  recipe_id: number;
+  title: string;
+  /** 0=월 … 6=일. 안 정했으면 null */
+  day: number | null;
+  /** 그 날짜에 만든 기록이 있는가 */
+  cooked: boolean;
+};
+
+/**
+ * 지난 주들의 담긴 요리 — **한 번에 가져온다.**
+ *
+ * 주마다 따로 물으면 열두 주가 스물네 번 왕복이다. 서버리스에서는
+ * 인스턴스당 접속이 하나라 (CLAUDE.md) 그게 줄줄이 늘어선다.
+ *
+ * 날짜를 여기서 만들지 않는다 — 요일만 주고, 며칠인지는 화면이 그 주
+ * 월요일에 더한다 (lib/week.ts `plan` 과 같은 규칙). 두 벌로 세면 어긋난다.
+ */
+export function dishesOf(listIds: number[]): Promise<PastDish[]> {
+  if (listIds.length === 0) return Promise.resolve([]);
+  return query<PastDish>(
+    `SELECT slr.list_id, slr.recipe_id, r.title, slr.day_of_week AS day,
+            EXISTS (
+              SELECT 1 FROM cook_log cl
+               WHERE cl.recipe_id = r.id
+                 AND cl.cooked_on = sl.starts_on + slr.day_of_week
+            ) AS cooked
+       FROM shopping_list_recipe slr
+       JOIN shopping_list sl ON sl.id = slr.list_id
+       JOIN recipe r ON r.id = slr.recipe_id
+      WHERE slr.list_id = ANY($1::bigint[])
+      ORDER BY slr.list_id, slr.day_of_week NULLS LAST, r.title`,
+    [listIds],
+  );
+}
