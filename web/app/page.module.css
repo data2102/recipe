@@ -41,47 +41,6 @@
   text-decoration: none;
 }
 
-/* --- 섹션 ------------------------------------------------------- */
-
-/*
- * 화면이 길어서 섹션 제목이 이정표 노릇을 한다. 카드 제목과 같은
- * 크기면 어디가 새 덩어리인지 안 보인다 — 한 단계 키우고 좁힌다.
- */
-.section {
-  font-size: 20px;
-  font-weight: var(--fw-medium);
-  letter-spacing: var(--ls-tight);
-  color: var(--text-primary);
-  margin: var(--sp-6) 0 var(--sp-3);
-}
-
-.section:first-of-type {
-  margin-top: 0;
-}
-
-/* 제목 오른쪽에 "다른 거 볼래요". 제목은 위쪽 여백을 그대로 쓴다 */
-.sectionRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-3);
-}
-
-/*
- * 담기와 경쟁하면 안 된다. 이건 "지금 나온 게 안 당길 때" 누르는
- * 것이라 버튼이 아니라 글자로 둔다 (지시서 5장 — 파랑은 누를 수 있는 것에).
- */
-.again {
-  flex: 0 0 auto;
-  font-size: var(--fs-caption);
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.again::before {
-  content: "↻ ";
-}
-
 /* 정렬 고르기. 탭 바로 아래 한 줄 (app/recipes/page.tsx) */
 .sorts {
   display: flex;
@@ -92,16 +51,6 @@
 
 .sorts a {
   text-decoration: none;
-}
-
-/*
- * 섹션 안의 소제목. "담을 것" 하나 아래에 세 갈래를 둔다 —
- * 갈래마다 섹션 제목을 세우면 화면이 다시 길어진다.
- */
-.group {
-  font-size: var(--fs-caption);
-  color: var(--text-tertiary);
-  margin: var(--sp-4) 0 var(--sp-2);
 }
 
 .note {
@@ -174,15 +123,6 @@
 
 /* --- 주 행동 ----------------------------------------------------- */
 
-/*
- * 사용자가 하는 일은 두 가지다 — 올리고, 만들고 나서 체크한다.
- * 그중 하나라 눈에 띄어야 한다 (지시서 1장). 화면당 채운 파란 버튼은
- * 하나만 (design-system.md 6장).
- */
-.add {
-  margin-bottom: var(--sp-5);
-}
-
 /* 목록 밖으로 나가는 길. 버튼이 아니라 링크다 — 담기와 경쟁하면 안 된다 */
 .more {
   display: block;
@@ -242,92 +182,18 @@
     border-top: 1px solid var(--border);
   }
 }
-
-.quickActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-  margin-top: var(--sp-4);
-  align-items: center;
-}
-.heroTitle {
-  font-size: var(--fs-heading);
-  margin: var(--sp-2) 0 var(--sp-3);
-}
-.todayDish + .todayDish {
-  margin-top: var(--sp-5);
-}
-.summary {
-  cursor: pointer;
-  padding: var(--sp-2) 0;
-  font-weight: var(--fw-medium);
-}
-.summary .sub {
-  display: block;
-  font-weight: normal;
-}
-
-.extraOptions {
-  margin-top: var(--sp-3);
-}
-
-/* A single visual lead, with quieter supporting sections. */
+/* 식단 화면은 목록이 길다. 머리말은 한 단계 낮추고 조용하게 */
 .home .head {
   margin-bottom: var(--sp-2);
 }
 .home .title {
   font-size: var(--fs-heading);
 }
-.home .tabs {
-  margin-bottom: var(--sp-3);
-}
-.home .section {
-  font-size: var(--fs-body);
-  margin: var(--sp-4) 0 var(--sp-2);
-}
 .home .note {
   margin: var(--sp-2) 0;
 }
 .home .more {
   padding: var(--sp-3) 0;
-}
-.home .add {
-  margin-bottom: var(--sp-3);
-}
-.hero .group {
-  margin: 0;
-  color: var(--text-secondary);
-}
-.hero .heroTitle {
-  font-size: var(--fs-title);
-  line-height: 1.35;
-  margin: var(--sp-2) 0;
-  overflow-wrap: anywhere;
-}
-.hero .body {
-  font-size: var(--fs-caption);
-}
-.hero .quickActions {
-  margin-top: var(--sp-3);
-}
-.detailLink {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 var(--sp-2);
-  font-size: var(--fs-caption);
-  color: var(--text-secondary);
-}
-.home .summary {
-  font-size: var(--fs-caption);
-  min-height: 44px;
-}
-.weekSummary .summary {
-  padding: 0;
-}
-.weekSummary .sub {
-  display: inline;
-  margin-left: var(--sp-2);
 }
 :global(.compact-page) .head {
   margin-bottom: var(--sp-2);
@@ -338,35 +204,6 @@
 :global(.compact-page) > .note {
   margin: var(--sp-2) 0;
 }
-
-.libraryHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--sp-3);
-}
-.libraryHead > a {
-  flex-shrink: 0;
-  font-size: var(--fs-caption);
-}
-.searchForm {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--sp-2);
-  margin: var(--sp-4) 0;
-}
-.searchForm > label,
-.searchForm > a {
-  grid-column: 1 / -1;
-}
-.searchForm > label {
-  margin: 0;
-}
-.searchForm > a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-}
 .viewSwitch {
   display: flex;
   gap: var(--sp-2);
@@ -375,6 +212,8 @@
 .viewSwitch a {
   text-decoration: none;
 }
-:global(#week-plan) {
-  scroll-margin-top: 72px;
+/* 목록 다음에 갈 곳들. 나란히 놓되 담기와 경쟁하지 않게 조용히 */
+.after {
+  margin-top: var(--sp-6);
+  border-top: 1px solid var(--border);
 }

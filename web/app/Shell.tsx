@@ -6,6 +6,15 @@
 
 import styles from "./page.module.css";
 
+/** 빈 화면. 사과 말고 초대다 (design-system.md 7장 마이크로카피) */
+export function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={`ds-empty ${styles.empty}`}>
+      <p>{children}</p>
+    </div>
+  );
+}
+
 export function Setup() {
   return (
     <main className="shell">

@@ -1,10 +1,40 @@
 /*
- * 이번 주 식단. 요일 7칸 + 요일 미정.
+ * 식단 — 날짜 열나흘이 세로로 쭉.
  * 카드·체크박스·셀렉트는 여백의 .ds-* 를 쓴다. 여기 있는 건 배치뿐.
  */
 
-.day7 {
-  margin-bottom: var(--sp-4);
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- 하루 ------------------------------------------------------- */
+
+.day {
+  padding: var(--sp-3) 0 var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+.dayHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+/* 오늘은 왼쪽에 선을 하나 세운다. 배경을 칠하면 카드처럼 보인다 */
+.todayDay {
+  border-left: 2px solid var(--accent);
+  padding-left: var(--sp-3);
+}
+
+/* 지난 날은 조용히. 지워지진 않는다 — "만들었어요?" 를 여기서 묻는다 */
+.pastDay .dayName {
+  color: var(--text-tertiary);
 }
 
 .dayName {
@@ -17,19 +47,81 @@
   margin: 0 0 var(--sp-2);
 }
 
-/* 빈 요일은 한 줄로 모아서 조용히. 안 정한 게 흠이 아니다 */
-.blankDays {
-  font-size: var(--fs-caption);
-  color: var(--text-tertiary);
-  margin: 0 0 var(--sp-4);
-  letter-spacing: 0.06em;
+.date {
+  letter-spacing: var(--ls-tight);
 }
 
-.blank {
+.weekday {
   font-size: var(--fs-caption);
   font-weight: var(--fw-regular);
   color: var(--text-tertiary);
 }
+
+/* "오늘" 은 누를 수 있는 게 아니라 정보다 — 액션색을 안 쓴다 */
+.badge {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--sp-2);
+}
+
+/* 주 경계는 구분선 한 줄이면 된다. 탭으로 가르지 않는다 */
+.weekMark {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  letter-spacing: 0.08em;
+  margin: var(--sp-6) 0 0;
+  padding-top: var(--sp-4);
+  border-top: 2px solid var(--border);
+}
+
+/* --- 그날의 메모 -------------------------------------------------- */
+
+.note {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+}
+
+.noteText {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  color: var(--text-secondary);
+}
+
+.addNote,
+.quiet {
+  background: none;
+  border: 0;
+  padding: var(--sp-1) 0;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.addNote {
+  flex: none;
+  min-height: 32px;
+}
+
+.noteForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.noteForm input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+/* --- 담긴 요리 ---------------------------------------------------- */
 
 .list {
   list-style: none;
@@ -93,15 +185,21 @@
   white-space: nowrap;
 }
 
-.day {
+.when {
   flex: none;
-  width: 84px;
+  max-width: 120px;
 }
 
-.day select {
+.when select {
   height: 40px;
   padding: 0 var(--sp-2);
   font-size: var(--fs-caption);
+}
+
+.read {
+  display: inline-block;
+  font-size: var(--fs-caption);
+  padding: 0 var(--sp-4) var(--sp-2) var(--sp-5);
 }
 
 /* --- 펼친 재료 --------------------------------------------------- */
@@ -112,12 +210,26 @@
   padding: 0 var(--sp-4) var(--sp-2) var(--sp-5);
 }
 
+/*
+ * 장보기의 체크와 다르다 — 여기는 **읽기 전용**이다. 눌러도 구매
+ * 기록이 안 생긴다 (집에 있다는 게 오늘 샀다는 뜻이 아니다).
+ * 그래서 칸이 아니라 글자로 말한다.
+ */
 .item {
   width: 100%;
+  display: flex;
+  align-items: baseline;
   padding: var(--sp-2) 0;
   gap: var(--sp-3);
   min-height: 40px;
   cursor: default;
+}
+
+.mark {
+  flex: none;
+  width: 4.5em;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
 }
 
 .needIt {
@@ -126,7 +238,7 @@
   color: var(--text-primary);
 }
 
-/* 집에 있는 것. 색만으로 알리지 않는다 — 체크 표시가 같이 붙는다 */
+/* 집에 있는 것. 색만으로 알리지 않는다 — 왼쪽에 글자가 같이 붙는다 */
 .gotIt {
   flex: 1;
   font-size: var(--fs-body);
@@ -140,7 +252,7 @@
   color: var(--text-tertiary);
 }
 
-.note {
+.hint {
   font-size: var(--fs-caption);
   color: var(--text-tertiary);
   margin: 0;
@@ -161,25 +273,14 @@
   color: var(--text-tertiary);
 }
 
-.empty {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-6) var(--sp-5);
-}
-
-.empty p {
-  margin: 0;
-}
-
-/* --- 지난 요일 확인 ------------------------------------------------ */
+/* --- 지난 날 확인 -------------------------------------------------- */
 
 /*
  * 접힌 상태에서도 보여야 한다. 펼쳐야 보이면 지난 걸 영영 못 본다.
  * 카드가 아니라 요리 줄에 붙는 조각이라 배경만 살짝 깐다.
  */
 .ask {
-  margin-top: var(--sp-2);
+  margin: 0 var(--sp-3) var(--sp-3) var(--sp-5);
   padding: var(--sp-3);
   border-radius: var(--radius-md);
   background: var(--surface-sunken);
@@ -202,4 +303,11 @@
 
 .askRow button {
   width: 100%;
+}
+
+/* "날짜 미정" 묶음의 한 줄 설명. 날짜 칸에는 안 쓴다 */
+.blank {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--sp-2);
 }

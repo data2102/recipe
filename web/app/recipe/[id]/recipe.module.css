@@ -98,3 +98,53 @@
   display: block;
   color: var(--text-disabled);
 }
+
+/*
+ * 담기 · 만들었어요.
+ *
+ * ActionButton 이 버튼을 <div> 로 감싸서 (실패 문구를 밑에 붙여야 한다)
+ * 여백의 `.ds-btn-block + .ds-btn-block` 규칙이 안 걸린다. 그래서 둘이
+ * 딱 붙어 있었다 — 되돌릴 수 없는 기록 버튼이 담기 바로 아래 0px 에
+ * 있으면 손가락이 옆을 짚는다. 간격은 여기서 한 번 준다.
+ */
+.actions {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+/* --- 더보기 (다른 날에 만들었어요 · 삭제) -------------------------- */
+
+.more {
+  margin-top: var(--sp-5);
+}
+
+.moreHead {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
+.pickDay {
+  margin: var(--sp-3) 0 var(--sp-5);
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.drop {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+/* 지우기로 들어가는 문은 조용하게. 되돌릴 수 없는 일이다 (지시서 5장) */
+.quiet {
+  background: none;
+  border: 0;
+  padding: var(--sp-2) 0;
+  min-height: 44px;
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}

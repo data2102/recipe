@@ -10,10 +10,52 @@
  */
 
 import { query } from "./db";
-import { weekStart } from "./shopping";
+import { notes } from "./notes";
+import { openList, weekStart, type Which } from "./shopping";
+import { daysFrom } from "./say";
+import type { PickDay, Placement } from "./plan.types";
 import type { Planned, PlannedItem } from "./week.types";
 
 export type { Planned, PlannedItem };
+
+/** 한 주치 — 그 주의 날짜 일곱 개와 거기 담긴 것 */
+export type WeekPlan = {
+  which: Which;
+  /** 그 주의 월요일 (`YYYY-MM-DD`) */
+  start: string;
+  dates: string[];
+  listId: number | null;
+  plan: Planned[];
+};
+
+/**
+ * 식단 화면이 보는 범위 — **이번 주와 다음 주를 한 줄로 이어붙인 열나흘.**
+ *
+ * 예전에는 화면이 탭 둘로 갈려 있었다 (이번 주 / 다음 주). 그런데 사람이
+ * 묻는 건 "이번 주에 뭐 담았지" 가 아니라 "수요일에 뭐 먹지" 다 — 주를
+ * 먼저 고르게 하면 그 답을 보려고 탭을 두 번 오간다. 날짜를 쭉 늘어놓으면
+ * 주 경계는 그냥 줄 사이의 구분선이 된다.
+ *
+ * **DB 는 여전히 주 단위다** (`shopping_list.starts_on`). 장보기가 주
+ * 단위라서 그건 안 바꾼다 — 여기서 두 주를 합쳐 보여줄 뿐이고, 날짜가
+ * 어느 목록으로 가는지는 `whichOf` 가 되돌려준다.
+ */
+export async function horizon(): Promise<WeekPlan[]> {
+  const weeks: Which[] = ["this", "next"];
+  return Promise.all(
+    weeks.map(async (which) => {
+      const start = weekStart(which);
+      const listId = await openList(false, which);
+      return {
+        which,
+        start,
+        dates: daysFrom(start),
+        listId,
+        plan: await plan(listId, start),
+      };
+    }),
+  );
+}
 
 /**
  * 이번 주에 담은 요리 + 각 요리에 필요한 재료.
@@ -131,4 +173,42 @@ export async function setDay(
         AND slr.recipe_id = $1`,
     [recipeId, day, weekStart(which)],
   );
+}
+
+/**
+ * 담기 화면이 날짜를 물어보는 데 필요한 것 (app/PlanButton.tsx).
+ *
+ * 날짜마다 **이미 담긴 메뉴와 적어둔 약속**을 같이 낸다 — 비어 있는 날을
+ * 찾으려고 여는 자리라, 날짜만 늘어놓으면 고를 수가 없다.
+ *
+ * `placed` 는 요리 id -> 담긴 자리다. 화면이 "✓ 9/16" 을 적는 데 쓴다.
+ */
+export async function pickable(): Promise<{
+  days: PickDay[];
+  placed: Record<number, Placement[]>;
+}> {
+  const weeks = await horizon();
+  const dates = weeks.flatMap((w) => w.dates);
+  const note = await notes(dates[0], dates[dates.length - 1]);
+
+  const days: PickDay[] = weeks.flatMap((w) =>
+    w.dates.map((iso) => ({
+      iso,
+      which: w.which,
+      note: note[iso] ?? "",
+      titles: w.plan.filter((p) => p.plannedOn === iso).map((p) => p.title),
+    })),
+  );
+
+  const placed: Record<number, Placement[]> = {};
+  for (const w of weeks) {
+    for (const p of w.plan) {
+      (placed[p.recipe_id] ??= []).push({
+        date: p.plannedOn,
+        which: w.which,
+      });
+    }
+  }
+
+  return { days, placed };
 }

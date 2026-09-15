@@ -1,242 +1,116 @@
-/** Today first; weekly planning remains optional and keeps an explicit week. */
+/**
+ * 식단 — 날짜를 쭉 늘어놓는다 (이번 주 + 다음 주 열나흘)
+ *
+ * 예전에는 이 화면이 **추천 화면**이었다 — 오늘의 제안, 다른 메뉴도
+ * 있어요, 그 아래 접힌 "이번 주 식단". 고르는 일과 보는 일이 겹쳐서
+ * 자주 하는 쪽(뭘 먹기로 했더라)이 아래로 밀렸고, 이번 주/다음 주
+ * 탭까지 있어서 날짜 하나 확인하려고 두 번을 오갔다.
+ *
+ * 고르는 건 메뉴 고르기 탭이 한다 (`/recipes` — 거기서 날짜를 골라
+ * 담는다). 여기는 **정해진 걸 보고 옮기는 자리**다.
+ *
+ * 추천 자체를 지운 건 아니다 (`lib/recipes.ts` 의 suggest·weave 는
+ * 그대로 있다). 이 화면에서 뺀 것뿐이다 — 되살릴 자리는 메뉴 고르기다.
+ */
+
 import Link from "next/link";
-import List from "./RecipeList";
-import MealBasket from "./MealBasket";
-import Week from "./Week";
-import WeekStrip from "./WeekStrip";
-import ActionButton from "./ActionButton";
-import { addToWeekOn, markCooked } from "./actions";
+import Plan, { type PlanDay, type PlanDish } from "./Plan";
 import { Broken, Setup } from "./Shell";
 import { dbUrl } from "@/lib/db";
-import { suggest } from "@/lib/recipes";
-import {
-  addDays,
-  dateRange,
-  dayIndex,
-  daysFrom,
-  todayInput,
-  cookedAgo,
-} from "@/lib/say";
-import {
-  openList,
-  picked,
-  weekStart,
-  exclusions,
-  type Which,
-} from "@/lib/shopping";
-import { plan as weekPlan } from "@/lib/week";
+import { dateRange, todayInput } from "@/lib/say";
+import { notes } from "@/lib/notes";
+import { exclusions } from "@/lib/shopping";
+import { horizon } from "@/lib/week";
+import { NO_HAVE, type Have } from "@/lib/fridge.types";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 
-async function load(which: Which, again: number) {
-  const listId = await openList(false, which);
-  const start = weekStart(which);
-  const [basket, plan, have] = await Promise.all([
-    picked(listId),
-    weekPlan(listId, start),
-    exclusions(listId),
+async function load() {
+  const weeks = await horizon();
+  const dates = weeks.flatMap((w) => w.dates);
+  const [note, ...have] = await Promise.all([
+    notes(dates[0], dates[dates.length - 1]),
+    ...weeks.map((w) => exclusions(w.listId)),
   ]);
-  const recommendations = await suggest(
-    again,
-    basket.map((r) => r.id),
+
+  // 두 주를 한 줄로 이어붙인다. 어느 목록에서 왔는지는 들고 다닌다 —
+  // 날짜를 옮길 때 저쪽 주에서 떼야 한다 (actions.ts planOnDate).
+  const dishes: PlanDish[] = weeks.flatMap((w) =>
+    w.plan.map((p) => ({ ...p, which: w.which })),
   );
-  return { basket, plan, have, start, ...recommendations };
+
+  const days: PlanDay[] = dates.map((iso, i) => ({
+    iso,
+    which: i < 7 ? ("this" as const) : ("next" as const),
+    note: note[iso] ?? "",
+    dishes: dishes.filter((d) => d.plannedOn === iso),
+  }));
+
+  return {
+    days,
+    loose: dishes.filter((d) => d.plannedOn === null),
+    picked: dishes.length,
+    have: {
+      this: have[0] ?? NO_HAVE,
+      next: have[1] ?? NO_HAVE,
+    } as Record<"this" | "next", Have>,
+    from: dates[0],
+    to: dates[dates.length - 1],
+  };
 }
 
-export default async function Home({ searchParams }: PageProps<"/">) {
+export default async function Home() {
   if (!dbUrl()) return <Setup />;
-  const params = await searchParams;
-  const which: Which = params.week === "next" ? "next" : "this";
-  const next = which === "next";
-  const again = Math.max(
-    0,
-    Math.min(999, Math.floor(Number(params.again) || 0)),
-  );
-  const data = await load(which, again).catch((e: Error) => ({
-    error: e.message,
-  }));
+  const data = await load().catch((e: Error) => ({ error: e.message }));
   if ("error" in data) return <Broken message={data.error} />;
+
   const today = todayInput();
-  const dates = daysFrom(data.start);
-  const todays = next ? [] : data.plan.filter((p) => p.plannedOn === today);
-  const options = [...data.old, ...data.fresh];
-  const hero = !next && todays.length === 0 ? options[0] : null;
-  const alternatives = options.filter((r) => r.id !== hero?.id);
-  const inBasket = new Set(data.basket.map((r) => r.id));
+  const left = data.days.filter(
+    (d) => d.iso >= today && d.dishes.length === 0 && !d.note,
+  ).length;
 
   return (
-    <main
-      className={`shell compact-page ${data.basket.length ? "has-meal-basket" : ""} ${styles.home}`}
-    >
+    <main className={`shell compact-page ${styles.home}`}>
       <header className={styles.head}>
-        <h1 className={styles.title}>
-          {next ? "다음 주 미리 정하기" : "오늘 뭐 먹지?"}
-        </h1>
+        <h1 className={styles.title}>식단</h1>
         <p className={styles.sub}>
-          {next ? dateRange(dates[0], dates[6]) : "모아둔 레시피로 오늘 한 끼."}
+          {dateRange(data.from, data.to)} · 담은 메뉴 {data.picked}개
+          {left > 0 ? ` · 안 정한 날 ${left}일` : ""}
         </p>
       </header>
-      <nav className={`ds-tabs ${styles.tabs}`} aria-label="식단 기간">
-        <Link
-          href="/?week=this"
-          className={`ds-tab ${!next ? "on" : ""}`}
-          aria-current={!next ? "page" : undefined}
-        >
-          오늘 · 이번 주
+
+      {data.picked === 0 && (
+        <section className="ds-card">
+          <h2 className={styles.cardTitle}>아직 담은 메뉴가 없어요</h2>
+          <p className={styles.body}>
+            메뉴 고르기에서 먹고 싶은 걸 고르면 날짜를 물어보고, 그 날짜에
+            바로 담아드려요.
+          </p>
+          <Link href="/recipes" className="ds-btn ds-btn-primary ds-btn-block">
+            메뉴 고르러 가기
+          </Link>
+        </section>
+      )}
+
+      <Plan
+        days={data.days}
+        loose={data.loose}
+        have={data.have}
+        today={today}
+      />
+
+      <nav className={styles.after} aria-label="이어서 할 일">
+        <Link href="/recipes" className={styles.more}>
+          메뉴 고르기 →
         </Link>
-        <Link
-          href="/recipes?week=next"
-          className={`ds-tab ${next ? "on" : ""}`}
-          aria-current={next ? "page" : undefined}
-        >
-          다음 주
+        <Link href="/shopping" className={styles.more}>
+          장보기 →
+        </Link>
+        <Link href="/weeks" className={styles.more}>
+          지난 식단 보기 →
         </Link>
       </nav>
-
-      {todays.length > 0 && (
-        <section className={`ds-card ${styles.hero}`}>
-          <p className={styles.group}>오늘 먹기로 했어요</p>
-          {todays.map((p) => (
-            <div key={p.recipe_id} className={styles.todayDish}>
-              <h2 className={styles.heroTitle}>{p.title}</h2>
-              <div className={styles.quickActions}>
-                <Link
-                  href={`/recipe/${p.recipe_id}?week=this`}
-                  className="ds-btn ds-btn-primary"
-                >
-                  만드는 법 보기
-                </Link>
-                {p.cooked ? (
-                  <span>만들었어요</span>
-                ) : (
-                  <ActionButton
-                    action={markCooked}
-                    fields={{ id: p.recipe_id }}
-                    label="만들었어요"
-                    doneLabel="기록했어요"
-                    className="ds-btn ds-btn-secondary"
-                  />
-                )}
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
-      {hero && (
-        <section className={`ds-card ${styles.hero}`}>
-          <p className={styles.group}>오늘의 제안</p>
-          <h2 className={styles.heroTitle}>{hero.title}</h2>
-          <p className={styles.body}>
-            {hero.last_cooked_on
-              ? cookedAgo(hero.last_cooked_on)
-              : "저장해둔 요리, 이번에 만들어볼까요?"}
-          </p>
-          {hero.ingredients.length > 0 && (
-            <p className={styles.note}>{hero.ingredients.join(" · ")}</p>
-          )}
-          <div className={styles.quickActions}>
-            <ActionButton
-              action={addToWeekOn}
-              fields={{ id: hero.id, week: "this", day: dayIndex(today) }}
-              label="오늘 먹기"
-            />
-            <Link
-              href={`/recipe/${hero.id}?week=this`}
-              className={styles.detailLink}
-            >
-              재료 · 만드는 법
-            </Link>
-          </div>
-        </section>
-      )}
-
-      <section aria-label="추천 메뉴">
-        <div className={styles.sectionRow}>
-          <h2 className={styles.section}>
-            {next
-              ? "먹을 메뉴를 골라보세요"
-              : hero
-                ? "다른 메뉴도 있어요"
-                : "다른 날 먹을 메뉴"}
-          </h2>
-          {data.pages > 1 && (
-            <Link
-              href={`/?week=${which}&again=${again + 1}`}
-              className={styles.again}
-              scroll={false}
-            >
-              {data.page === data.pages - 1 ? "처음부터 다시" : "다른 메뉴"}
-            </Link>
-          )}
-        </div>
-        <p className={styles.note}>담으면 필요한 재료를 장보기에 모아드려요.</p>
-        <List
-          list={alternatives.slice(0, 2)}
-          today={today}
-          mode="wish"
-          pick="add"
-          inBasket={inBasket}
-          week={which}
-          empty={
-            data.basket.length
-              ? "다른 후보는 모두 담았어요. 식단에서 확인해보세요."
-              : hero
-                ? "아래에서 다른 레시피를 추가할 수 있어요."
-                : "레시피를 추가하면 여기서 메뉴를 골라드려요."
-          }
-        />
-        {alternatives.length > 2 && (
-          <details className={styles.extraOptions}>
-            <summary className={styles.summary}>
-              추천 메뉴 {alternatives.length - 2}개 더 보기
-            </summary>
-            <List
-              list={alternatives.slice(2)}
-              today={today}
-              mode="wish"
-              pick="add"
-              inBasket={inBasket}
-              week={which}
-              empty=""
-            />
-          </details>
-        )}
-        <Link href={`/recipes?week=${which}`} className={styles.more}>
-          모아둔 레시피에서 고르기 →
-        </Link>
-        {!options.length && !data.basket.length && (
-          <Link href="/add" className="ds-btn ds-btn-primary ds-btn-block">
-            첫 레시피 추가하기
-          </Link>
-        )}
-      </section>
-
-      <details
-        id="week-plan"
-        className={`ds-card ${styles.weekSummary}`}
-        open={next || undefined}
-      >
-        <summary className={styles.summary}>
-          {next ? "다음 주" : "이번 주"} 식단 · {data.basket.length}개{" "}
-          <span className={styles.sub}>
-            {dateRange(dates[0], addDays(dates[0], 6))}
-          </span>
-        </summary>
-        <p className={styles.note}>날짜를 옮기거나 담은 메뉴를 뺄 수 있어요.</p>
-        <WeekStrip plan={data.plan} dates={dates} today={today} />
-        <Week
-          plan={data.plan}
-          have={data.have}
-          dates={dates}
-          today={today}
-          week={which}
-        />
-      </details>
-      <Link href="/weeks" className={styles.more}>
-        지난 식단 보기 →
-      </Link>
-      <MealBasket count={data.basket.length} week={which} />
     </main>
   );
 }

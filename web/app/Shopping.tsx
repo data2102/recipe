@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useOptimistic, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { excludeItem, toggleItem } from "./actions";
 import ShoppingFinish from "./ShoppingFinish";
 import {
@@ -28,31 +28,59 @@ export default function Shopping({
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
-  const [shown, update] = useOptimistic(
-    items,
-    (state: ShoppingItem[], change: { label: string; checked: boolean }) =>
-      state.map((i) =>
-        i.label === change.label ? { ...i, checked: change.checked } : i,
-      ),
+
+  /*
+   * 체크한 것은 **서버가 따라올 때까지** 체크된 채로 둔다.
+   *
+   * 예전에는 useOptimistic 이었다. 그건 서버 액션이 끝나는 순간 원래
+   * 값으로 되돌아가고, 화면이 새로 그려져야 다시 체크로 바뀐다. 마트에서
+   * 신호가 나쁘면 그 사이가 벌어져서 **체크가 도로 풀린 것처럼 보였다** —
+   * 실제로 DB 에는 들어가 있는데 다시 켜야 "구매했어요" 로 내려가 있었다.
+   * 그래서 소원(wish)을 들고 있다가 서버가 같은 값을 보내면 그때 놓는다.
+   */
+  const [wish, setWish] = useState<Record<string, boolean>>({});
+  const settled = Object.keys(wish).filter((label) =>
+    items.some((i) => i.label === label && i.checked === wish[label]),
+  );
+  if (settled.length) {
+    const next = { ...wish };
+    for (const label of settled) delete next[label];
+    setWish(next);
+  }
+
+  /** 지금 서버에 보내는 중인 항목. 그 줄만 잠근다 */
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const shown: ShoppingItem[] = items.map((i) =>
+    i.label in wish ? { ...i, checked: wish[i.label] } : i,
   );
 
   function mutate(item: ShoppingItem, exclude?: boolean) {
     setError(false);
+    setBusy(item.label);
     start(async () => {
       const form = new FormData();
       form.set("label", item.label);
       form.set("week", week);
       try {
         if (exclude === undefined) {
-          update({ label: item.label, checked: !item.checked });
-          form.set("checked", item.checked ? "0" : "1");
+          const want = !item.checked;
+          setWish((w) => ({ ...w, [item.label]: want }));
+          form.set("checked", want ? "1" : "0");
           await toggleItem(form);
         } else {
           form.set("excluded", exclude ? "1" : "0");
           await excludeItem(form);
         }
       } catch {
+        setWish((w) => {
+          const next = { ...w };
+          delete next[item.label];
+          return next;
+        });
         setError(true);
+      } finally {
+        setBusy(null);
       }
     });
   }
@@ -60,6 +88,12 @@ export default function Shopping({
   const left = remaining(shown);
   const checked = shown.filter((i) => i.checked).length;
   const confirmed = shown.length - left;
+
+  /** 체크한 것은 아래로. 마트에서 산 것이 위에 남아 있으면 계속 눈에 밟힌다 */
+  const boughtLast = (list: ShoppingItem[]) => [
+    ...list.filter((i) => !i.checked),
+    ...list.filter((i) => i.checked),
+  ];
 
   function row(item: ShoppingItem) {
     const uses = groups.filter((g) => g.labels.includes(item.label));
@@ -71,8 +105,14 @@ export default function Shopping({
             .map((q) => q.qty || "수량 확인 필요"),
         )
         .join(" + ") || "수량 확인 필요";
+    /*
+      같은 이름이 두 줄로 나올 수 있다 — 사전에 붙은 '대파' 와 못 붙인
+      '대파' 는 다른 행이다 (lib/shopping.ts NEED_SQL). 이름만 key 로
+      쓰면 React 가 두 줄을 같은 것으로 보고 엉뚱한 줄을 다시 그린다.
+    */
+    const locked = pending && busy === item.label;
     return (
-      <li key={item.label} className={styles.line}>
+      <li key={`${item.ingredient_id ?? "?"}:${item.label}`} className={styles.line}>
         <div className={styles.itemHead}>
           {item.bucket === "HAVE" && !item.checked ? (
             <span className={styles.name}>
@@ -81,10 +121,15 @@ export default function Shopping({
             </span>
           ) : (
             <label className="ds-check">
+              {/*
+                **이 줄만 잠근다.** 예전에는 저장 중이면 목록 전체가
+                잠겼다 — 마트에서 연달아 집으면 그 사이의 탭이 통째로
+                버려져서 "눌렀는데 안 됐다" 가 됐다.
+              */}
               <input
                 type="checkbox"
                 checked={item.checked}
-                disabled={pending || closed}
+                disabled={locked || closed}
                 onChange={() => mutate(item)}
               />
               <span className="box" />
@@ -98,7 +143,7 @@ export default function Shopping({
             <button
               type="button"
               className={styles.exclude}
-              disabled={pending || closed}
+              disabled={locked || closed}
               onClick={() => mutate(item, item.bucket !== "HAVE")}
             >
               {item.bucket === "HAVE" ? "다시 살 것에 넣기" : "집에 있어요"}
@@ -173,7 +218,9 @@ export default function Shopping({
               {remaining(shown.filter((i) => g.labels.includes(i.label)))}개
             </summary>
             <ul className={styles.list}>
-              {shown.filter((i) => g.labels.includes(i.label)).map(row)}
+              {boughtLast(shown.filter((i) => g.labels.includes(i.label))).map(
+                row,
+              )}
             </ul>
             {!g.labels.length && (
               <p>
@@ -214,15 +261,20 @@ export default function Shopping({
               </ul>
             </details>
           )}
+          {/*
+            **체크한 것은 접지 않는다.** 접어두면 누른 것이 사라져 보여서
+            "안 눌렸나" 하고 한 번 더 누르게 된다. 맨 아래로 내려보내되
+            거기 있다는 건 보이게 둔다.
+          */}
           {shown.some((i) => i.checked) && (
-            <details className="ds-card">
-              <summary className={styles.summary}>
-                구매했어요 · {shown.filter((i) => i.checked).length}개
-              </summary>
+            <section className={styles.group}>
+              <h2 className={styles.bucket}>
+                구매했어요 · {shown.filter((i) => i.checked).length}
+              </h2>
               <ul className={styles.list}>
                 {shown.filter((i) => i.checked).map(row)}
               </ul>
-            </details>
+            </section>
           )}
         </>
       )}

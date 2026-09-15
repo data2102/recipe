@@ -16,10 +16,12 @@
  */
 import { revalidatePath } from "next/cache";
 import { tx } from "@/lib/db";
+import * as notes from "@/lib/notes";
 import * as recipes from "@/lib/recipes";
 import * as shopping from "@/lib/shopping";
 import * as week from "@/lib/week";
 import * as weeks from "@/lib/weeks";
+import { dayIndex } from "@/lib/say";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -99,22 +101,11 @@ function which(formData: FormData): "this" | "next" {
   return formData.get("week") === "next" ? "next" : "this";
 }
 
-/** 이번 주에 담는다. 열려 있는 목록이 없으면 새로 연다. */
-export async function addToWeek(formData: FormData) {
-  await shopping.addRecipe(recipeId(formData), which(formData));
-  revalidatePath("/", "layout");
-}
-
 export async function removeFromWeek(formData: FormData) {
   await shopping.removeRecipe(recipeId(formData), which(formData));
   revalidatePath("/", "layout");
 }
 
-/**
- * 무슨 요일에 먹을지 정한다. 빈 값이면 "미정" 으로 되돌린다.
- *
- * 담기와는 별개다 — 담아만 두고 요일은 안 정해도 된다 (lib/week.ts).
- */
 /**
  * 끝낸 장보기를 다시 연다.
  *
@@ -129,28 +120,61 @@ export async function reopenWeek(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-export async function setDayOfWeek(formData: FormData) {
-  const raw = String(formData.get("day") ?? "").trim();
-  const day = raw === "" ? null : Number(raw);
-  await week.setDay(recipeId(formData), day, which(formData));
+/**
+ * **날짜 하나로 정한다** — 담기와 날짜 정하기를 한 번에.
+ *
+ * 화면이 날짜로 말하기 시작하면서 (식단은 두 주를 쭉 늘어놓는다) 담을 때도
+ * 날짜를 고른다. 주를 먼저 고르고 나서 요일을 고르는 두 단계는, 담는 사람
+ * 머릿속에 이미 "이번 주 목요일" 이 있는데도 두 번 묻는 일이었다.
+ *
+ * 어느 목록으로 갈지는 **날짜가 정한다** (`shopping.whichOf`). 화면이 보낸
+ * 주를 믿지 않는다 — 화면이 열려 있는 동안 자정이 지나면 그 값은 틀린다.
+ *
+ * 날짜를 비우면 "날짜 미정" 이다. 그때는 어느 주인지 알 수 없으니 화면이
+ * 보낸 주를 쓴다 (요일을 안 정해도 담을 수 있다는 규칙은 그대로다).
+ */
+export async function planOnDate(formData: FormData) {
+  const id = recipeId(formData);
+  const date = String(formData.get("date") ?? "").trim();
+
+  if (!date) {
+    const w = which(formData);
+    await shopping.addRecipe(id, w);
+    await week.setDay(id, null, w);
+    revalidatePath("/", "layout");
+    return;
+  }
+
+  if (!ISO_DATE.test(date)) throw new Error("날짜를 못 알아보겠어요");
+  const target = shopping.whichOf(date);
+  if (!target) throw new Error("이번 주와 다음 주 중에서 골라주세요");
+
+  await shopping.addRecipe(id, target);
+  await week.setDay(id, dayIndex(date), target);
+
+  /*
+    다른 주에 있던 걸 옮겨온 경우. 같은 주 안에서 날짜만 바꾸는 건
+    setDay 가 이미 했고, 주를 건너뛰었을 때만 저쪽에서 뗀다 —
+    안 떼면 두 주에 같은 요리가 남아 장보기가 두 번 센다.
+  */
+  const from = formData.get("from");
+  if ((from === "this" || from === "next") && from !== target) {
+    await shopping.removeRecipe(id, from);
+  }
+
   revalidatePath("/", "layout");
 }
 
 /**
- * 담으면서 요일까지 한 번에 (추천 목록에서 요일로 끌어다 놓기).
+ * 그날의 메모 — "저녁 약속 있어요".
  *
- * 담기와 요일 정하기는 여전히 별개의 일이지만, 이미 "수요일에 이거"
- * 라고 마음먹은 사람에게 두 번 시킬 이유는 없다. 요일을 "미정" 으로
- * 놓으면 예전 담기와 똑같다.
+ * 비우면 지운다 (lib/notes.ts). 메모는 추천도 담기도 막지 않는다 —
+ * 적어두면 사람이 보고 사람이 정한다.
  */
-export async function addToWeekOn(formData: FormData) {
-  const id = recipeId(formData);
-  const raw = String(formData.get("day") ?? "").trim();
-  const day = raw === "" ? null : Number(raw);
-
-  const w = which(formData);
-  await shopping.addRecipe(id, w);
-  if (day !== null) await week.setDay(id, day, w);
+export async function setDayNote(formData: FormData) {
+  const date = String(formData.get("date") ?? "").trim();
+  if (!ISO_DATE.test(date)) throw new Error("날짜를 못 알아보겠어요");
+  await notes.setNote(date, String(formData.get("note") ?? ""));
   revalidatePath("/", "layout");
 }
 
