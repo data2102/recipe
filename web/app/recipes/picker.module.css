@@ -1,7 +1,6 @@
 .shell {
   max-width: 1000px;
   padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px));
-  --text-tertiary: var(--text-secondary);
 }
 .head {
   display: flex;

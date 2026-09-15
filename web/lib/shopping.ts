@@ -207,7 +207,12 @@ SELECT n.ingredient_id, n.raw_key, n.label,
         WHERE ingredient_id = n.ingredient_id
         ORDER BY purchased_on DESC LIMIT 1
   ) p ON TRUE
- ORDER BY 4, COALESCE(i.aisle, 'zz'), n.label`;
+ -- 칸(4번 컬럼) 안에서 **매대 순서**로. 마트에서 같은 구역을 두 번 안 가게.
+ --
+ -- 예전에는 COALESCE(i.aisle, 'zz') 였는데 **거꾸로 돌았다** — 한글이 'z'
+ -- 보다 뒤라 ('청과' > 'zz' 가 참이다) 매대를 모르는 미분류 재료가 맨 위로
+ -- 올라왔다. 파수꾼 문자열 대신 NULLS LAST 를 쓴다.
+ ORDER BY 4, i.aisle NULLS LAST, n.label`;
 
 /**
  * 장보기 목록을 다시 계산해서 `shopping_item` 에 반영한다.

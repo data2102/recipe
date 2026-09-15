@@ -367,6 +367,28 @@ async function main() {
     );
     console.log("PASS: one line per name in the merged shopping list");
 
+    /*
+      **매대 순서.** 칸(BUY/CHECK/HAVE) 안에서는 마트 동선대로 선다 —
+      같은 구역을 두 번 안 가려는 것이다.
+
+      예전에는 COALESCE(i.aisle, 'zz') 였는데 거꾸로 돌았다: 한글이 'z' 보다
+      뒤라 ('청과' > 'zz' 가 참) **매대를 모르는 미분류가 맨 위로** 왔다.
+    */
+    assert.equal(
+      (await query<{ ok: boolean }>(`SELECT '청과' > 'zz' AS ok`))[0].ok,
+      true,
+      "한글 매대명은 'zz' 보다 뒤다 — 파수꾼 문자열을 쓰면 안 되는 이유",
+    );
+    const aisled = await items(thisId);
+    const 양파 = aisled.findIndex((i) => i.label === "양파");
+    const 미분류 = aisled.findIndex((i) => i.label === "UXTEST 미분류");
+    assert(양파 >= 0 && 미분류 >= 0, "둘 다 목록에 있다");
+    assert(
+      양파 < 미분류,
+      "매대를 아는 재료가 먼저 온다 — 모르는 것이 맨 뒤 (NULLS LAST)",
+    );
+    console.log("PASS: known aisles come first, unknown ones last");
+
     /* 담기와 빼기는 그 주 목록에만 걸린다 */
     assert.deepEqual(
       (await picked(thisId)).map((r) => r.title),

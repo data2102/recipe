@@ -19,7 +19,7 @@
  * 그때만 어느 주인지 물어본다. 날짜를 고르면 주는 날짜가 정한다.
  */
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { planOnDate, removeFromWeek } from "./actions";
 import { dateFull, dateTiny } from "@/lib/say";
 import type { PickDay, Placement, Which } from "@/lib/plan.types";
@@ -60,13 +60,47 @@ export default function PlanButton({
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
 
+  /** 뒤로가기로 닫혔나 — 그때는 히스토리를 우리가 되돌리면 안 된다 */
+  const popped = useRef(false);
+
+  /*
+    **안드로이드 뒤로가기로 판이 닫혀야 한다.**
+
+    예전에는 아무것도 안 해서, 판을 열고 뒤로가기를 누르면 판이 닫히는 게
+    아니라 **화면을 통째로 떠났다.** 설치해서 쓰는 앱이라 더 어긋나 보인다 —
+    폰의 앱들은 다 이렇게 동작한다.
+
+    열 때 히스토리를 한 칸 넣고, 뒤로가기(popstate)가 오면 닫는다. 스크림을
+    누르거나 날짜를 골라서 닫힐 때는 우리가 그 칸을 도로 뺀다 — 안 그러면
+    다음 뒤로가기가 아무 일도 안 하는 것처럼 보인다.
+
+    뒤 화면 스크롤도 같이 잠근다. 안 그러면 판 위에서 손가락을 움직일 때
+    뒤에 있는 열나흘 목록이 같이 밀린다.
+  */
   useEffect(() => {
     if (!open) return;
+
+    popped.current = false;
+    window.history.pushState({ planSheet: true }, "");
+    const back = () => {
+      popped.current = true;
+      setOpen(false);
+    };
     const esc = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    window.addEventListener("popstate", back);
     document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
+
+    const bodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("popstate", back);
+      document.removeEventListener("keydown", esc);
+      document.body.style.overflow = bodyOverflow;
+      if (!popped.current) window.history.back();
+    };
   }, [open]);
 
   function pick(date: string | null, which: Which) {

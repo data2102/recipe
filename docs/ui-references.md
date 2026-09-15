@@ -231,8 +231,9 @@ PostgreSQL 에 물어봤고, 터치 영역은 CSS 를 훑었다.
 zz < 가공식품 < 양념 < 정육 < 청과
 ```
 
-`NULLS LAST` 를 쓰면 된다. **고칠 곳이 둘이다** — `lib/shopping.ts` 와
-`db/schema.sql` 의 "핵심 쿼리 3개" 중 (3)번 (한쪽만 고치면 갈라진다).
+`NULLS LAST` 를 쓰면 된다. 고칠 곳은 `lib/shopping.ts` **한 군데**다 —
+`db/schema.sql` 의 (3)번 쿼리에는 `ORDER BY` 가 아예 없다.
+(처음에 "둘" 이라고 적었는데 확인해보니 틀렸다.)
 
 덧붙여 **매대 이름이 화면에 안 나온다.** 동선 정렬의 값어치는 "청과 코너로
 가자" 가 눈에 보일 때 생긴다. 지금은 보이지 않는 순서로 줄만 서 있다.
@@ -344,7 +345,7 @@ zz < 가공식품 < 양념 < 정육 < 청과
 | A3 | 시트 열렸을 때 뒤 화면 스크롤 잠금 | A2 와 한 몸 | `PlanButton.tsx` |
 | A4 | 터치 영역 44px | `.quiet` 약 21px · `.addNote` 32px · `.ds-chip` 약 33px | 각 모듈 CSS |
 | A5 | 선택된 칩 글자 → `--accent-strong` | 3.31:1 → 5.08:1 | `globals.css` |
-| A6 | 매대 정렬 `NULLS LAST` | `'청과' > 'zz'` 라 거꾸로 돈다 | `lib/shopping.ts` **와** `db/schema.sql` (3)번 — **둘 다** |
+| A6 | 매대 정렬 `NULLS LAST` | `'청과' > 'zz'` 라 거꾸로 돈다 | `lib/shopping.ts` (schema 쪽엔 ORDER BY 가 없다) |
 | A7 | `error.tsx` | 앱이 죽어도 우리 말로 다음 할 일을 적는다 | `app/error.tsx` |
 
 ### B. 그다음 — 조금 큼

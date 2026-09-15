@@ -93,11 +93,17 @@
   color: var(--text-secondary);
 }
 
+/*
+ * 조용한 버튼이지만 **누르는 것이다.** 글자만 있어서 높이를 안 줬더니
+ * "고치기" 가 21px 이었다 — 엄지로는 못 짚는다. 색은 조용하게 두되
+ * 손가락 자리는 44px 로 준다 (지시서 5장: 조용한 것과 작은 것은 다르다).
+ */
 .addNote,
 .quiet {
   background: none;
   border: 0;
-  padding: var(--sp-1) 0;
+  padding: var(--sp-2) var(--sp-1);
+  min-height: 44px;
   font-size: var(--fs-caption);
   color: var(--text-tertiary);
   cursor: pointer;
@@ -105,7 +111,6 @@
 
 .addNote {
   flex: none;
-  min-height: 32px;
 }
 
 .noteForm {
