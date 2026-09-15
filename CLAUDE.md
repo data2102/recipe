@@ -6,6 +6,8 @@
 올리는 절차는 **[`docs/deploy.md`](docs/deploy.md)** 에 있다.
 다 만든 걸 어떻게 쓰는지는 **[`docs/how-to-use.md`](docs/how-to-use.md)** 에 있다 —
 동작을 바꾸면 여기도 같이 고친다.
+화면을 새로 그릴 일이 생기면 **[`docs/ui-references.md`](docs/ui-references.md)** 를 먼저 봐라.
+다른 앱들이 이미 푼 것과, **우리가 안 가져오기로 한 것**이 이유와 같이 적혀 있다.
 이유를 모르고 코드를 고치면 이미 검토해서 버린 선택지로 되돌아가게 된다.
 
 [`README.md`](README.md) 의 "🤖 Claude Code에게" 절에 **반드시 지킬 것 7가지**가 있다.
