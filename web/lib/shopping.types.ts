@@ -14,7 +14,17 @@ export type ShoppingItem = {
   bucket: Bucket;
   reason: string | null;
   checked: boolean;
+  /**
+   * 마트 동선 (`청과`·`정육`·`양념`…). 사전에 못 붙인 표기는 null 이다.
+   *
+   * 칸(bucket)과 다른 축이다 — 칸은 "살지 말지", 매대는 "어디로 갈지".
+   * 저장하지 않는다. 사전에서 볼 때마다 따라온다.
+   */
+  aisle: string | null;
 };
+
+/** 매대를 모르는 것들. 지어내지 않고 그렇게 적는다 */
+export const NO_AISLE = "그 밖에";
 
 /**
  * 요리 하나와 그 요리가 쓰는 재료 이름들.

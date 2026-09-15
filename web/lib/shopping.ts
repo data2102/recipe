@@ -183,7 +183,7 @@ need AS (
      GROUP BY ri.ingredient_id,
               CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END
 )
-SELECT n.ingredient_id, n.raw_key, n.label,
+SELECT n.ingredient_id, n.raw_key, n.label, i.aisle,
        CASE
          WHEN p.purchased_on IS NULL                      THEN 'BUY'
          WHEN t.d - p.purchased_on
@@ -207,12 +207,15 @@ SELECT n.ingredient_id, n.raw_key, n.label,
         WHERE ingredient_id = n.ingredient_id
         ORDER BY purchased_on DESC LIMIT 1
   ) p ON TRUE
- -- 칸(4번 컬럼) 안에서 **매대 순서**로. 마트에서 같은 구역을 두 번 안 가게.
+ -- 칸 안에서 **매대 순서**로. 마트에서 같은 구역을 두 번 안 가게.
  --
  -- 예전에는 COALESCE(i.aisle, 'zz') 였는데 **거꾸로 돌았다** — 한글이 'z'
  -- 보다 뒤라 ('청과' > 'zz' 가 참이다) 매대를 모르는 미분류 재료가 맨 위로
  -- 올라왔다. 파수꾼 문자열 대신 NULLS LAST 를 쓴다.
- ORDER BY 4, i.aisle NULLS LAST, n.label`;
+ --
+ -- **자릿수(ORDER BY 4)로 쓰지 마라.** 컬럼을 하나 끼워 넣는 순간 조용히
+ -- 다른 걸 기준으로 정렬한다 (aisle 을 넣다가 실제로 그랬다). 이름으로 쓴다.
+ ORDER BY bucket, i.aisle NULLS LAST, n.label`;
 
 /**
  * 장보기 목록을 다시 계산해서 `shopping_item` 에 반영한다.
@@ -251,6 +254,7 @@ export async function items(listId: number | null): Promise<ShoppingItem[]> {
       label: string;
       bucket: Bucket;
       reason: string | null;
+      aisle: string | null;
     }>(NEED_SQL, [listId]);
 
     await q(`DELETE FROM shopping_item WHERE list_id = $1`, [listId]);
@@ -264,6 +268,8 @@ export async function items(listId: number | null): Promise<ShoppingItem[]> {
       const row: ShoppingItem = {
         ingredient_id: r.ingredient_id,
         label: r.label,
+        // 매대는 사전에서 매번 따라온다 — shopping_item 에 굳히지 않는다
+        aisle: r.aisle,
         bucket: kept
           ? kept.bucket
           : athomeNow

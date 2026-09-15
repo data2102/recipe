@@ -1,0 +1,72 @@
+/* 뼈대. 크기는 실제 화면의 자리와 대충 맞춘다 — 그려질 때 덜 튀게 */
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.head {
+  margin: 0 0 var(--sp-5);
+}
+
+.title {
+  height: 26px;
+  width: 40%;
+  margin-bottom: var(--sp-2);
+}
+
+.sub {
+  height: 14px;
+  width: 70%;
+}
+
+.row {
+  padding: var(--sp-3) 0 var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+.line {
+  height: 16px;
+  width: 55%;
+  margin-bottom: var(--sp-2);
+}
+
+.lineShort {
+  height: 13px;
+  width: 30%;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 0 0 var(--sp-3);
+  overflow: hidden;
+}
+
+.cover {
+  aspect-ratio: 4/3;
+  border-radius: 0;
+  margin-bottom: var(--sp-3);
+}
+
+.card .line {
+  width: 70%;
+  margin: 0 var(--sp-3);
+}
+
+@media (min-width: 650px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

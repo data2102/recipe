@@ -233,3 +233,36 @@
     top: 60px;
   }
 }
+
+/* 매대 이름. 칸 제목보다 한 단계 조용하게 — 동선 안내지 분류가 아니다 */
+.aisle {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-regular);
+  color: var(--text-tertiary);
+  letter-spacing: 0.06em;
+  margin: var(--sp-3) 0 var(--sp-1);
+}
+
+/* --- 방금 담은 것 되돌리기 ---------------------------------------- */
+
+.toastText {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 토스트 안에서는 배경이 어두우니 밝은 글자로 (여백의 --surface) */
+.undo {
+  flex: none;
+  background: none;
+  border: 0;
+  margin-left: var(--sp-2);
+  padding: var(--sp-2);
+  min-height: 44px;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--surface);
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -64,6 +64,18 @@ export default function PlanButton({
   const popped = useRef(false);
 
   /*
+    쓸어내려 닫기. 손가락이 시작한 자리와 지금 자리만 들고 있으면 된다.
+
+    **제스처만 두지 않는다** — "닫기" 버튼도 스크림도 그대로다. 발견할 수
+    없는 동작은 없는 동작이다 (docs/ui-references.md 5장).
+  */
+  const [drag, setDrag] = useState(0);
+  const grabbed = useRef<number | null>(null);
+
+  /** 이만큼 내리면 닫는다. 더 짧으면 스크롤하다 실수로 닫힌다 */
+  const CLOSE_AT = 96;
+
+  /*
     **안드로이드 뒤로가기로 판이 닫혀야 한다.**
 
     예전에는 아무것도 안 해서, 판을 열고 뒤로가기를 누르면 판이 닫히는 게
@@ -167,7 +179,34 @@ export default function PlanButton({
             aria-modal="true"
             aria-label={`${title} 날짜 고르기`}
             onClick={(e) => e.stopPropagation()}
+            style={drag ? { transform: `translateY(${drag}px)` } : undefined}
           >
+            {/*
+              손잡이. 쥐고 내리면 닫힌다 — 폰에서 판이 뜨면 손이 먼저
+              여기로 간다. 손잡이에서만 끌 수 있게 한다: 목록 위에서도
+              되면 날짜를 훑다가 판이 닫힌다.
+            */}
+            <div
+              className={styles.grip}
+              aria-hidden="true"
+              onTouchStart={(e) => {
+                grabbed.current = e.touches[0].clientY;
+              }}
+              onTouchMove={(e) => {
+                if (grabbed.current === null) return;
+                const moved = e.touches[0].clientY - grabbed.current;
+                setDrag(moved > 0 ? moved : 0); // 위로는 안 끌린다
+              }}
+              onTouchEnd={() => {
+                const moved = drag;
+                grabbed.current = null;
+                setDrag(0);
+                if (moved > CLOSE_AT) setOpen(false);
+              }}
+            >
+              <span className={styles.gripBar} />
+            </div>
+
             <header className={styles.head}>
               <div>
                 <p className={styles.dish}>{title}</p>

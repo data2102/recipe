@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { excludeItem, toggleItem } from "./actions";
 import ShoppingFinish from "./ShoppingFinish";
 import {
   BUCKET_TITLE,
+  NO_AISLE,
   remaining,
   type RecipeGroup,
   type ShoppingItem,
@@ -51,6 +52,21 @@ export default function Shopping({
   /** 지금 서버에 보내는 중인 항목. 그 줄만 잠근다 */
   const [busy, setBusy] = useState<string | null>(null);
 
+  /*
+   * 방금 담은 것 — 되돌릴 틈.
+   *
+   * 체크하면 맨 아래로 내려간다. 맞는 동작이지만 **잘못 눌렀을 때 어디로
+   * 갔는지 놓친다** — 목록이 길고 마트에서는 한 손이다. 할 일 앱들이
+   * 완료한 항목을 잠깐 남겨두는 것과 같은 이유로, 몇 초 동안 "취소" 를
+   * 손 닿는 곳에 둔다 (docs/ui-references.md 1장).
+   */
+  const [undo, setUndo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!undo) return;
+    const t = setTimeout(() => setUndo(null), 5000);
+    return () => clearTimeout(t);
+  }, [undo]);
+
   const shown: ShoppingItem[] = items.map((i) =>
     i.label in wish ? { ...i, checked: wish[i.label] } : i,
   );
@@ -67,6 +83,8 @@ export default function Shopping({
           const want = !item.checked;
           setWish((w) => ({ ...w, [item.label]: want }));
           form.set("checked", want ? "1" : "0");
+          // 담은 것만 되돌릴 틈을 준다. 푸는 건 이미 되돌리는 일이다
+          setUndo(want ? item.label : null);
           await toggleItem(form);
         } else {
           form.set("excluded", exclude ? "1" : "0");
@@ -94,6 +112,25 @@ export default function Shopping({
     ...list.filter((i) => !i.checked),
     ...list.filter((i) => i.checked),
   ];
+
+  /*
+   * 매대로 묶는다 — **칸과 다른 축이다.** 칸(사야 해요/있는지 봐주세요)은
+   * "살지 말지" 를 가르고, 매대는 "어디로 갈지" 다. 목록은 이미 매대순으로
+   * 와 있어서 (lib/shopping.ts) 붙어 있는 것끼리 묶기만 하면 된다.
+   *
+   * **한 매대뿐이면 제목을 안 붙인다.** 항목이 셋인데 머리말이 하나 더
+   * 붙으면 그게 더 시끄럽다.
+   */
+  function byAisle(list: ShoppingItem[]) {
+    const out: { aisle: string; items: ShoppingItem[] }[] = [];
+    for (const item of list) {
+      const name = item.aisle ?? NO_AISLE;
+      const last = out[out.length - 1];
+      if (last && last.aisle === name) last.items.push(item);
+      else out.push({ aisle: name, items: [item] });
+    }
+    return out.length > 1 ? out : null;
+  }
 
   function row(item: ShoppingItem) {
     const uses = groups.filter((g) => g.labels.includes(item.label));
@@ -236,13 +273,23 @@ export default function Shopping({
         <>
           {(["BUY", "CHECK"] as const).map((bucket) => {
             const rows = shown.filter((i) => i.bucket === bucket && !i.checked);
+            const aisles = byAisle(rows);
             return (
               rows.length > 0 && (
                 <section key={bucket} className={styles.group}>
                   <h2 className={styles.bucket}>
                     {BUCKET_TITLE[bucket]} · {rows.length}
                   </h2>
-                  <ul className={styles.list}>{rows.map(row)}</ul>
+                  {aisles ? (
+                    aisles.map((a) => (
+                      <div key={a.aisle}>
+                        <h3 className={styles.aisle}>{a.aisle}</h3>
+                        <ul className={styles.list}>{a.items.map(row)}</ul>
+                      </div>
+                    ))
+                  ) : (
+                    <ul className={styles.list}>{rows.map(row)}</ul>
+                  )}
                 </section>
               )
             );
@@ -278,6 +325,30 @@ export default function Shopping({
           )}
         </>
       )}
+      {/*
+        방금 담은 것을 되돌릴 틈. 손 닿는 아래쪽에 몇 초만 뜬다 —
+        **제스처가 아니라 누르는 버튼이다** (발견할 수 없는 동작은 없는 동작).
+      */}
+      {undo && (
+        <div className="ds-toast-wrap">
+          <div className="ds-toast" role="status">
+            <span className="dot" />
+            <span className={styles.toastText}>{undo} 담았어요</span>
+            <button
+              type="button"
+              className={styles.undo}
+              onClick={() => {
+                const back = shown.find((i) => i.label === undo);
+                setUndo(null);
+                if (back) mutate(back);
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
       {!closed && (
         <ShoppingFinish
           bought={shown.filter((i) => i.checked).length}

@@ -387,7 +387,45 @@ async function main() {
       양파 < 미분류,
       "매대를 아는 재료가 먼저 온다 — 모르는 것이 맨 뒤 (NULLS LAST)",
     );
-    console.log("PASS: known aisles come first, unknown ones last");
+    /*
+      **칸이 먼저, 그 안에서 매대.** 자릿수(ORDER BY 4)로 정렬하다가 컬럼을
+      하나 끼워 넣는 순간 조용히 매대 기준으로 정렬됐다 — 실제로 그랬다.
+      순서가 뒤집히면 "사야 해요" 와 "있는지 봐주세요" 가 섞여 나온다.
+    */
+    //  칸이 둘로 갈려야 잴 수 있다 — 양파를 오늘 산 것으로 만들어 CHECK 로
+    //  보낸다 (미분류는 구매 이력이 없으니 BUY 로 남는다).
+    await query(
+      `INSERT INTO purchase (ingredient_id, purchased_on, source)
+       VALUES ($1, (now() AT TIME ZONE 'Asia/Seoul')::date, 'UXTEST-order')`,
+      [ing.id],
+    );
+    const mixed = await items(thisId);
+    const rank = { BUY: 0, CHECK: 1, HAVE: 2 } as const;
+    assert(
+      new Set(mixed.map((i) => i.bucket)).size > 1,
+      "칸이 둘 이상이어야 이 검사가 뜻이 있다",
+    );
+    assert.deepEqual(
+      mixed.map((i) => rank[i.bucket]),
+      [...mixed.map((i) => rank[i.bucket])].sort((x, y) => x - y),
+      "칸이 먼저다 — 매대가 칸을 앞지르면 '사야 해요' 와 '있는지 봐주세요' 가 섞인다",
+    );
+    await query(`DELETE FROM purchase WHERE source = 'UXTEST-order'`);
+    assert(
+      aisled.every((i) => "aisle" in i),
+      "매대가 화면까지 따라온다 (shopping_item 에 굳히지 않는다)",
+    );
+    assert.equal(
+      aisled.find((i) => i.label === "양파")?.aisle,
+      "청과",
+      "사전이 아는 매대를 그대로 낸다",
+    );
+    assert.equal(
+      aisled.find((i) => i.label === "UXTEST 미분류")?.aisle,
+      null,
+      "모르는 건 null 이다 — 지어내지 않는다",
+    );
+    console.log("PASS: known aisles come first, buckets still lead the order");
 
     /* 담기와 빼기는 그 주 목록에만 걸린다 */
     assert.deepEqual(
