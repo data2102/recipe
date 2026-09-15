@@ -66,6 +66,13 @@ jobs:
       - name: 파이프라인 한 바퀴
         run: python tools/verify_pipeline.py
 
+      # 순수 로직(날짜 셈·정렬 같은 것)에 DB·React·DOM 이 스며들었는지.
+      # 언젠가 네이티브로 갈 수 있게 열어두는 값이 이 경계 하나다
+      # (tools/verify_layers.py 머리말). lib/ 에 새 파일이 생겼는데
+      # 어느 층인지 안 적었으면 여기서 막힌다.
+      - name: 층 경계 확인
+        run: python tools/verify_layers.py
+
       - name: 문법 검사
         run: python -m compileall -q tools pipeline
 
