@@ -58,6 +58,7 @@ import {
   assetKeys,
 } from "../web/lib/parse/store";
 import { loadDictionary, normalize } from "../web/lib/parse/normalize";
+import { allow } from "../web/lib/api/guard";
 import { remaining } from "../web/lib/shopping.types";
 
 async function main() {
@@ -124,6 +125,41 @@ async function main() {
   assert.equal(ingredientSummary([], true), "재료는 링크에서 확인해요");
   assert.equal(ingredientSummary(["양파", "대파"], true), "양파 · 대파");
   console.log("PASS: Korean clock, date arithmetic, and saying it in words");
+  /*
+   * API 문지기 — **토큰 없이는 안 연다.**
+   *
+   * 이 앱에 로그인이 없어도 안전했던 이유는 서버만 DB 에 붙기 때문이다.
+   * 네이티브를 위해 HTTP 문을 내면서 그 전제가 깨지므로, 공유 비밀 하나로
+   * 막는다. 보안 성격이라 사람 기억에 맡기지 않고 여기서 잰다.
+   */
+  const ask = (auth?: string) =>
+    new Request("https://x/api/plan", auth ? { headers: { authorization: auth } } : undefined);
+  const token = "a".repeat(32);
+  const had = process.env.APP_API_TOKEN;
+
+  delete process.env.APP_API_TOKEN;
+  let gate = allow(ask(`Bearer ${token}`));
+  assert.equal(gate.ok, false, "**설정을 깜빡한 배포는 닫혀 있어야 한다**");
+  assert.equal(
+    !gate.ok && gate.response.status,
+    503,
+    "요청이 틀린 게 아니라 문이 아직 안 열린 것이다",
+  );
+
+  process.env.APP_API_TOKEN = "short";
+  assert.equal(allow(ask("Bearer short")).ok, false, "짧은 비밀은 없는 것과 같다");
+
+  process.env.APP_API_TOKEN = token;
+  assert.equal(allow(ask()).ok, false, "헤더가 없으면 거절");
+  assert.equal(allow(ask(token)).ok, false, "Bearer 가 아니면 거절");
+  assert.equal(allow(ask(`Bearer ${"b".repeat(32)}`)).ok, false, "틀린 토큰은 거절");
+  assert.equal(allow(ask(`Bearer ${token.slice(0, -1)}`)).ok, false, "한 글자만 달라도 거절");
+  assert.equal(allow(ask(`bearer ${token}`)).ok, true, "대소문자는 가리지 않는다");
+  assert.equal(allow(ask(`Bearer ${token}`)).ok, true, "맞으면 연다");
+  if (had === undefined) delete process.env.APP_API_TOKEN;
+  else process.env.APP_API_TOKEN = had;
+  console.log("PASS: the API stays shut unless a real token is configured and sent");
+
   const raw = process.env.TEST_DATABASE_URL;
   assert(raw, "TEST_DATABASE_URL is required (never uses DATABASE_URL)");
   const url = new URL(raw);

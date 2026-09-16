@@ -81,6 +81,8 @@ SERVER = {
     "parse/originals.ts",
     "parse/parse.ts",
     "parse/store.ts",
+    # 네이티브로 가는 문. 서버 층을 HTTP 뒤로 내는 자리라 여기 속한다
+    "api/guard.ts",
 }
 
 # 브라우저에서만 돈다 (DOM). 네이티브로 가면 **다시 써야 하는 것**이다.
