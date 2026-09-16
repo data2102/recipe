@@ -168,9 +168,25 @@ Settings → Environment Variables 에 넣는다. **전부 Production·Preview �
 | `SUPABASE_URL` | `https://<ref>.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase `service_role` 키 |
 | `YOUTUBE_API_KEY` | **선택.** 있으면 유튜브 링크에서 설명란을 읽는다 |
+| `APP_API_TOKEN` | **폰 앱을 쓸 때만.** 24자 이상의 아무 긴 문자열 |
 
 **`NEXT_PUBLIC_` 을 붙이지 마라.** 붙는 순간 브라우저 번들에 실린다.
 전부 서버에서만 쓴다.
+
+#### `APP_API_TOKEN` — 폰 앱의 자물쇠
+
+**웹만 쓸 거면 안 넣어도 된다.** 웹 화면은 서버가 직접 그려서 이 문을
+안 쓴다 — 없으면 `/api/*` 가 전부 503 으로 막히고, 앱은 멀쩡히 돈다.
+
+폰 앱(`native/`)을 쓸 거면 넣어야 한다. 넣는 순간 그 주소를 아는 누구나
+읽고 지울 수 있게 되므로, **짧은 값을 넣지 마라** — 24자 미만이면 서버가
+아예 안 연다 (설정을 깜빡한 배포가 조용히 열려 있는 것보다 낫다).
+
+    openssl rand -base64 32        # 이런 걸 넣는다
+
+같은 값을 `native/.env` 의 `EXPO_PUBLIC_API_TOKEN` 에도 넣는다.
+**그 값은 앱 파일에 박힌다** — 로그인이 아니라 자물쇠다. 새면 여기서
+바꾸고 앱을 다시 올린다. DB 접속 문자열과 API 키는 앱에 절대 안 싣는다.
 
 Deploy 를 누르면 `https://<이름>.vercel.app` 이 나온다.
 
