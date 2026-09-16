@@ -326,9 +326,25 @@ CREATE TABLE day_note (
 --            -- 로만 묶으면 미분류가 전부 NULL 한 줄로 뭉쳐서, 묵은지와
 --            -- 고등어가 한 항목이 된다.
 --            CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END AS raw_key,
---            MIN(ri.raw_name) AS label
+--            MIN(ri.raw_name) AS label,
+--            -- 이 이름을 쓰는 요리를 **전부** 만들었나. 만든 메뉴의 재료는
+--            -- 살 필요가 없다 — 담고 바로 만든 경우, 다음에 마트에 가면
+--            -- 이미 먹은 메뉴의 재료를 또 산다.
+--            --
+--            -- bool_and 인 이유: 대파가 세 요리에 들어가면 셋 다 만들어야
+--            -- 뺀다. 하나라도 남아 있으면 그 요리 때문에 사야 한다.
+--            --
+--            -- 예정 날짜가 아니라 **그 주 안에** 만들었는지로 센다:
+--            -- 날짜를 안 정하고 담을 수도, 하루 당겨 만들 수도 있다.
+--            bool_and(EXISTS (
+--              SELECT 1 FROM cook_log cl
+--               WHERE cl.recipe_id = ri.recipe_id
+--                 AND cl.cooked_on >= sl.starts_on
+--                 AND cl.cooked_on <  sl.starts_on + 7
+--            )) AS made
 --       FROM recipe_ingredient ri
 --       JOIN shopping_list_recipe slr ON slr.recipe_id = ri.recipe_id
+--       JOIN shopping_list sl ON sl.id = slr.list_id
 --       LEFT JOIN ingredient i ON i.id = ri.ingredient_id
 --      WHERE slr.list_id = $1
 --        AND (ri.origin <> 'BODY' OR ri.confirmed)     -- 미확인 BODY 는 제외
@@ -338,7 +354,7 @@ CREATE TABLE day_note (
 --      GROUP BY ri.ingredient_id,
 --               CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END
 -- )
--- SELECT n.ingredient_id, n.raw_key, n.label,
+-- SELECT n.ingredient_id, n.raw_key, n.label, n.made,
 --        CASE
 --          WHEN p.purchased_on IS NULL                      THEN 'BUY'
 --          WHEN t.d - p.purchased_on

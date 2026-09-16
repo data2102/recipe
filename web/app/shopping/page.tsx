@@ -89,6 +89,12 @@ export default async function ShoppingPage({
   if (data.kind === "error") return <Broken message={data.message} />;
 
   const buy = remaining(data.cart);
+  /*
+    이번 주에 이미 만든 메뉴. 그 재료는 목록에서 빠져 있다
+    (`lib/shopping.ts` NEED_SQL) — 화면이 그걸 한 줄로 말해준다.
+  */
+  const made = data.basket.filter((b) => b.cooked).length;
+  const allMade = made > 0 && made === data.basket.length;
   const byRecipe = new URLSearchParams(q);
   byRecipe.set("view", "recipe");
   const flat = new URLSearchParams(q);
@@ -118,7 +124,9 @@ export default async function ShoppingPage({
           <p className={styles.sub}>
             {dateRange(data.dates[0], data.dates[6])} ·{" "}
             {data.cart.length === 0
-              ? "담은 요리가 없어요"
+              ? allMade
+                ? "담은 메뉴를 다 만들었어요"
+                : "담은 요리가 없어요"
               : data.closed
                 ? "장 다 봤어요"
                 : buy === 0
@@ -189,13 +197,13 @@ export default async function ShoppingPage({
         (docs/ui-references.md 9장 — 머리말이 화면의 54% 였다).
       */}
 
-
       {data.cart.length > 0 ? (
         merged ? (
           <Shopping
             items={data.cart}
             week={which}
             groups={data.groups}
+            made={made}
             closed={!!data.closed}
           />
         ) : (
@@ -209,9 +217,16 @@ export default async function ShoppingPage({
         )
       ) : (
         <Empty>
-          {data.basket.length > 0
-            ? "담은 요리에 재료가 아직 안 붙어 있어요."
-            : "메뉴 고르기에서 담으면 살 것을 합쳐서 보여드려요."}
+          {/*
+            **다 만든 주를 "재료가 없어요" 라고 말하면 안 된다.** 그때그때
+            정해서 담고 바로 만들면 목록이 통째로 빈다 — 그건 고장이 아니라
+            다 먹었다는 뜻이다.
+          */}
+          {allMade
+            ? "담은 메뉴를 다 만들었어요. 살 것이 없어요."
+            : data.basket.length > 0
+              ? "담은 요리에 재료가 아직 안 붙어 있어요."
+              : "메뉴 고르기에서 담으면 살 것을 합쳐서 보여드려요."}
         </Empty>
       )}
     </main>

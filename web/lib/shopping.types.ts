@@ -38,6 +38,15 @@ export type RecipeGroup = {
   title: string;
   /** 0=월 … 6=일. 안 정했으면 null */
   day: number | null;
+  /**
+   * 이번 주에 **이미 만들었나.**
+   *
+   * 만든 요리의 재료는 합친 목록에서 빠진다 (`lib/shopping.ts` NEED_SQL).
+   * 그래서 이 값이 참이면 `labels` 를 그려봐야 빈 줄만 나온다 — 화면은
+   * 재료 대신 "만들었어요" 라고 적는다. **다른 요리도 쓰는 재료는 남는다**,
+   * 그건 그 요리 밑에 나온다.
+   */
+  cooked: boolean;
   labels: string[];
   quantities: { label: string; qty: string | null }[];
 };
@@ -46,6 +55,8 @@ export type PickedRecipe = {
   id: number;
   title: string;
   status: string;
+  /** 이번 주에 만들었나. 만들었으면 재료가 목록에서 빠져 있다 */
+  cooked: boolean;
 };
 
 /** 판정하지 말고 근거를 보여준다 — "없음" 이 아니라 "있는지 봐주세요" */

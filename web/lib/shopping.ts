@@ -94,11 +94,25 @@ export async function openList(
   return made!.id;
 }
 
+/**
+ * 이 목록에 담긴 요리들.
+ *
+ * `cooked` 는 **그 주 안에 만들었나** 다 (NEED_SQL 과 같은 기준이다 —
+ * 한쪽만 고치면 "뺐어요" 개수와 실제로 뺀 것이 어긋난다). 만든 요리의
+ * 재료는 목록에서 내려가므로, 화면이 그걸 한 줄로 말해줄 수 있어야 한다.
+ */
 export async function picked(listId: number | null): Promise<PickedRecipe[]> {
   if (!listId) return [];
   return query<PickedRecipe>(
-    `SELECT r.id, r.title, r.status
+    `SELECT r.id, r.title, r.status,
+            EXISTS (
+              SELECT 1 FROM cook_log cl
+               WHERE cl.recipe_id = r.id
+                 AND cl.cooked_on >= sl.starts_on
+                 AND cl.cooked_on <  sl.starts_on + 7
+            ) AS cooked
        FROM shopping_list_recipe slr
+       JOIN shopping_list sl ON sl.id = slr.list_id
        JOIN recipe r ON r.id = slr.recipe_id
       WHERE slr.list_id = $1
       ORDER BY r.title`,
@@ -171,9 +185,31 @@ need AS (
            -- 사전에 못 붙인 표기는 이름별로 따로 나간다. ingredient_id
            -- 로만 묶으면 미분류가 전부 NULL 한 줄로 뭉친다.
            CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END AS raw_key,
-           MIN(ri.raw_name) AS label
+           MIN(ri.raw_name) AS label,
+           /*
+             이 이름을 쓰는 요리를 **전부** 만들었나.
+
+             만든 요리의 재료는 이제 살 필요가 없다 — 그때그때 정해서 담고
+             바로 만든 경우, 다음에 마트에 가면 이미 먹은 메뉴의 재료를
+             사게 된다 (실제로 겪었다).
+
+             bool_and 인 이유: 대파가 세 요리에 들어가면 **셋 다 만들어야**
+             뺀다. 하나라도 남아 있으면 그 요리 때문에 사야 한다.
+
+             예정 날짜가 아니라 **그 주 안에** 만들었는지로 센다 (식단의
+             "지난 날 물어보기" 는 날짜가 맞아야 하지만 여기는 다르다):
+             날짜를 안 정하고 담을 수도 있고 (day_of_week 가 NULL),
+             하루 당겨 만들 수도 있다. 어느 쪽이든 이미 먹은 건 먹은 거다.
+           */
+           bool_and(EXISTS (
+             SELECT 1 FROM cook_log cl
+              WHERE cl.recipe_id = ri.recipe_id
+                AND cl.cooked_on >= sl.starts_on
+                AND cl.cooked_on <  sl.starts_on + 7
+           )) AS made
       FROM recipe_ingredient ri
       JOIN shopping_list_recipe slr ON slr.recipe_id = ri.recipe_id
+      JOIN shopping_list sl ON sl.id = slr.list_id
       LEFT JOIN ingredient i ON i.id = ri.ingredient_id
      WHERE slr.list_id = $1
        AND (ri.origin <> 'BODY' OR ri.confirmed)     -- 미확인 BODY 는 제외
@@ -183,7 +219,7 @@ need AS (
      GROUP BY ri.ingredient_id,
               CASE WHEN ri.ingredient_id IS NULL THEN ri.raw_name END
 )
-SELECT n.ingredient_id, n.raw_key, n.label, i.aisle,
+SELECT n.ingredient_id, n.raw_key, n.label, i.aisle, n.made,
        CASE
          WHEN p.purchased_on IS NULL                      THEN 'BUY'
          WHEN t.d - p.purchased_on
@@ -255,6 +291,7 @@ export async function items(listId: number | null): Promise<ShoppingItem[]> {
       bucket: Bucket;
       reason: string | null;
       aisle: string | null;
+      made: boolean;
     }>(NEED_SQL, [listId]);
 
     await q(`DELETE FROM shopping_item WHERE list_id = $1`, [listId]);
@@ -262,6 +299,18 @@ export async function items(listId: number | null): Promise<ShoppingItem[]> {
     const rows: ShoppingItem[] = [];
     for (const r of fresh) {
       const kept = frozen.get(r.label);
+      /*
+        **만든 메뉴의 재료는 목록에서 내린다.**
+
+        담고 나서 바로 만드는 경우가 있다 (그때그때 정할 때·중간에 메뉴가
+        바뀔 때). 그러면 이미 먹은 메뉴의 재료가 "사야 해요" 에 남아서
+        다음에 마트에 갔을 때 또 산다.
+
+        **이미 체크한 줄은 남긴다.** 산 것을 소리 없이 지우면 마트에서
+        "체크가 풀렸나" 로 읽힌다 — 체크한 항목을 접지도 않는 것과 같은
+        이유다. 구매 기록도 그 줄에 걸려 있어서 되돌릴 자리가 있어야 한다.
+      */
+      if (r.made && !kept) continue;
       // 집에 있다고 한 것은 살 것에서 내린다. 이미 체크한 항목은 그대로
       // 둔다 — 마트에서 칸이 바뀌면 어디까지 샀는지 놓친다.
       const athomeNow = atHome(have, r.ingredient_id, r.label);
@@ -378,6 +427,14 @@ export async function groups(listId: number | null): Promise<RecipeGroup[]> {
           GROUP BY ingredient_id, raw_key
      )
      SELECT slr.recipe_id, r.title, slr.day_of_week AS day,
+            -- 만든 요리는 재료가 합친 목록에서 빠져 있다 (NEED_SQL).
+            -- 화면이 빈 줄을 그리지 않고 "만들었어요" 라고 적게 한다.
+            EXISTS (
+              SELECT 1 FROM cook_log cl
+               WHERE cl.recipe_id = r.id
+                 AND cl.cooked_on >= sl.starts_on
+                 AND cl.cooked_on <  sl.starts_on + 7
+            ) AS cooked,
             COALESCE(
               array_agg(DISTINCT m.label) FILTER (WHERE m.label IS NOT NULL),
               '{}'
@@ -385,13 +442,14 @@ export async function groups(listId: number | null): Promise<RecipeGroup[]> {
             COALESCE(json_agg(json_build_object('label', m.label, 'qty', n.raw_qty))
               FILTER (WHERE m.label IS NOT NULL), '[]') AS quantities
        FROM shopping_list_recipe slr
+       JOIN shopping_list sl ON sl.id = slr.list_id
        JOIN recipe r ON r.id = slr.recipe_id
        LEFT JOIN need n ON n.recipe_id = slr.recipe_id
        LEFT JOIN merged m
               ON m.ingredient_id IS NOT DISTINCT FROM n.ingredient_id
              AND m.raw_key IS NOT DISTINCT FROM n.raw_key
       WHERE slr.list_id = $1
-      GROUP BY slr.recipe_id, r.title, slr.day_of_week
+      GROUP BY slr.recipe_id, r.title, slr.day_of_week, sl.starts_on, r.id
       ORDER BY slr.day_of_week NULLS LAST, r.title`,
     [listId],
   );
