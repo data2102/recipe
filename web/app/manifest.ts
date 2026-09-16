@@ -24,14 +24,26 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    // 여백 디자인 시스템 토큰과 같은 값 (--bg). 라이트가 기본이라
-    // 상태표시줄도 페이지 바탕과 같은 색으로 둔다 — layout.tsx 의
-    // viewport.themeColor 와 어긋나면 안드로이드에서 색이 튄다.
+    // 여백 디자인 시스템 토큰과 같은 값 (--bg 의 밝은 쪽).
+    // 매니페스트는 **설치할 때 한 번** 읽히는 값이라 한 색만 쓸 수 있다 —
+    // 어두운 모드까지 따라가는 건 layout.tsx 의 viewport.themeColor 다
+    // (거기서 prefers-color-scheme 으로 갈라 준다). 여기 값은 실행 중에
+    // 덮인다. 밝은 쪽 값을 적어둔다.
     background_color: "#f2f4f6",
     theme_color: "#f2f4f6",
     icons: [
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      {
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
       {
         // 런처가 동그랗게든 각지게든 잘라도 안 깨지게 안전영역을 둔 판
         src: "/icon-maskable-512.png",

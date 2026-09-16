@@ -22,7 +22,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -45,9 +44,10 @@ import {
   dayIndex,
 } from "../lib/pure";
 import PlanSheet from "../components/PlanSheet";
-import { color, radius, sp, TOUCH } from "../lib/tokens";
+import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 export default function Plan() {
+  const { s, c } = useTheme();
   const [data, setData] = useState<PlanScreen | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,7 +96,7 @@ export default function Plan() {
   if (loading && !data) {
     return (
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={color.accent} />
+        <ActivityIndicator color={c.accent} />
       </View>
     );
   }
@@ -349,7 +349,7 @@ export default function Plan() {
                     maxLength={NOTE_MAX}
                     autoFocus
                     placeholder="저녁 약속, 외식, 야근…"
-                    placeholderTextColor={color.textDisabled}
+                    placeholderTextColor={c.textDisabled}
                     onSubmitEditing={() => void saveNote(day.date, draft)}
                   />
                   <Pressable
@@ -411,117 +411,117 @@ export default function Plan() {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
+const useTheme = themed((c) => ({
+  screen: { flex: 1, backgroundColor: c.bg },
   center: { alignItems: "center", justifyContent: "center", gap: sp[3] },
   body: { padding: sp[4], gap: sp[2], paddingBottom: sp[12] },
 
-  title: { fontSize: 22, fontWeight: "700", color: color.text },
-  sub: { fontSize: 14, color: color.textSecondary, marginBottom: sp[2] },
-  hint: { fontSize: 13, color: color.textTertiary, marginTop: sp[1] },
+  title: { fontSize: 22, fontWeight: "700", color: c.text },
+  sub: { fontSize: 14, color: c.textSecondary, marginBottom: sp[2] },
+  hint: { fontSize: 13, color: c.textTertiary, marginTop: sp[1] },
 
   weekMark: {
     fontSize: 13,
     fontWeight: "700",
-    color: color.textTertiary,
+    color: c.textTertiary,
     marginTop: sp[5],
     marginBottom: sp[2],
   },
 
   day: {
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: sp[4],
     marginBottom: sp[2],
   },
-  todayDay: { borderWidth: 2, borderColor: color.accent },
+  todayDay: { borderWidth: 2, borderColor: c.accent },
   /** 지난 날은 흐리게 — 지우지는 않는다. 만들었는지 물어볼 게 남아 있다 */
   pastDay: { opacity: 0.72 },
 
   dayHead: { flexDirection: "row", alignItems: "center", gap: sp[2] },
   spacer: { flex: 1 },
   dayName: { fontSize: 15 },
-  date: { color: color.text, fontWeight: "700" },
-  weekday: { color: color.textTertiary, fontWeight: "400" },
+  date: { color: c.text, fontWeight: "700" },
+  weekday: { color: c.textTertiary, fontWeight: "400" },
   badge: {
     fontSize: 11,
     fontWeight: "700",
-    color: color.accentStrong,
-    backgroundColor: color.accentBg,
+    color: c.accentStrong,
+    backgroundColor: c.accentBg,
     paddingHorizontal: sp[2],
     paddingVertical: 2,
     borderRadius: radius.pill,
     overflow: "hidden",
   },
   addNote: { minHeight: TOUCH, justifyContent: "center", paddingHorizontal: sp[2] },
-  addNoteText: { color: color.accent, fontSize: 13 },
+  addNoteText: { color: c.accent, fontSize: 13 },
 
   noteRow: { flexDirection: "row", alignItems: "center", gap: sp[2] },
-  noteText: { flex: 1, fontSize: 14, color: color.textSecondary },
+  noteText: { flex: 1, fontSize: 14, color: c.textSecondary },
   noteForm: { flexDirection: "row", alignItems: "center", gap: sp[2], marginTop: sp[2] },
   input: {
     flex: 1,
     minHeight: TOUCH,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     borderRadius: radius.sm,
     paddingHorizontal: sp[3],
     fontSize: 15,
-    color: color.text,
+    color: c.text,
   },
 
-  dish: { marginTop: sp[3], borderTopWidth: 1, borderTopColor: color.border, paddingTop: sp[2] },
+  dish: { marginTop: sp[3], borderTopWidth: 1, borderTopColor: c.border, paddingTop: sp[2] },
   dishHead: { flexDirection: "row", alignItems: "center", gap: sp[2] },
   name: { flex: 1, flexDirection: "row", alignItems: "center", gap: sp[2], minHeight: TOUCH },
-  caret: { color: color.textTertiary, fontSize: 16, width: 12 },
+  caret: { color: c.textTertiary, fontSize: 16, width: 12 },
   nameText: { flex: 1 },
-  dishTitle: { fontSize: 16, color: color.text },
-  count: { fontSize: 12, color: color.textTertiary, marginTop: 2 },
+  dishTitle: { fontSize: 16, color: c.text },
+  count: { fontSize: 12, color: c.textTertiary, marginTop: 2 },
 
   ask: {
-    backgroundColor: color.surfaceSunken,
+    backgroundColor: c.surfaceSunken,
     borderRadius: radius.md,
     padding: sp[3],
     marginTop: sp[2],
     gap: sp[2],
   },
-  askText: { fontSize: 13, color: color.textSecondary },
+  askText: { fontSize: 13, color: c.textSecondary },
   askRow: { flexDirection: "row", gap: sp[2] },
 
   detail: { marginTop: sp[2], gap: sp[1] },
-  read: { color: color.accent, fontSize: 14, paddingVertical: sp[2] },
+  read: { color: c.accent, fontSize: 14, paddingVertical: sp[2] },
   item: { flexDirection: "row", alignItems: "center", gap: sp[2], paddingVertical: 3 },
   mark: {
     fontSize: 11,
-    color: color.textTertiary,
+    color: c.textTertiary,
     borderWidth: 1,
-    borderColor: color.border,
+    borderColor: c.border,
     borderRadius: radius.pill,
     paddingHorizontal: sp[2],
     paddingVertical: 1,
     overflow: "hidden",
   },
-  markOn: { color: color.accentStrong, borderColor: color.accent },
-  itemName: { flex: 1, fontSize: 14, color: color.text },
-  gotIt: { color: color.textTertiary },
-  qty: { fontSize: 12, color: color.textTertiary },
-  unpick: { color: color.warm, fontSize: 13, paddingVertical: sp[3] },
+  markOn: { color: c.accentStrong, borderColor: c.accent },
+  itemName: { flex: 1, fontSize: 14, color: c.text },
+  gotIt: { color: c.textTertiary },
+  qty: { fontSize: 12, color: c.textTertiary },
+  unpick: { color: c.warm, fontSize: 13, paddingVertical: sp[3] },
 
   primary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.accentStrong,
+    backgroundColor: c.accentStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[5],
   },
-  primaryText: { color: color.surface, fontSize: 15, fontWeight: "700" },
+  primaryText: { color: c.onAccent, fontSize: 15, fontWeight: "700" },
   secondary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[4],
@@ -529,17 +529,17 @@ const s = StyleSheet.create({
   secondaryBlock: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     marginTop: sp[4],
   },
-  secondaryText: { color: color.textSecondary, fontSize: 14, fontWeight: "600" },
+  secondaryText: { color: c.textSecondary, fontSize: 14, fontWeight: "600" },
   quiet: { minHeight: TOUCH, justifyContent: "center", paddingHorizontal: sp[2] },
-  quietText: { color: color.textTertiary, fontSize: 13 },
+  quietText: { color: c.textTertiary, fontSize: 13 },
 
-  warn: { backgroundColor: color.warmBg, borderRadius: radius.md, padding: sp[3] },
-  warnText: { color: color.warm, fontSize: 13 },
-});
+  warn: { backgroundColor: c.warmBg, borderRadius: radius.md, padding: sp[3] },
+  warnText: { color: c.warm, fontSize: 13 },
+}));

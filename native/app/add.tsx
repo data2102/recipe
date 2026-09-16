@@ -24,7 +24,6 @@ import {
   Image,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -36,7 +35,7 @@ import {
   type Draft,
   type DraftItem,
 } from "../lib/api";
-import { color, radius, sp, TOUCH } from "../lib/tokens";
+import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 /**
  * 폰 사진은 3~5MB 다. **줄여서 보낸다.**
@@ -66,6 +65,7 @@ async function shrink(uri: string, width: number, height: number) {
 type Stage = "pick" | "reading" | "confirm";
 
 export default function Add() {
+  const { s, c } = useTheme();
   const [stage, setStage] = useState<Stage>("pick");
   const [shots, setShots] = useState<string[]>([]);
   const [text, setText] = useState("");
@@ -160,7 +160,7 @@ export default function Add() {
   if (stage === "reading") {
     return (
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={color.accent} size="large" />
+        <ActivityIndicator color={c.accent} size="large" />
         <Text style={s.title}>읽는 중이에요</Text>
         <Text style={s.sub}>
           재료와 만드는 법을 정리하고 있어요. 30초쯤 걸려요 — 그동안 앱을
@@ -351,7 +351,7 @@ export default function Add() {
           onChangeText={setText}
           multiline
           placeholder="재료와 만드는 법을 그대로 붙여넣어도 돼요"
-          placeholderTextColor={color.textDisabled}
+          placeholderTextColor={c.textDisabled}
         />
       </View>
 
@@ -371,32 +371,32 @@ export default function Add() {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
+const useTheme = themed((c) => ({
+  screen: { flex: 1, backgroundColor: c.bg },
   center: { alignItems: "center", justifyContent: "center", gap: sp[3], padding: sp[6] },
   body: { padding: sp[4], gap: sp[3], paddingBottom: sp[12] },
 
   back: { minHeight: TOUCH, justifyContent: "center" },
-  backText: { color: color.accent, fontSize: 15 },
+  backText: { color: c.accent, fontSize: 15 },
 
-  title: { fontSize: 22, fontWeight: "700", color: color.text, textAlign: "center" },
-  sub: { fontSize: 14, color: color.textSecondary, lineHeight: 21, textAlign: "center" },
-  body2: { fontSize: 14, color: color.textSecondary, lineHeight: 21 },
-  hint: { fontSize: 13, color: color.textTertiary, textAlign: "center" },
+  title: { fontSize: 22, fontWeight: "700", color: c.text, textAlign: "center" },
+  sub: { fontSize: 14, color: c.textSecondary, lineHeight: 21, textAlign: "center" },
+  body2: { fontSize: 14, color: c.textSecondary, lineHeight: 21 },
+  hint: { fontSize: 13, color: c.textTertiary, textAlign: "center" },
 
-  card: { backgroundColor: color.surface, borderRadius: radius.lg, padding: sp[4] },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: color.text, marginBottom: sp[3] },
-  label: { fontSize: 13, color: color.textTertiary, marginBottom: sp[2] },
+  card: { backgroundColor: c.surface, borderRadius: radius.lg, padding: sp[4] },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: c.text, marginBottom: sp[3] },
+  label: { fontSize: 13, color: c.textTertiary, marginBottom: sp[2] },
 
   input: {
     minHeight: TOUCH,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     borderRadius: radius.sm,
     paddingHorizontal: sp[3],
     paddingVertical: sp[2],
     fontSize: 15,
-    color: color.text,
+    color: c.text,
   },
   area: { minHeight: 120, textAlignVertical: "top" },
 
@@ -405,58 +405,58 @@ const s = StyleSheet.create({
     height: 96,
     borderRadius: radius.md,
     marginRight: sp[2],
-    backgroundColor: color.surfaceSunken,
+    backgroundColor: c.surfaceSunken,
   },
 
   check: {
     paddingVertical: sp[3],
     borderTopWidth: 1,
-    borderTopColor: color.border,
+    borderTopColor: c.border,
   },
-  checkName: { fontSize: 16, color: color.text },
-  qty: { fontSize: 14, color: color.textTertiary },
-  why: { fontSize: 12, color: color.textTertiary, marginTop: sp[1] },
+  checkName: { fontSize: 16, color: c.text },
+  qty: { fontSize: 14, color: c.textTertiary },
+  why: { fontSize: 12, color: c.textTertiary, marginTop: sp[1] },
   yesno: { flexDirection: "row", gap: sp[2], marginTop: sp[3] },
   choice: {
     flex: 1,
     minHeight: TOUCH,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  picked: { borderColor: color.accent, backgroundColor: color.accentBg },
-  choiceText: { fontSize: 14, color: color.textSecondary, fontWeight: "600" },
-  pickedText: { color: color.accentStrong, fontWeight: "700" },
+  picked: { borderColor: c.accent, backgroundColor: c.accentBg },
+  choiceText: { fontSize: 14, color: c.textSecondary, fontWeight: "600" },
+  pickedText: { color: c.accentStrong, fontWeight: "700" },
 
   step: { flexDirection: "row", gap: sp[3], paddingVertical: sp[2] },
-  stepNo: { width: 22, fontSize: 13, fontWeight: "700", color: color.textTertiary },
-  stepText: { flex: 1, fontSize: 15, color: color.text, lineHeight: 23 },
+  stepNo: { width: 22, fontSize: 13, fontWeight: "700", color: c.textTertiary },
+  stepText: { flex: 1, fontSize: 15, color: c.text, lineHeight: 23 },
 
   primary: {
     minHeight: TOUCH + 4,
     borderRadius: radius.md,
-    backgroundColor: color.accentStrong,
+    backgroundColor: c.accentStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryText: { color: color.surface, fontSize: 16, fontWeight: "700" },
+  primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "700" },
   secondaryBlock: {
     minHeight: TOUCH + 4,
     borderRadius: radius.md,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  secondaryText: { color: color.textSecondary, fontSize: 15, fontWeight: "600" },
+  secondaryText: { color: c.textSecondary, fontSize: 15, fontWeight: "600" },
   quiet: { minHeight: TOUCH, alignItems: "center", justifyContent: "center" },
-  quietText: { color: color.textTertiary, fontSize: 14 },
+  quietText: { color: c.textTertiary, fontSize: 14 },
   dim: { opacity: 0.5 },
 
-  warn: { backgroundColor: color.warmBg, borderRadius: radius.md, padding: sp[3] },
-  warnText: { color: color.warm, fontSize: 14 },
-  warnHint: { color: color.warm, fontSize: 12, marginTop: sp[1], opacity: 0.85 },
-});
+  warn: { backgroundColor: c.warmBg, borderRadius: radius.md, padding: sp[3] },
+  warnText: { color: c.warm, fontSize: 14 },
+  warnHint: { color: c.warm, fontSize: 12, marginTop: sp[1], opacity: 0.85 },
+}));

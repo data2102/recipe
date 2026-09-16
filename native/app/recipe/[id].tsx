@@ -23,7 +23,6 @@ import {
   Linking,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -37,9 +36,10 @@ import {
 } from "../../lib/api";
 import { cookedAgo, dateFull, dateSay, todayInput } from "../../lib/pure";
 import PlanSheet from "../../components/PlanSheet";
-import { color, radius, sp, TOUCH } from "../../lib/tokens";
+import { radius, sp, themed, TOUCH } from "../../lib/tokens";
 
 export default function Recipe() {
+  const { s, c } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const n = Number(id);
   const [data, setData] = useState<RecipeDetail | null>(null);
@@ -75,7 +75,7 @@ export default function Recipe() {
   if (loading && !data) {
     return (
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={color.accent} />
+        <ActivityIndicator color={c.accent} />
       </View>
     );
   }
@@ -290,28 +290,28 @@ export default function Recipe() {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
+const useTheme = themed((c) => ({
+  screen: { flex: 1, backgroundColor: c.bg },
   center: { alignItems: "center", justifyContent: "center", gap: sp[3], padding: sp[4] },
   body: { padding: sp[4], gap: sp[3], paddingBottom: sp[12] },
 
   back: { minHeight: TOUCH, justifyContent: "center" },
-  backText: { color: color.accent, fontSize: 15 },
+  backText: { color: c.accent, fontSize: 15 },
 
-  title: { fontSize: 22, fontWeight: "700", color: color.text },
-  sub: { fontSize: 14, color: color.textSecondary },
-  body2: { fontSize: 14, color: color.textSecondary, lineHeight: 21 },
-  hint: { fontSize: 13, color: color.textTertiary, textAlign: "center" },
+  title: { fontSize: 22, fontWeight: "700", color: c.text },
+  sub: { fontSize: 14, color: c.textSecondary },
+  body2: { fontSize: 14, color: c.textSecondary, lineHeight: 21 },
+  hint: { fontSize: 13, color: c.textTertiary, textAlign: "center" },
 
   card: {
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: sp[4],
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: color.text,
+    color: c.text,
     marginBottom: sp[3],
   },
   gap: { height: sp[3] },
@@ -319,48 +319,48 @@ const s = StyleSheet.create({
   section: {
     fontSize: 13,
     fontWeight: "700",
-    color: color.textSecondary,
+    color: c.textSecondary,
     marginTop: sp[3],
     marginBottom: sp[1],
   },
   item: { flexDirection: "row", alignItems: "center", gap: sp[2], paddingVertical: 4 },
-  itemName: { flex: 1, fontSize: 15, color: color.text },
-  dropped: { color: color.textTertiary, textDecorationLine: "line-through" },
-  qty: { fontSize: 13, color: color.textTertiary },
-  note: { fontSize: 11, color: color.warm },
+  itemName: { flex: 1, fontSize: 15, color: c.text },
+  dropped: { color: c.textTertiary, textDecorationLine: "line-through" },
+  qty: { fontSize: 13, color: c.textTertiary },
+  note: { fontSize: 11, color: c.warm },
 
   step: { flexDirection: "row", gap: sp[3], paddingVertical: sp[2] },
   stepNo: {
     width: 22,
     fontSize: 13,
     fontWeight: "700",
-    color: color.textTertiary,
+    color: c.textTertiary,
   },
-  stepText: { flex: 1, fontSize: 15, color: color.text, lineHeight: 23 },
+  stepText: { flex: 1, fontSize: 15, color: c.text, lineHeight: 23 },
 
   shot: { marginRight: sp[3] },
   shotImage: {
     width: 148,
     height: 148,
     borderRadius: radius.md,
-    backgroundColor: color.surfaceSunken,
+    backgroundColor: c.surfaceSunken,
   },
-  shotWhen: { fontSize: 12, color: color.textTertiary, marginTop: sp[1] },
+  shotWhen: { fontSize: 12, color: c.textTertiary, marginTop: sp[1] },
 
   primary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.accentStrong,
+    backgroundColor: c.accentStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryText: { color: color.surface, fontSize: 15, fontWeight: "700" },
+  primaryText: { color: c.onAccent, fontSize: 15, fontWeight: "700" },
   secondary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[4],
@@ -368,18 +368,18 @@ const s = StyleSheet.create({
   secondaryBlock: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  secondaryText: { color: color.textSecondary, fontSize: 15, fontWeight: "600" },
+  secondaryText: { color: c.textSecondary, fontSize: 15, fontWeight: "600" },
   dim: { opacity: 0.5 },
 
   danger: { minHeight: TOUCH, alignItems: "center", justifyContent: "center" },
-  dangerText: { color: color.warm, fontSize: 14, fontWeight: "600" },
+  dangerText: { color: c.warm, fontSize: 14, fontWeight: "600" },
 
-  warn: { backgroundColor: color.warmBg, borderRadius: radius.md, padding: sp[3] },
-  warnText: { color: color.warm, fontSize: 13 },
-});
+  warn: { backgroundColor: c.warmBg, borderRadius: radius.md, padding: sp[3] },
+  warnText: { color: c.warm, fontSize: 13 },
+}));

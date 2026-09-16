@@ -21,7 +21,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -35,9 +34,10 @@ import {
   type ShoppingItem,
   type Which,
 } from "../lib/pure";
-import { color, radius, sp, TOUCH } from "../lib/tokens";
+import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 export default function Shopping() {
+  const { s, c } = useTheme();
   const [week, setWeek] = useState<Which>("this");
   const [data, setData] = useState<ShoppingScreen | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -138,7 +138,7 @@ export default function Shopping() {
   if (loading && !data) {
     return (
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={color.accent} />
+        <ActivityIndicator color={c.accent} />
       </View>
     );
   }
@@ -423,18 +423,18 @@ export default function Shopping() {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
+const useTheme = themed((c) => ({
+  screen: { flex: 1, backgroundColor: c.bg },
   center: { alignItems: "center", justifyContent: "center", gap: sp[3] },
   body: { padding: sp[4], gap: sp[3], paddingBottom: sp[12] },
 
-  title: { fontSize: 22, fontWeight: "700", color: color.text },
-  sub: { fontSize: 14, color: color.textSecondary },
-  body2: { fontSize: 14, color: color.textSecondary, lineHeight: 21 },
-  note: { fontSize: 13, color: color.textTertiary },
+  title: { fontSize: 22, fontWeight: "700", color: c.text },
+  sub: { fontSize: 14, color: c.textSecondary },
+  body2: { fontSize: 14, color: c.textSecondary, lineHeight: 21 },
+  note: { fontSize: 13, color: c.textTertiary },
   empty: {
     fontSize: 14,
-    color: color.textSecondary,
+    color: c.textSecondary,
     paddingVertical: sp[8],
     textAlign: "center",
   },
@@ -445,16 +445,16 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: sp[4],
     borderRadius: radius.pill,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: color.border,
+    borderColor: c.border,
   },
-  tabOn: { backgroundColor: color.accentBg, borderColor: color.accent },
-  tabText: { fontSize: 14, color: color.textSecondary },
-  tabTextOn: { color: color.accentStrong, fontWeight: "700" },
+  tabOn: { backgroundColor: c.accentBg, borderColor: c.accent },
+  tabText: { fontSize: 14, color: c.textSecondary },
+  tabTextOn: { color: c.accentStrong, fontWeight: "700" },
 
   card: {
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: sp[4],
     gap: sp[1],
@@ -462,19 +462,19 @@ const s = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: color.text,
+    color: c.text,
     marginBottom: sp[2],
   },
   bucket: {
     fontSize: 15,
     fontWeight: "700",
-    color: color.text,
+    color: c.text,
     marginBottom: sp[2],
   },
   aisle: {
     fontSize: 13,
     fontWeight: "700",
-    color: color.textSecondary,
+    color: c.textSecondary,
     marginBottom: sp[2],
   },
 
@@ -492,51 +492,51 @@ const s = StyleSheet.create({
     height: 22,
     borderRadius: radius.sm,
     borderWidth: 2,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  boxOn: { backgroundColor: color.accentStrong, borderColor: color.accentStrong },
-  tick: { color: color.surface, fontSize: 14, fontWeight: "700" },
+  boxOn: { backgroundColor: c.accentStrong, borderColor: c.accentStrong },
+  tick: { color: c.onAccent, fontSize: 14, fontWeight: "700" },
 
   nameWrap: { flex: 1 },
-  name: { fontSize: 16, color: color.text },
-  nameDone: { color: color.textTertiary, textDecorationLine: "line-through" },
-  quantity: { fontSize: 13, color: color.textTertiary, marginTop: 2 },
+  name: { fontSize: 16, color: c.text },
+  nameDone: { color: c.textTertiary, textDecorationLine: "line-through" },
+  quantity: { fontSize: 13, color: c.textTertiary, marginTop: 2 },
 
   side: { minHeight: TOUCH, justifyContent: "center", paddingLeft: sp[2] },
-  sideText: { fontSize: 13, color: color.accent },
-  dim: { color: color.textDisabled },
+  sideText: { fontSize: 13, color: c.accent },
+  dim: { color: c.textDisabled },
 
-  reason: { fontSize: 12, color: color.textTertiary, marginTop: 2 },
+  reason: { fontSize: 12, color: c.textTertiary, marginTop: 2 },
 
   primary: {
     minHeight: TOUCH + 4,
     borderRadius: radius.md,
-    backgroundColor: color.accentStrong,
+    backgroundColor: c.accentStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[5],
   },
-  primaryText: { color: color.surface, fontSize: 16, fontWeight: "700" },
+  primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "700" },
   secondary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surfaceSunken,
+    backgroundColor: c.surfaceSunken,
     borderWidth: 1,
-    borderColor: color.border,
+    borderColor: c.border,
     alignItems: "center",
     justifyContent: "center",
     marginTop: sp[3],
   },
-  secondaryText: { color: color.textSecondary, fontSize: 15, fontWeight: "600" },
+  secondaryText: { color: c.textSecondary, fontSize: 15, fontWeight: "600" },
 
   warn: {
-    backgroundColor: color.warmBg,
+    backgroundColor: c.warmBg,
     borderRadius: radius.md,
     padding: sp[3],
   },
-  warnText: { color: color.warm, fontSize: 13 },
+  warnText: { color: c.warm, fontSize: 13 },
 
   toast: {
     position: "absolute",
@@ -548,8 +548,19 @@ const s = StyleSheet.create({
     paddingVertical: sp[3],
     paddingHorizontal: sp[4],
     borderRadius: radius.pill,
-    backgroundColor: color.text,
+    backgroundColor: c.text,
   },
-  toastText: { color: color.surface, fontSize: 14, flexShrink: 1 },
-  toastAction: { color: "#8ec5ff", fontSize: 14, fontWeight: "700" },
-});
+  toastText: { color: c.surface, fontSize: 14, flexShrink: 1 },
+  /*
+   * 토스트는 **뒤집힌 면**이다 (바탕이 c.text, 글자가 c.surface). 되돌리기도
+   * 그 위의 글자라 같은 색에 밑줄로 낸다 — 웹과 같다 (`Shopping.module.css`
+   * 의 `.undo`). 파란 글자를 박아두면 어두운 모드에서 토스트가 밝아질 때
+   * 안 보인다.
+   */
+  toastAction: {
+    color: c.surface,
+    fontSize: 14,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
+}));

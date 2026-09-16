@@ -185,15 +185,24 @@ a.ds-btn {
   margin-bottom: var(--sp-4);
 }
 
-/* App typography: reduce the previous scale by 1–2px; retain touch target sizes. */
+/* --- ⑤ 글자 크기: 여백 스케일에서 한두 단계 내린다 — 그리고 rem 으로 --
+   터치 영역(44px)은 그대로 둔다. 손가락 크기는 글자 설정과 상관이 없다.
+
+   **px 가 아니라 rem 이다.** px 로 적으면 브라우저 글자 크기 설정을
+   통째로 무시한다 — 눈이 나빠서 키워둔 사람에게 이 앱만 안 커진다.
+   rem 은 뿌리 글자 크기(기본 16px)의 배수라 그 설정을 따라간다.
+
+   **간격까지 rem 으로 바꾸지 마라.** 글자를 키운 사람이 원하는 건 글자가
+   커지는 것이지 한 화면에 들어오는 줄이 줄어드는 게 아니다. 여백(--sp-*)·
+   터치 영역·탭바 높이는 px 로 둔다. 옆의 주석은 16px 기준 환산값이다. */
 :root {
-  --fs-display: 28px;
-  --fs-title: 20px;
-  --fs-heading: 17px;
-  --fs-subhead: 15px;
-  --fs-body: 15px;
-  --fs-caption: 13px;
-  --fs-footnote: 12px;
+  --fs-display: 1.75rem; /* 28px */
+  --fs-title: 1.25rem; /* 20px */
+  --fs-heading: 1.0625rem; /* 17px */
+  --fs-subhead: 0.9375rem; /* 15px */
+  --fs-body: 0.9375rem; /* 15px */
+  --fs-caption: 0.8125rem; /* 13px */
+  --fs-footnote: 0.75rem; /* 12px */
 
   /*
    * 캡션이 안 읽혔다 — 여백 기본값 #8b95a1 은 흰 카드에서 **3.04:1** 이라
@@ -207,8 +216,89 @@ a.ds-btn {
    *
    * 여백 원본(app/yeobaek/*.css)은 복사본이라 직접 안 고친다 (CLAUDE.md).
    * 앱에서 덮어쓸 일은 여기 한 군데에 모은다.
+   *
+   * 어두운 모드에서의 짝은 아래 ⑥ 에 있다.
    */
   --text-tertiary: #626c7a;
+}
+
+/* --- ⑥ 어두운 모드 ---------------------------------------------------
+   폰 설정을 따라간다. **앱 안에 스위치를 만들지 않았다** — 밝게/어둡게는
+   폰이 이미 정해주는 것이고, 설정이 하나 늘면 "어느 쪽이 지금인가" 를
+   두 군데서 봐야 한다.
+
+   **여백의 다크 팔레트(`.theme-dark`)를 그대로 쓰지 않는다.** 그쪽 액센트는
+   형광 시안인데, 모니터링 대시보드용이라 이 앱에 안 맞는다
+   (docs/ui-references.md 8장 C). **무채색 면·글자는 그대로 가져오고
+   파랑 계열만 우리 값으로 바꿨다.** 그래서 `.theme-dark` 클래스나
+   `data-theme="dark"` 는 쓰지 마라 — 여백 기본값으로 돌아간다.
+
+   한 토큰을 한 줄에 적으려고 `light-dark()` 를 쓴다. 밝은 값과 어두운 값을
+   블록 두 개로 나눠 적으면 토큰 하나를 고칠 때 두 군데를 고쳐야 하고,
+   한쪽만 고친 게 눈에 안 띈다. `@supports` 로 감싸서, 못 읽는 브라우저는
+   위에 적힌 밝은 값을 그대로 쓴다.
+
+   **폰 앱도 같이 켠다** (`native/lib/tokens.ts`). 한쪽만 켜면 두 화면이
+   갈린다 — `tools/verify_tokens.py` 가 값을 하나씩 대조한다.
+
+   대비는 재서 넣었다 (흰 글자 기준이 아니라 실제 짝으로):
+   본문 14.0:1 · 보조 10.4:1 · 캡션 5.4:1 · 링크 7.9:1 · 파란 버튼 8.1:1 ·
+   켠 칩 7.2:1 — 전부 AA(4.5:1) 위다. */
+@supports (color: light-dark(#000, #fff)) {
+  :root {
+    color-scheme: light dark;
+
+    /* 파랑은 누를 수 있는 것에만. 어두운 바탕에서는 한 단계 밝혀야 뜬다 */
+    --accent: light-dark(#3182f6, #5a9cff);
+    --accent-hover: light-dark(#2b74dc, #74adff);
+    --accent-pressed: light-dark(#2264c4, #3f88f0);
+    --accent-bg: light-dark(#e8f3ff, #16233a);
+    /* 밝을 땐 파란 배경 위의 흰 글자, 어두울 땐 밝은 파랑 위의 검은 글자 */
+    --on-accent: light-dark(#ffffff, #0b1a2e);
+    --accent-strong: light-dark(#1d63c9, #7cb2ff);
+
+    /* 오래된 것 (지시서 5장) — 배지가 아니라 글자색이다 */
+    --warm: light-dark(#c96f4c, #e39e7f);
+    --warm-bg: light-dark(#faece7, #33231b);
+
+    --text-primary: light-dark(#191f28, #e6e8ee);
+    --text-secondary: light-dark(#4e5968, #c5c9d3);
+    --text-tertiary: light-dark(#626c7a, #8a90a2);
+    --text-disabled: light-dark(#b0b8c1, #565b68);
+
+    --bg: light-dark(#f2f4f6, #0f1117);
+    --surface: light-dark(#ffffff, #181b24);
+    --surface-sunken: light-dark(#f9fafb, #12141b);
+
+    /*
+     * 여백의 다크 경계선은 카드 위에서 1.07:1 이라 사실상 안 보인다.
+     * 밝은 쪽 짝(1.13:1 / 1.46:1)만큼은 보이게 올렸다 — "집에 있어요" 처럼
+     * **테두리 하나로 버튼인 줄 아는** 자리가 있다 (9장).
+     */
+    --border: light-dark(#eef1f4, #2a2e3a);
+    --border-strong: light-dark(#d1d6db, #454c5b);
+
+    --success: light-dark(#12b886, #34d399);
+    --success-bg: light-dark(#e6fcf5, #0f2e26);
+    --success-strong: light-dark(#0a7350, #34d399);
+    --warning: light-dark(#f59f00, #fbbf24);
+    --warning-bg: light-dark(#fff9db, #2e2408);
+    --warning-strong: light-dark(#7a5300, #fbbf24);
+    --danger: light-dark(#f03e3e, #f87171);
+    --danger-bg: light-dark(#fff0f0, #2e1414);
+    --danger-strong: light-dark(#c0261e, #f87171);
+    --info: light-dark(#3182f6, #5a9cff);
+    --info-bg: light-dark(#e8f3ff, #16233a);
+
+    /* 어두운 바탕에서는 그림자가 안 보인다. 카드는 면 색으로 갈린다 */
+    --shadow-card: 0 1px 3px light-dark(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.5));
+    --shadow-popover: 0 8px 24px
+      light-dark(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.6));
+    --shadow-focus: 0 0 0 3px
+      light-dark(rgba(49, 130, 246, 0.35), rgba(90, 156, 255, 0.45));
+    --shadow-focus-danger: 0 0 0 3px
+      light-dark(rgba(240, 62, 62, 0.3), rgba(248, 113, 113, 0.4));
+  }
 }
 
 /*

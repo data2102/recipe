@@ -74,6 +74,12 @@ jobs:
       - name: 층 경계 확인
         run: python tools/verify_layers.py
 
+      # 색·글자 크기 토큰이 웹과 폰 앱에서 같은 값인가. 폰 앱은 CSS 변수를
+      # 못 읽어서 같은 값을 TS 로 한 번 더 적는데 (native/lib/tokens.ts),
+      # 베낀 것은 갈라지고 **한쪽만 고친 게 눈에 안 띈다.**
+      - name: 색 토큰 확인
+        run: python tools/verify_tokens.py
+
       - name: 문법 검사
         run: python -m compileall -q tools pipeline
 
