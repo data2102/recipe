@@ -85,6 +85,7 @@ SERVER = {
     "parse/claude.ts",
     "parse/fake.ts",
     "parse/link.ts",         # robots.txt 를 보고 읽는다. 서버에서만
+    "parse/ingest.ts",       # 캡처 -> 파싱 -> 저장. 액션과 API 가 같이 부른다
     "parse/normalize.ts",
     "parse/originals.ts",
     "parse/parse.ts",

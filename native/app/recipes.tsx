@@ -171,8 +171,15 @@ export default function Recipes() {
         <RefreshControl refreshing={loading} onRefresh={() => void load()} />
       }
     >
-      <Text style={s.eyebrow}>고르면 날짜를 물어봐요</Text>
-      <Text style={s.title}>뭐 먹을까요?</Text>
+      <View style={s.head}>
+        <View style={s.headText}>
+          <Text style={s.eyebrow}>고르면 날짜를 물어봐요</Text>
+          <Text style={s.title}>뭐 먹을까요?</Text>
+        </View>
+        <Pressable style={s.secondary} onPress={() => router.push("/add")}>
+          <Text style={s.secondaryText}>+ 레시피</Text>
+        </Pressable>
+      </View>
 
       {!!failed && (
         <View style={s.warn}>
@@ -333,15 +340,10 @@ export default function Recipes() {
               <Text style={s.secondaryText}>전체 레시피 보기</Text>
             </Pressable>
           )}
-          {/*
-            레시피를 넣는 길은 아직 웹에만 있다 (캡처 → 파싱).
-            없는 버튼을 그리지 않고 어디로 가야 하는지 말한다 (원칙 ③).
-          */}
           {data.recipes.length === 0 && (
-            <Text style={s.emptyHint}>
-              레시피 추가는 아직 웹에서만 돼요 — 캡처를 올리면 재료와 만드는
-              법이 정리돼요.
-            </Text>
+            <Pressable style={s.primary} onPress={() => router.push("/add")}>
+              <Text style={s.primaryText}>캡처로 레시피 넣기</Text>
+            </Pressable>
           )}
         </View>
       )}
@@ -354,6 +356,8 @@ const s = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center", gap: sp[3] },
   body: { padding: sp[4], gap: sp[2], paddingBottom: sp[12] },
 
+  head: { flexDirection: "row", alignItems: "flex-end", gap: sp[3] },
+  headText: { flex: 1 },
   eyebrow: { fontSize: 13, color: color.textTertiary },
   title: { fontSize: 22, fontWeight: "700", color: color.text },
   sub: { fontSize: 14, color: color.textSecondary },
@@ -414,12 +418,6 @@ const s = StyleSheet.create({
 
   empty: { alignItems: "center", gap: sp[3], paddingVertical: sp[10] },
   emptyTitle: { fontSize: 16, fontWeight: "600", color: color.text },
-  emptyHint: {
-    fontSize: 13,
-    color: color.textTertiary,
-    textAlign: "center",
-    lineHeight: 20,
-  },
 
   primary: {
     minHeight: TOUCH,

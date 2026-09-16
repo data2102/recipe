@@ -83,6 +83,7 @@ export default function Layout() {
           `href: null` 이 그 뜻이다 (경로는 살아 있고 칸만 없다).
         */}
         <Tabs.Screen name="weeks" options={{ href: null }} />
+        <Tabs.Screen name="add" options={{ href: null }} />
         <Tabs.Screen name="recipe/[id]" options={{ href: null }} />
       </Tabs>
     </SafeAreaProvider>

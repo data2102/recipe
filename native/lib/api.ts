@@ -293,4 +293,119 @@ export const weeks = {
     }),
 };
 
+/* ---------------------------------------------------------------- */
+/*  레시피 넣기 (캡처 → 파싱 → 확인 → 저장)                           */
+/* ---------------------------------------------------------------- */
+
+export type DraftItem = {
+  raw_name: string;
+  raw_qty: string | null;
+  section: string | null;
+  origin: "LIST" | "BODY" | "USER";
+  /** 왜 물어보는지의 근거. 화면에 그대로 적는다 (원칙 ③) */
+  evidence: string | null;
+  choice_group: string | null;
+  bucket: string;
+  label: string;
+  /** 장보기에 넣을 것인가. 아래 `answered` 와 같이 읽어야 한다 */
+  confirmed: boolean;
+  /**
+   * 사용자가 답했는가. 아직이면 화면에서 **어느 쪽도 고른 것처럼 보이면
+   * 안 된다** — 안 물어본 걸 답한 척하는 셈이다.
+   */
+  answered: boolean;
+};
+
+export type Draft = {
+  title: string;
+  items: DraftItem[];
+  steps: string[];
+  choiceGroups: string[][];
+  /** 보관해둔 원본. 저장할 때 이 레시피에 붙는다 */
+  assetIds: number[];
+  sourceUrl: string | null;
+  sourceKind: string | null;
+  usage: { input: number; output: number };
+};
+
+export type IngestResult =
+  | { ok: true; draft: Draft }
+  | { ok: false; message: string; hint?: string };
+
+/**
+ * 캡처를 보내 초안을 받는다. **저장하지는 않는다.**
+ *
+ * `FormData` 에 `{ uri, name, type }` 을 넣는 건 RN 의 방식이다 — 브라우저의
+ * `File` 이 없는 대신 런타임이 그 uri 를 읽어 멀티파트로 실어 보낸다.
+ * **`content-type` 을 손으로 붙이지 마라**: 경계 문자열(boundary)은
+ * 런타임이 만든다.
+ *
+ * 파싱은 30초쯤 걸린다 — 평소의 12초 시계로는 못 기다린다.
+ */
+async function ingestCall(
+  shots: string[],
+  text: string,
+): Promise<IngestResult> {
+  if (!BASE) {
+    throw new ApiError("서버 주소가 아직 안 적혀 있어요 (EXPO_PUBLIC_API_URL)", 0);
+  }
+
+  const form = new FormData();
+  shots.forEach((uri, i) => {
+    form.append("images", {
+      uri,
+      name: `캡처-${i + 1}.jpg`,
+      type: "image/jpeg",
+    } as unknown as Blob);
+  });
+  if (text.trim()) form.append("text", text);
+
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 90_000);
+  try {
+    const response = await fetch(`${BASE}/api/ingest`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      body: form,
+      signal: stop.signal,
+    });
+    if (!response.ok) {
+      let said = "";
+      try {
+        said = ((await response.json()) as { error?: string }).error ?? "";
+      } catch {
+        /* JSON 이 아닐 수도 있다 */
+      }
+      throw new ApiError(
+        said || `서버가 거절했어요 (${response.status})`,
+        response.status,
+      );
+    }
+    return (await response.json()) as IngestResult;
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new ApiError(
+      e instanceof Error && e.name === "AbortError"
+        ? "읽는 데 너무 오래 걸려요. 캡처를 줄여서 다시 해보세요"
+        : "서버에 못 닿았어요. 인터넷을 확인해주세요",
+      0,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * `ingest(shots, text)` 로 읽고 `ingest.commit(draft)` 로 저장한다.
+ *
+ * **같은 초안을 두 번 저장해도 한 건이다** — 서버가 원본을 `FOR UPDATE`
+ * 로 잡고 이미 붙어 있으면 그 id 를 돌려준다. 폰이 잠겨 응답만 사라지면
+ * 사용자 눈에는 실패라 다시 누르는데, 화면에서 버튼을 막는 것만으로는
+ * 못 막는다 (실제로 두 건이 생겼다).
+ */
+export const ingest = Object.assign(ingestCall, {
+  commit: (draft: Draft) =>
+    call<{ recipeId: number }>("/api/ingest/commit", { json: { draft } }),
+});
+
 export type { Bucket };
