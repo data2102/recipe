@@ -3,6 +3,7 @@
  * TEST_DATABASE_URL must explicitly name a local recipe_ux_test database.
  */
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
 import { sortRecipes } from "../web/lib/recipe-sort";
 import { query } from "../web/lib/db";
 import {
@@ -40,6 +41,7 @@ import {
   searchRecipes,
   recipeCatalog,
   detail,
+  cooked,
   remove as dropRecipe,
 } from "../web/lib/recipes";
 import { picked, removeRecipe } from "../web/lib/shopping";
@@ -158,7 +160,31 @@ async function main() {
   assert.equal(allow(ask(`Bearer ${token}`)).ok, true, "맞으면 연다");
   if (had === undefined) delete process.env.APP_API_TOKEN;
   else process.env.APP_API_TOKEN = had;
-  console.log("PASS: the API stays shut unless a real token is configured and sent");
+
+  /*
+    **문지기를 붙이는 걸 깜빡한 경로가 있나.**
+
+    위의 시험은 `allow` 가 제대로 도는지만 잰다. 진짜 사고는 다른
+    데서 난다 — 경로를 새로 만들고 `allow` 를 안 부르는 것. 그러면
+    그 문 하나가 통째로 열려 있고, 아무도 모른다.
+
+    그래서 파일을 읽어서 센다. 새 경로를 만들 때 **한 번 묻게 만드는**
+    것이 목적이다 (tools/verify_layers.py 와 같은 성격).
+  */
+  const apiDir = new URL("../web/app/api/", import.meta.url);
+  const routes = readdirSync(apiDir, { recursive: true, encoding: "utf-8" })
+    .filter((f) => f.endsWith("route.ts"));
+  assert(routes.length > 0, "경로를 하나도 못 찾았다 — 이 검사가 헛돌고 있다");
+  for (const file of routes) {
+    const src = readFileSync(new URL(file, apiDir), "utf-8");
+    assert(
+      /\ballow\(request\)/.test(src) && /if\s*\(!\w+\.ok\)\s*return/.test(src),
+      `app/api/${file}: 문지기(allow)를 안 부른다 — 이 문은 열려 있다`,
+    );
+  }
+  console.log(
+    `PASS: the API stays shut unless a real token is configured and sent (${routes.length} routes gated)`,
+  );
 
   const raw = process.env.TEST_DATABASE_URL;
   assert(raw, "TEST_DATABASE_URL is required (never uses DATABASE_URL)");
@@ -538,6 +564,84 @@ async function main() {
       "같은 목록의 다른 요리도 남는다",
     );
     console.log("PASS: deleting a recipe that is still in a list");
+
+    /*
+      만들었어요 — **화면과 API 가 같은 걸 부른다.**
+
+      예전에는 이 일이 서버 액션 안에 있었다 (app/actions.ts markCooked).
+      네이티브 앱은 서버 액션을 못 쓰니 `app/api/cooked` 가 따로 필요한데,
+      로직이 액션 안에 있으면 저쪽에 한 벌을 더 쓰게 된다 — 그러면
+      캐시를 고치는 SQL 이 두 군데가 되고 한쪽만 고쳐진다.
+      그래서 `recipes.cooked` 로 빼냈다. 여기서 그 한 벌을 잰다.
+    */
+    const [fresh] = await query<{ id: number }>(
+      `INSERT INTO recipe (title, status) VALUES ('UXTEST 만들어볼 것', 'WISH')
+       RETURNING id`,
+    );
+    extra.push(fresh.id);
+
+    await cooked(fresh.id, "2026-07-20");
+    const [once] = await query<{
+      status: string;
+      cook_count: number;
+      last_cooked_on: string | null;
+    }>(
+      `SELECT status, cook_count, last_cooked_on::text AS last_cooked_on
+         FROM recipe WHERE id = $1`,
+      [fresh.id],
+    );
+    assert.equal(once.status, "GOOD", "WISH 였으면 GOOD 으로 올라간다 — 만들어봤으니 탭 2 로 간다");
+    assert.equal(once.cook_count, 1, "캐시가 이력을 따라온다");
+    assert.equal(once.last_cooked_on, "2026-07-20", "고른 날짜로 적힌다 — 오늘이 아니다");
+
+    // 더 옛날 것을 나중에 적어도 `last_cooked_on` 은 제일 최근이어야 한다.
+    // +1 로 더하는 구현은 여기서 안 걸리지만 MAX 를 안 쓰면 여기서 걸린다.
+    await cooked(fresh.id, "2026-05-01");
+    const [twice] = await query<{ cook_count: number; last_cooked_on: string }>(
+      `SELECT cook_count, last_cooked_on::text AS last_cooked_on
+         FROM recipe WHERE id = $1`,
+      [fresh.id],
+    );
+    assert.equal(twice.cook_count, 2, "두 번 만들었으면 2 다");
+    assert.equal(
+      twice.last_cooked_on,
+      "2026-07-20",
+      "**이력에서 다시 센다** — 나중에 적은 옛날 기록이 최근 날짜를 밀어내면 안 된다",
+    );
+
+    /*
+      날짜를 안 고르면 **한국 기준 오늘**이다. `CURRENT_DATE` 는 서버
+      시계(UTC)라 한국 새벽 0~9시에 어제로 적히고, 그 하루가 그대로
+      "어제 만들었어요" 라는 문장이 된다.
+
+      **같은 SQL 을 여기 다시 쓰지 않는다.** `(now() AT TIME ZONE
+      'Asia/Seoul')::date` 로 재면 구현을 베껴 적는 것이라 둘 다 UTC 로
+      바뀌어도 통과한다. 앱의 시계인 순수 함수(`todayInput`)로 잰다.
+
+      **이 시험에는 한계가 있다:** UTC 와 한국 날짜가 같은 시간대(UTC
+      00~15시)에 돌리면 `CURRENT_DATE` 로 바꿔도 안 걸린다. CI 가 도는
+      시각을 우리가 못 정해서 남겨둔 구멍이다 — 하루 중 9시간은 잡는다.
+    */
+    await cooked(fresh.id);
+    const [today] = await query<{ on: string }>(
+      `SELECT MAX(cooked_on)::text AS on FROM cook_log WHERE recipe_id = $1`,
+      [fresh.id],
+    );
+    assert.equal(
+      today.on,
+      todayInput(),
+      "날짜를 안 고르면 한국 기준 오늘로 적힌다 (서버 시계가 아니라)",
+    );
+
+    // 이미 GOOD 인 것을 또 만들어도 상태는 안 건드린다 (BAD 도 마찬가지).
+    await query(`UPDATE recipe SET status = 'BAD' WHERE id = $1`, [fresh.id]);
+    await cooked(fresh.id);
+    const [kept] = await query<{ status: string }>(
+      `SELECT status FROM recipe WHERE id = $1`,
+      [fresh.id],
+    );
+    assert.equal(kept.status, "BAD", "WISH 일 때만 올린다 — 다른 상태는 그대로 둔다");
+    console.log("PASS: cooking is recorded once, in Korean time, and the cache is recounted");
 
     /*
       지난 주 — 끝낸 장보기를 지우지 않는다. 목록 하나가 지난 한 주다.

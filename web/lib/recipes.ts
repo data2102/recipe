@@ -182,6 +182,50 @@ export async function remove(id: number): Promise<void> {
   });
 }
 
+/**
+ * 만들었어요 — 사용자가 하는 두 가지 일 중 하나다 (지시서 1장).
+ *
+ * 날짜를 고를 수 있어야 한다. 그날 체크를 못 하고 다음날 하는 경우가
+ * 흔하고, 초기 데이터를 채울 때도 "두 달 전쯤" 이 필요하다 (지시서 3장).
+ * 정확할 필요는 없다 — 순서만 맞으면 정렬은 작동한다.
+ *
+ * `cookedOn` 이 null 이면 **한국 기준 오늘**이다. `CURRENT_DATE` 는 서버
+ * 시계(UTC)라 한국 새벽 0~9시에 어제로 적힌다.
+ *
+ * WISH 였으면 GOOD 으로 올린다. 만들어봤다는 건 탭 2 로 간다는 뜻이다.
+ * "별로였어요" 를 안 눌렀으니 괜찮았던 걸로 본다 — 별점을 묻지 않는 이유다.
+ *
+ * `recipe.cook_count` · `recipe.last_cooked_on` 은 `cook_log` 의 캐시다.
+ * 이력이 원본이고 캐시는 따라간다 — 그래서 한 트랜잭션 안에서 같이 고치고,
+ * **+1 로 더하지 않고 이력에서 다시 센다** (어긋나면 되돌릴 수 없다).
+ *
+ * 화면(app/actions.ts)과 API(app/api/cooked) 가 **둘 다 이걸 부른다.**
+ * 여기 한 벌만 둔다 — 캐시를 고치는 SQL 이 두 군데면 한쪽만 고쳐진다.
+ */
+export async function cooked(
+  id: number,
+  cookedOn: string | null = null,
+): Promise<void> {
+  await tx(async (q) => {
+    await q(
+      `INSERT INTO cook_log (recipe_id, cooked_on)
+       VALUES ($1, COALESCE($2::date, (now() AT TIME ZONE 'Asia/Seoul')::date))`,
+      [id, cookedOn],
+    );
+    await q(
+      `UPDATE recipe r
+          SET cook_count     = c.n,
+              last_cooked_on = c.latest,
+              status         = CASE WHEN r.status = 'WISH' THEN 'GOOD'
+                                    ELSE r.status END
+         FROM (SELECT COUNT(*) AS n, MAX(cooked_on) AS latest
+                 FROM cook_log WHERE recipe_id = $1) c
+        WHERE r.id = $1`,
+      [id],
+    );
+  });
+}
+
 export async function counts() {
   const [row] = await query<{
     wish: string;
