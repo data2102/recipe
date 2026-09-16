@@ -433,18 +433,42 @@ async function main() {
       **매대 순서.** 칸(BUY/CHECK/HAVE) 안에서는 마트 동선대로 선다 —
       같은 구역을 두 번 안 가려는 것이다.
 
-      예전에는 COALESCE(i.aisle, 'zz') 였는데 거꾸로 돌았다: 한글이 'z' 보다
-      뒤라 ('청과' > 'zz' 가 참) **매대를 모르는 미분류가 맨 위로** 왔다.
+      예전에는 `COALESCE(i.aisle, 'zz')` 로 **파수꾼 문자열**을 세웠다.
+      그게 왜 틀렸나 — 한글이 'zz' 앞에 서는지 뒤에 서는지는 **DB 의
+      콜레이션이 정한다.** 우리가 고르는 값이 아니다:
+
+        C / C.UTF-8 (바이트순)  '청과' > 'zz'  → 참   미분류가 맨 위로
+        en_US.utf8  (어순)      '청과' > 'zz'  → 거짓 우연히 맞게 선다
+
+      이걸 실제로 밟았다. 이 단언을 콜레이션 안 걸고 썼더니 로컬(C.UTF-8)
+      에서는 통과하고 **CI(en_US.utf8) 에서만 빨갛게** 떴다. 시험이 환경을
+      베껴 적고 있었던 것이다.
+
+      그래서 `NULLS LAST` 로 갔다 — **콜레이션과 무관하게** 비어 있는 것이
+      뒤로 간다. 아래 단언이 그 성질을 잰다.
+
+      여기서는 콜레이션을 못 박아(`COLLATE "C"`) 파수꾼이 왜 못 믿을
+      것인지만 보인다. "C" 는 어느 PostgreSQL 에나 있다.
     */
     assert.equal(
-      (await query<{ ok: boolean }>(`SELECT '청과' > 'zz' AS ok`))[0].ok,
+      (await query<{ ok: boolean }>(
+        `SELECT ('청과' COLLATE "C") > ('zz' COLLATE "C") AS ok`,
+      ))[0].ok,
       true,
-      "한글 매대명은 'zz' 보다 뒤다 — 파수꾼 문자열을 쓰면 안 되는 이유",
+      "바이트순에서는 한글이 'zz' 뒤다 — 파수꾼 문자열의 뜻이 DB 마다 달라진다",
     );
     const aisled = await items(thisId);
     const 양파 = aisled.findIndex((i) => i.label === "양파");
     const 미분류 = aisled.findIndex((i) => i.label === "UXTEST 미분류");
     assert(양파 >= 0 && 미분류 >= 0, "둘 다 목록에 있다");
+    /*
+      이게 진짜 재는 것이다. **콜레이션이 무엇이든 성립해야 한다.**
+
+      다만 이 단언이 옛 코드(`COALESCE(aisle,'zz')`)를 **모든 DB 에서
+      잡아내지는 못한다** — 어순 콜레이션에서는 파수꾼도 우연히 맞게
+      서기 때문이다. 옛 코드가 위험한 건 틀려서가 아니라 **DB 에 따라
+      달라져서**다. NULLS LAST 는 그 우연에 기대지 않는다.
+    */
     assert(
       양파 < 미분류,
       "매대를 아는 재료가 먼저 온다 — 모르는 것이 맨 뒤 (NULLS LAST)",
