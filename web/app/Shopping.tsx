@@ -18,12 +18,15 @@ import styles from "./Shopping.module.css";
 export default function Shopping({
   items,
   groups = [],
+  made = 0,
   week = "this",
   byRecipe = false,
   closed = false,
 }: {
   items: ShoppingItem[];
   groups?: RecipeGroup[];
+  /** 이번 주에 이미 만든 메뉴 수. 그 재료는 목록에서 빠져 있다 */
+  made?: number;
   week?: "this" | "next";
   byRecipe?: boolean;
   closed?: boolean;
@@ -134,7 +137,15 @@ export default function Shopping({
   }
 
   function row(item: ShoppingItem) {
-    const uses = groups.filter((g) => g.labels.includes(item.label));
+    /*
+      이 재료를 **아직 안 만든** 요리들. 만든 요리는 빼는 이유는, 그
+      요리 때문에 사는 게 아니기 때문이다 — "다른 요리에도 — 닭볶음탕 ·
+      두부조림" 인데 두부조림은 이미 먹었으면 틀린 말이다. 수량 근거도
+      같은 이유로 여기서 걸러진다.
+    */
+    const uses = groups.filter(
+      (g) => !g.cooked && g.labels.includes(item.label),
+    );
     const quantity =
       uses
         .flatMap((g) =>
@@ -150,7 +161,10 @@ export default function Shopping({
     */
     const locked = pending && busy === item.label;
     return (
-      <li key={`${item.ingredient_id ?? "?"}:${item.label}`} className={styles.line}>
+      <li
+        key={`${item.ingredient_id ?? "?"}:${item.label}`}
+        className={styles.line}
+      >
         <div className={styles.itemHead}>
           {item.bucket === "HAVE" && !item.checked ? (
             <span className={styles.name}>
@@ -197,8 +211,7 @@ export default function Shopping({
         */}
         {uses.length > 1 && (
           <p className={styles.reason}>
-            다른 요리에도 —{" "}
-            {uses.map((g) => g.title).join(" · ")}
+            다른 요리에도 — {uses.map((g) => g.title).join(" · ")}
           </p>
         )}
       </li>
@@ -243,28 +256,47 @@ export default function Shopping({
         줄마다 붙는 **"수량 확인 필요"** 가 이미 하고 있다.
       */}
       {byRecipe ? (
-        groups.map((g) => (
-          <section key={g.recipe_id} className="ds-card">
-            <Fold
-              title={g.title}
-              hint={`남은 항목 ${remaining(shown.filter((i) => g.labels.includes(i.label)))}개`}
-            >
-            <ul className={styles.list}>
-              {boughtLast(shown.filter((i) => g.labels.includes(i.label))).map(
-                row,
-              )}
-            </ul>
-            {!g.labels.length && (
-              <p>
-                재료가 아직 없어요.{" "}
-                <Link href={`/recipe/${g.recipe_id}?week=${week}`}>
-                  레시피 확인하기
-                </Link>
-              </p>
-            )}
-            </Fold>
-          </section>
-        ))
+        groups.map((g) => {
+          const mine = shown.filter((i) => g.labels.includes(i.label));
+          return (
+            <section key={g.recipe_id} className="ds-card">
+              <Fold
+                title={g.title}
+                hint={
+                  g.cooked ? "만들었어요" : `남은 항목 ${remaining(mine)}개`
+                }
+              >
+                {/*
+                  **만든 요리는 재료 줄을 안 그린다.** 그 재료는 합친
+                  목록에서 이미 빠졌다 (`lib/shopping.ts` NEED_SQL) —
+                  빈 목록만 나오면 "왜 비었지" 가 된다.
+
+                  다른 요리도 쓰는 재료는 남아 있는데, 그건 **그 요리 밑에**
+                  나온다. 여기서 또 내면 같은 걸 두 번 보게 된다.
+                */}
+                {g.cooked ? (
+                  <p className={styles.note}>
+                    만들어서 장보기에서 뺐어요.
+                    {mine.length > 0 &&
+                      ` 다른 요리에도 쓰는 ${mine.length}개는 그 요리에 남아 있어요.`}
+                  </p>
+                ) : (
+                  <>
+                    <ul className={styles.list}>{boughtLast(mine).map(row)}</ul>
+                    {!g.labels.length && (
+                      <p>
+                        재료가 아직 없어요.{" "}
+                        <Link href={`/recipe/${g.recipe_id}?week=${week}`}>
+                          레시피 확인하기
+                        </Link>
+                      </p>
+                    )}
+                  </>
+                )}
+              </Fold>
+            </section>
+          );
+        })
       ) : (
         <>
           {(["BUY", "CHECK"] as const).map((bucket) => {
@@ -311,9 +343,7 @@ export default function Shopping({
           */}
           {shown.some((i) => i.checked) && (
             <section className={styles.group}>
-              <h2 className={styles.bucket}>
-                구매했어요 · {checked}
-              </h2>
+              <h2 className={styles.bucket}>구매했어요 · {checked}</h2>
               <ul className={styles.list}>
                 {shown.filter((i) => i.checked).map(row)}
               </ul>
@@ -343,6 +373,18 @@ export default function Shopping({
             </button>
           </div>
         </div>
+      )}
+
+      {/*
+        **뺀 것은 말해준다.** 담았는데 재료가 안 보이면 "내가 뭘 잘못
+        눌렀나" 가 된다. 요리별 보기는 요리마다 "만들었어요" 라고 이미
+        적으므로 합친 목록에서만 낸다 — 같은 말을 두 번 하지 않는다.
+
+        머리말이 아니라 **목록 끝**이다. 마트에서 여는 화면의 위쪽은
+        비워둔다 (docs/ui-references.md 9장).
+      */}
+      {!byRecipe && made > 0 && (
+        <p className={styles.note}>만든 메뉴 {made}개의 재료는 뺐어요.</p>
       )}
 
       {!closed && (

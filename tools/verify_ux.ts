@@ -758,6 +758,97 @@ async function main() {
     console.log("PASS: past weeks are kept and reopening only flips the status");
 
     /*
+      **만든 메뉴의 재료는 장보기에서 내려간다.**
+
+      쓰는 사람이 말한 것: 다음 주 식단을 미리 못 정해서 그때그때 담을
+      때가 있고, 중간에 메뉴가 바뀌기도 한다. 담으면 장보기에 재료가
+      붙는 건 맞는데, **그걸 오늘 만들어버리면** 이미 먹은 메뉴의 재료가
+      "사야 해요" 에 남아서 다음에 마트에서 또 산다.
+
+      같이 재는 것 넷:
+       · 만든 메뉴만 쓰는 재료는 **빠진다**
+       · 다른 요리도 쓰는 재료는 **남는다** (셋 다 만들어야 뺀다)
+       · 이미 체크한 줄은 **안 지운다** (산 것이 소리 없이 사라지면 안 된다)
+       · **그 주 안에** 만든 것만 센다 — 이번 주에 만든 게 다음 주 목록을
+         비우면 안 된다
+    */
+    const twins = await query<{ id: number }>(
+      `INSERT INTO recipe (title, status) VALUES
+         ('UXTEST 만든 메뉴', 'WISH'), ('UXTEST 안 만든 메뉴', 'WISH')
+       RETURNING id`,
+    );
+    const [madeR, keepR] = twins.map((r) => r.id);
+    extra.push(madeR, keepR);
+    await query(
+      `INSERT INTO recipe_ingredient (recipe_id, raw_name, ingredient_id, origin, confirmed)
+       VALUES ($1, '양파', $3, 'LIST', true),
+              ($1, 'UXTEST 뺄재료', NULL, 'LIST', true),
+              ($1, 'UXTEST 산재료', NULL, 'LIST', true),
+              ($2, '양파', $3, 'LIST', true)`,
+      [madeR, keepR, ing.id],
+    );
+    await addRecipe(madeR, "this");
+    await addRecipe(keepR, "this");
+    await addRecipe(madeR, "next");
+
+    const beforeCook = await items(thisId);
+    assert(
+      beforeCook.some((i) => i.label === "UXTEST 뺄재료"),
+      "담기만 하면 재료는 목록에 있다",
+    );
+    // 산 것은 체크해둔다. 이건 만든 뒤에도 남아야 한다.
+    await toggle("UXTEST 산재료", true, "this");
+
+    await cooked(madeR);
+
+    const afterCook = await items(thisId);
+    assert(
+      !afterCook.some((i) => i.label === "UXTEST 뺄재료"),
+      "만든 메뉴만 쓰는 재료는 빠진다",
+    );
+    assert(
+      afterCook.some((i) => i.label === "양파"),
+      "다른 요리도 쓰는 재료는 남는다 — 그 요리 때문에 사야 한다",
+    );
+    assert.equal(
+      afterCook.find((i) => i.label === "UXTEST 산재료")?.checked,
+      true,
+      "이미 체크한 줄은 안 지운다 — 산 것이 사라지면 체크가 풀린 줄 안다",
+    );
+    assert(
+      (await items(nextId)).some((i) => i.label === "UXTEST 뺄재료"),
+      "이번 주에 만든 것이 다음 주 목록을 비우지 않는다",
+    );
+
+    const madeGroup = (await groups(thisId)).find((g) => g.recipe_id === madeR);
+    assert.equal(madeGroup?.cooked, true, "요리별 보기가 만든 요리를 안다");
+    assert.equal(
+      (await groups(thisId)).find((g) => g.recipe_id === keepR)?.cooked,
+      false,
+    );
+    assert.equal(
+      (await picked(thisId)).find((r) => r.id === madeR)?.cooked,
+      true,
+      "화면이 몇 개를 뺐는지 말하려면 담은 목록도 알아야 한다",
+    );
+
+    // **되돌리면 돌아온다.** 저장하지 않고 볼 때마다 세기 때문이다 —
+    // "안 먹었어요" 로 기록을 지우면 재료가 그대로 다시 나온다.
+    await query(`DELETE FROM cook_log WHERE recipe_id = $1`, [madeR]);
+    assert(
+      (await items(thisId)).some((i) => i.label === "UXTEST 뺄재료"),
+      "조리 기록을 지우면 재료가 돌아온다",
+    );
+
+    await toggle("UXTEST 산재료", false, "this");
+    await removeRecipe(madeR, "this");
+    await removeRecipe(keepR, "this");
+    await removeRecipe(madeR, "next");
+    console.log(
+      "PASS: cooked dishes leave the shopping list, shared and bought lines stay",
+    );
+
+    /*
       사진은 조리 기록에 붙는다. 한 번 만들 때 한 장이고, 만든 날 바로
       안 올리는 게 보통이라 며칠 창을 둔다 (photos.ATTACH_WITHIN_DAYS).
     */

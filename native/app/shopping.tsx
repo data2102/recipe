@@ -160,6 +160,12 @@ export default function Shopping() {
     i.label in wish ? { ...i, checked: wish[i.label] } : i,
   );
   const left = remaining(shown);
+  /*
+    이번 주에 이미 만든 메뉴. 그 재료는 서버가 목록에서 빼고 준다
+    (`web/lib/shopping.ts` NEED_SQL) — 웹과 같은 규칙이다. 담았는데
+    재료가 안 보이면 "내가 뭘 잘못 눌렀나" 가 되므로 한 줄로 말해준다.
+  */
+  const made = data.picked.filter((r) => r.cooked).length;
   const bought = shown.filter((i) => i.checked);
   const home = shown.filter((i) => i.bucket === "HAVE" && !i.checked);
 
@@ -184,7 +190,11 @@ export default function Shopping() {
   }
 
   function row(item: ShoppingItem) {
-    const uses = data!.groups.filter((g) => g.labels.includes(item.label));
+    // 이 재료를 **아직 안 만든** 요리들. 만든 요리 때문에 사는 게
+    // 아니므로 뺀다 (웹과 같은 규칙 — `web/app/Shopping.tsx`).
+    const uses = data!.groups.filter(
+      (g) => !g.cooked && g.labels.includes(item.label),
+    );
     const quantity =
       uses
         .flatMap((g) =>
@@ -326,15 +336,25 @@ export default function Shopping() {
 
         {data.items.length === 0 ? (
           <Text style={s.empty}>
-            {data.picked.length > 0
-              ? "담은 요리에 재료가 아직 안 붙어 있어요."
-              : "메뉴 고르기에서 담으면 살 것을 합쳐서 보여드려요."}
+            {/*
+              **다 만든 주를 "재료가 없어요" 라고 말하면 안 된다.** 그때그때
+              정해서 담고 바로 만들면 목록이 통째로 빈다 — 고장이 아니라
+              다 먹었다는 뜻이다 (웹도 같다).
+            */}
+            {made > 0 && made === data.picked.length
+              ? "담은 메뉴를 다 만들었어요. 살 것이 없어요."
+              : data.picked.length > 0
+                ? "담은 요리에 재료가 아직 안 붙어 있어요."
+                : "메뉴 고르기에서 담으면 살 것을 합쳐서 보여드려요."}
           </Text>
         ) : (
           <>
             <Text style={s.note}>
               집에 있는 재료는 ‘집에 있어요’를 눌러 빼주세요.
             </Text>
+            {made > 0 && (
+              <Text style={s.note}>만든 메뉴 {made}개의 재료는 뺐어요.</Text>
+            )}
             {/*
               **판정하지 말고 근거를 보여준다.** 칸 이름이 "없음" 이 아니라
               "있는지 봐주세요" 인 이유다 — 마지막으로 산 게 언제인지는
