@@ -54,3 +54,10 @@ export { NOTE_MAX } from "../../web/lib/notes.types";
 export type { DayNote } from "../../web/lib/notes.types";
 
 export type { PickDay, Placement, Which } from "../../web/lib/plan.types";
+
+/**
+ * "집에 있어요" 를 읽는 규칙. **세 화면이 같은 것을 봐야 한다** —
+ * 답을 쓰는 자리는 장보기 하나고, 식단은 읽기만 한다.
+ */
+export { atHome, nameKey, NO_HAVE } from "../../web/lib/fridge.types";
+export type { Have } from "../../web/lib/fridge.types";

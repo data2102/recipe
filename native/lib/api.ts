@@ -19,7 +19,11 @@
 
 import type {
   Bucket,
+  Have,
+  PickDay,
   PickedRecipe,
+  Placement,
+  Planned,
   RecipeGroup,
   ShoppingItem,
   Which,
@@ -27,6 +31,15 @@ import type {
 
 /** 웹 앱이 도는 주소. 개발 중에는 `http://<내 PC IP>:3000` */
 const BASE = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+
+/**
+ * 사진 주소를 만들 때 쓴다 (`${API_BASE}/photo/<조리기록 id>`).
+ *
+ * `/photo` 는 토큰 문이 아니다 — `<Image>` 가 헤더를 못 붙이기 때문이다.
+ * 대신 **저장 경로가 주소에 안 실린다**: 조리 기록 id 만 받고 경로는
+ * 서버가 DB 에서 찾는다. 버킷은 여전히 비공개다.
+ */
+export const API_BASE = BASE;
 const TOKEN = process.env.EXPO_PUBLIC_API_TOKEN ?? "";
 
 /**
@@ -143,18 +156,24 @@ export const shopping = {
     }),
 };
 
+/** 담긴 요리 한 건 — 어느 주 목록에서 왔는지까지 (옮길 때 저쪽에서 뗀다) */
+export type PlanDish = Pick<
+  Planned,
+  "title" | "past" | "cooked" | "items"
+> & {
+  recipeId: number;
+  week: Which;
+  /** 그 요일이 실제로 며칠인가. 요일을 안 정했으면 null */
+  date: string | null;
+};
+
 export type PlanScreen = {
+  /** 오늘 — **서버가 말해준다.** 폰 시계가 틀어져 있어도 앱의 시계는 하나다 */
   today: string;
   days: { date: string; week: Which; note: string }[];
-  dishes: {
-    recipeId: number;
-    title: string;
-    week: Which;
-    date: string | null;
-    past: boolean;
-    cooked: boolean;
-    items: { label: string; have: boolean }[];
-  }[];
+  dishes: PlanDish[];
+  /** 주별 "집에 있어요". 식단은 **읽기만** 한다 — 쓰는 자리는 장보기다 */
+  excluded: Record<Which, Have>;
 };
 
 export const plan = {
@@ -179,5 +198,99 @@ export const plan = {
 
 export const cooked = (recipeId: number, date?: string) =>
   call<{ recipeId: number }>("/api/cooked", { json: { recipeId, date } });
+
+/* ---------------------------------------------------------------- */
+/*  메뉴 고르기 · 레시피                                              */
+/* ---------------------------------------------------------------- */
+
+/** 목록 카드 한 장. `ingredients` 는 **원문 표기**다 (원칙 ①) */
+export type RecipeCard = {
+  id: number;
+  title: string;
+  status: "WISH" | "GOOD" | "BAD";
+  source_url: string | null;
+  last_cooked_on: string | null;
+  cook_count: number;
+  ingredients: string[];
+  created_at: string;
+  /** 있으면 `/photo/<이 값>` 이 표지 사진이다 */
+  photoId: number | null;
+};
+
+export type RecipesScreen = {
+  today: string;
+  recipes: RecipeCard[];
+  counts: { wish: number; good: number; bad: number; ingredients: number };
+  /** 날짜 고르기 판이 쓸 것 — 열나흘 + 그날 메모 + 그날 담긴 메뉴 */
+  days: PickDay[];
+  /** 레시피 id -> 이미 담긴 자리 */
+  placed: Record<number, Placement[]>;
+};
+
+export type DetailItem = {
+  raw_name: string;
+  raw_qty: string | null;
+  section: string | null;
+  /** 장보기에 넣기로 한 것인가. 뺀 것도 레시피에는 그대로 남는다 */
+  confirmed: boolean;
+  choice_group: string | null;
+  origin: string;
+};
+
+export type RecipeDetail = RecipeCard & {
+  items: DetailItem[];
+  steps: string[];
+  photos: { id: number; cooked_on: string }[];
+  /** 사진을 올리면 이 날짜에 붙는다. null 이면 오늘 기록이 새로 생긴다 */
+  attachesTo: string | null;
+  days: PickDay[];
+  placed: Placement[];
+};
+
+export const recipes = {
+  read: () => call<RecipesScreen>("/api/recipes"),
+  one: (id: number) => call<RecipeDetail>(`/api/recipes/${id}`),
+  /** **되돌릴 수 없다.** 화면이 한 번 더 물어야 한다 */
+  remove: (id: number) =>
+    call<{ id: number }>(`/api/recipes/${id}`, { method: "DELETE" }),
+};
+
+/* ---------------------------------------------------------------- */
+/*  지난 주                                                           */
+/* ---------------------------------------------------------------- */
+
+export type PastWeek = {
+  id: number;
+  opened_on: string;
+  closed_on: string | null;
+  bought: number;
+};
+
+export type PastDish = {
+  list_id: number;
+  recipe_id: number;
+  title: string;
+  /** 0=월 … 6=일. 안 정했으면 null */
+  day: number | null;
+  cooked: boolean;
+};
+
+export const weeks = {
+  read: () =>
+    call<{
+      weeks: PastWeek[];
+      dishes: PastDish[];
+      notes: Record<string, string>;
+    }>("/api/weeks"),
+
+  /**
+   * 끝낸 주를 다시 연다. **장보기의 되돌리기와 다른 문이다** — 저기는
+   * 이번 주뿐이라 날짜로 찾고, 여기는 지난 아무 주나라 목록 id 로 말한다.
+   */
+  reopen: (listId: number) =>
+    call<{ listId: number; closed: string | null }>("/api/weeks/reopen", {
+      json: { listId },
+    }),
+};
 
 export type { Bucket };

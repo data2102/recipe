@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow } from "@/lib/api/guard";
+import { allow, oops } from "@/lib/api/guard";
 import { dishesOf, past } from "@/lib/weeks";
 import { notes } from "@/lib/notes";
 import { addDays } from "@/lib/say";
@@ -42,9 +42,6 @@ export async function GET(request: Request) {
       notes: note,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "지난 주를 못 읽었어요" },
-      { status: 500 },
-    );
+    return oops(e, "지난 주를 못 읽었어요");
   }
 }

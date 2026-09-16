@@ -76,6 +76,14 @@ export default function Layout() {
             tabBarLabel: ({ focused }) => label("장보기", focused),
           }}
         />
+
+        {/*
+          탭이 아닌 화면들. **탭바에 안 올린다** — 화면은 셋이라는 규칙은
+          그대로다. 지난 주는 식단에서, 레시피 상세는 목록에서 들어간다.
+          `href: null` 이 그 뜻이다 (경로는 살아 있고 칸만 없다).
+        */}
+        <Tabs.Screen name="weeks" options={{ href: null }} />
+        <Tabs.Screen name="recipe/[id]" options={{ href: null }} />
       </Tabs>
     </SafeAreaProvider>
   );

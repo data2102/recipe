@@ -182,6 +182,25 @@ async function main() {
       `app/api/${file}: 문지기(allow)를 안 부른다 — 이 문은 열려 있다`,
     );
   }
+  /*
+    **날것의 오류가 밖으로 나가나.**
+
+    처음에는 경로마다 `e.message` 를 그대로 돌려줬다. 그게 앱 화면에
+    `connect ECONNREFUSED 127.0.0.1:5432` 로 찍혔다 — DB 가 어디서
+    도는지를 그대로 말한 것이다. 이제 `oops()` 가 로그에 남기고 화면에는
+    우리가 쓴 말만 낸다.
+
+    400 은 다르다 (`bad`) — 거기는 요청이 틀린 것이라 무엇이 틀렸는지
+    말해줘야 고친다. 그래서 500 자리만 센다.
+  */
+  for (const file of routes) {
+    const src = readFileSync(new URL(file, apiDir), "utf-8");
+    assert(
+      !/status:\s*500/.test(src),
+      `app/api/${file}: 500 을 손으로 만든다 — oops() 를 써라 (날것의 오류가 샌다)`,
+    );
+  }
+
   console.log(
     `PASS: the API stays shut unless a real token is configured and sent (${routes.length} routes gated)`,
   );

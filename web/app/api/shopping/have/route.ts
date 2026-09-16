@@ -16,7 +16,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow, bad, body } from "@/lib/api/guard";
+import { allow, bad, body, oops } from "@/lib/api/guard";
 import { setExclusion, type Which } from "@/lib/shopping";
 
 export const dynamic = "force-dynamic";
@@ -39,9 +39,6 @@ export async function POST(request: Request) {
     await setExclusion(label, input.excluded, week);
     return NextResponse.json({ label, excluded: input.excluded, week });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "저장 못 했어요" },
-      { status: 500 },
-    );
+    return oops(e, "저장 못 했어요");
   }
 }

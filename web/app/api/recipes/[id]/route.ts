@@ -12,8 +12,10 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow, bad } from "@/lib/api/guard";
+import { allow, bad, oops } from "@/lib/api/guard";
 import { detail, remove } from "@/lib/recipes";
+import { attachTarget, list as listPhotos } from "@/lib/photos";
+import { pickable } from "@/lib/week";
 
 export const dynamic = "force-dynamic";
 
@@ -33,19 +35,40 @@ export async function GET(
   if (id === null) return bad("레시피를 못 찾겠어요");
 
   try {
-    const found = await detail(id);
+    /*
+      **한 화면에 한 번 왕복.** 상세 화면은 레시피만으로 안 그려진다 —
+      담긴 날짜(담기 버튼), 사진, 사진이 붙을 조리 기록까지 있어야
+      한 장이 완성된다. 폰에서 넷을 따로 물으면 화면이 네 번 덜컹인다.
+      웹 화면도 같은 넷을 한 번에 가져온다 (app/recipe/[id]/page.tsx).
+    */
+    const [found, photos, attach, dates] = await Promise.all([
+      detail(id),
+      listPhotos(id),
+      attachTarget(id),
+      pickable(),
+    ]);
     if (!found) {
       return NextResponse.json(
         { error: "없는 레시피예요. 지웠을 수도 있어요" },
         { status: 404 },
       );
     }
-    return NextResponse.json(found);
+    return NextResponse.json({
+      ...found,
+      /** 사진은 `/photo/<조리기록 id>` 로 받는다 — 저장 경로는 안 나간다 */
+      photos,
+      /**
+       * 사진을 올리면 **이 날짜에 붙는다.** 미리 말해줘야 한다 —
+       * 버튼을 누르고 나서 "어제 만든 걸로 기록됐어요" 는 늦다.
+       * null 이면 오늘 기록이 새로 생긴다.
+       */
+      attachesTo: attach?.cooked_on ?? null,
+      /** 담기 버튼이 쓸 것 — 열나흘과 이 레시피가 이미 잡힌 자리 */
+      days: dates.days,
+      placed: dates.placed[id] ?? [],
+    });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "레시피를 못 읽었어요" },
-      { status: 500 },
-    );
+    return oops(e, "레시피를 못 읽었어요");
   }
 }
 
@@ -64,9 +87,6 @@ export async function DELETE(
     // 없는 것을 지워도 결과는 같다 — 없다. 폰이 두 번 보내도 탈이 없게.
     return NextResponse.json({ id, removed: true });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "지우지 못했어요" },
-      { status: 500 },
-    );
+    return oops(e, "지우지 못했어요");
   }
 }

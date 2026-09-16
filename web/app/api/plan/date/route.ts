@@ -12,7 +12,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow, bad, body } from "@/lib/api/guard";
+import { allow, bad, body, oops } from "@/lib/api/guard";
 import { dayIndex } from "@/lib/say";
 import { addRecipe, removeRecipe, whichOf } from "@/lib/shopping";
 import { setDay } from "@/lib/week";
@@ -61,9 +61,6 @@ export async function POST(request: Request) {
     */
     const why = e instanceof Error ? e.message : "";
     if (/foreign key|violates/i.test(why)) return bad("레시피를 못 찾겠어요");
-    return NextResponse.json(
-      { error: why || "담지 못했어요" },
-      { status: 500 },
-    );
+    return oops(e, "담지 못했어요");
   }
 }

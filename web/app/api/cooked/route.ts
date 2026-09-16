@@ -13,7 +13,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow, bad, body } from "@/lib/api/guard";
+import { allow, bad, body, oops } from "@/lib/api/guard";
 import { cooked } from "@/lib/recipes";
 
 export const dynamic = "force-dynamic";
@@ -39,9 +39,6 @@ export async function POST(request: Request) {
   } catch (e) {
     const why = e instanceof Error ? e.message : "";
     if (/foreign key|violates/i.test(why)) return bad("레시피를 못 찾겠어요");
-    return NextResponse.json(
-      { error: why || "기록하지 못했어요" },
-      { status: 500 },
-    );
+    return oops(e, "기록하지 못했어요");
   }
 }

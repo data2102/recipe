@@ -15,7 +15,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow, bad, body } from "@/lib/api/guard";
+import { allow, bad, body, oops } from "@/lib/api/guard";
 import { toggle, type Which } from "@/lib/shopping";
 
 export const dynamic = "force-dynamic";
@@ -43,9 +43,6 @@ export async function POST(request: Request) {
     */
     return NextResponse.json({ label, checked: input.checked, week });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "체크를 저장 못 했어요" },
-      { status: 500 },
-    );
+    return oops(e, "체크를 저장 못 했어요");
   }
 }

@@ -15,7 +15,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow } from "@/lib/api/guard";
+import { allow, oops } from "@/lib/api/guard";
 import { counts, recipeCatalog } from "@/lib/recipes";
 import { pickable } from "@/lib/week";
 import { todayInput } from "@/lib/say";
@@ -44,9 +44,6 @@ export async function GET(request: Request) {
       placed: pick.placed,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "레시피를 못 읽었어요" },
-      { status: 500 },
-    );
+    return oops(e, "레시피를 못 읽었어요");
   }
 }

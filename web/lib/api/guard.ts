@@ -103,3 +103,24 @@ export async function body(
 export function bad(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
+
+/**
+ * 우리가 터졌을 때 — **날것의 오류를 밖으로 흘리지 않는다.**
+ *
+ * 처음에는 경로마다 `e.message` 를 그대로 돌려줬다. 그게 앱 화면에
+ * 이렇게 찍혔다:
+ *
+ *     connect ECONNREFUSED 127.0.0.1:5432
+ *
+ * DB 가 어디서 도는지를 그대로 말한 것이다. 제약 이름(`..._fkey`)도
+ * 같은 문제다 — 앱에는 쓸모가 없고 스키마만 샌다.
+ *
+ * **잘못된 요청(400)과 다르다.** 거기는 사람 말로 무엇이 틀렸는지
+ * 적어준다 (`bad`) — 고칠 수 있는 건 말해줘야 고친다. 여기는 사용자가
+ * 고칠 수 있는 게 없는 자리라, 화면에는 다음 걸음만 주고 진짜 이유는
+ * **서버 로그에 남긴다.**
+ */
+export function oops(e: unknown, message: string) {
+  console.error("[api]", message, e);
+  return NextResponse.json({ error: message }, { status: 500 });
+}

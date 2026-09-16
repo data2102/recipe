@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow } from "@/lib/api/guard";
+import { allow, oops } from "@/lib/api/guard";
 import { notes } from "@/lib/notes";
 import { exclusions } from "@/lib/shopping";
 import { horizon } from "@/lib/week";
@@ -54,9 +54,6 @@ export async function GET(request: Request) {
     });
   } catch (e) {
     // 무엇이 잘못됐는지 적는다 — "그냥 안 됐어요" 로는 못 고친다
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "식단을 못 읽었어요" },
-      { status: 500 },
-    );
+    return oops(e, "식단을 못 읽었어요");
   }
 }

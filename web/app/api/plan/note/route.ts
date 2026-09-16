@@ -12,7 +12,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow, bad, body } from "@/lib/api/guard";
+import { allow, bad, body, oops } from "@/lib/api/guard";
 import { setNote } from "@/lib/notes";
 import { NOTE_MAX } from "@/lib/notes.types";
 
@@ -41,9 +41,6 @@ export async function POST(request: Request) {
     */
     return NextResponse.json({ date, note: note.trim().slice(0, NOTE_MAX) });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "메모를 저장 못 했어요" },
-      { status: 500 },
-    );
+    return oops(e, "메모를 저장 못 했어요");
   }
 }

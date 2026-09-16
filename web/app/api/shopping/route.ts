@@ -13,7 +13,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow } from "@/lib/api/guard";
+import { allow, oops } from "@/lib/api/guard";
 import {
   groups as recipeGroups,
   items as shoppingItems,
@@ -60,9 +60,6 @@ export async function GET(request: Request) {
       picked: basket,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "장보기를 못 읽었어요" },
-      { status: 500 },
-    );
+    return oops(e, "장보기를 못 읽었어요");
   }
 }

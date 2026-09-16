@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow, bad, body } from "@/lib/api/guard";
+import { allow, bad, body, oops } from "@/lib/api/guard";
 import { removeRecipe, type Which } from "@/lib/shopping";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +29,6 @@ export async function POST(request: Request) {
     await removeRecipe(id, week);
     return NextResponse.json({ recipeId: id, week, planned: false });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "빼지 못했어요" },
-      { status: 500 },
-    );
+    return oops(e, "빼지 못했어요");
   }
 }
