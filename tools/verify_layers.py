@@ -28,9 +28,16 @@
   2. PURE 에 적힌 파일이 DOM 전역을 쓰는가 (document·window·…)
   3. PURE 가 PURE 아닌 것을 import 하는가 (한 다리 건너 스며드는 경우)
   4. **lib/ 에 새 파일이 생겼는데 어느 층에도 안 적혔는가**
+  5. **네이티브 앱이 순수 아닌 것을 끌어가는가**
 
 4번이 진짜 목적이다. 새 파일을 만들 때 "이건 어느 층인가" 를 한 번
 묻게 만든다. 물어보지 않으면 서버 코드가 순수 층에 슬금슬금 섞인다.
+
+5번은 값이 제일 비싼 것이다. `native/` 는 `web/lib/` 의 순수 파일을
+**복사하지 않고 그대로 읽는다** (metro.config.js). 그 길로 `db.ts` 가
+딸려 들어오면 **접속 문자열이 앱 파일에 실린다.** TypeScript 는 이걸
+안 막는다 — `web/node_modules` 에서 `pg` 타입을 찾아내고 통과시킨다
+(실제로 해봤다). 그래서 여기서 잰다.
 
 표준 라이브러리만 쓴다 (tools/ 의 조건 — API 키 없이 CI 에서 돈다).
 """
@@ -41,6 +48,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LIB = ROOT / "web" / "lib"
+NATIVE = ROOT / "native"
 
 # ---------------------------------------------------------------------
 #  층
@@ -111,7 +119,20 @@ BANNED_GLOBALS = (
     "FileReader",
 )
 
-IMPORT = re.compile(r'^\s*(?:import|export)[^;\n]*?from\s+"([^"]+)"', re.M)
+# 여러 줄로 쓴 import 도 잡는다.
+#
+#     import {
+#       a, b,
+#     } from "...";
+#
+# 한 줄짜리만 잡던 때는 이게 통째로 안 보였다 — RN 화면은 거의 다
+# 여러 줄이라, 못 잡는 게 기본이고 잡는 게 예외였다 (실제로 놓쳤다).
+# `;` 를 안 세는 대신 `{...}` 안에서만 줄을 넘게 해서, 뒤에 오는
+# 문장이 딸려 들어오지 않게 한다.
+IMPORT = re.compile(
+    r'^[ \t]*(?:import|export)\s*(?:\{[^}]*\}|[^;\n]*?)\s*from\s+"([^"]+)"',
+    re.M,
+)
 
 
 def rel(path):
@@ -189,6 +210,34 @@ def main():
         for g in BANNED_GLOBALS:
             if re.search(rf"\b{g}\b", code):
                 problems.append(f"{name}: 순수 층인데 `{g}` 를 쓴다 (브라우저 전역)")
+
+    # 5. 네이티브가 web/lib 에서 무엇을 끌어가나
+    #
+    #    앱의 창구는 `native/lib/pure.ts` 하나다. 거기만 web/lib 을
+    #    import 하고, 다른 파일은 그 창구를 거친다 — 어느 파일이 순수인지
+    #    아는 곳이 한 군데여야 실수도 한 군데서만 난다.
+    if NATIVE.is_dir():
+        gate = "lib/pure.ts"
+        for path in sorted(NATIVE.rglob("*.ts*")):
+            if "node_modules" in path.parts or ".expo" in path.parts:
+                continue
+            here = str(path.relative_to(NATIVE)).replace("\\", "/")
+            for imp in imports_of(path):
+                if "web/lib" not in imp:
+                    continue
+                if here != gate:
+                    problems.append(
+                        f"native/{here}: `web/lib/` 을 직접 import 한다.\n"
+                        f"       앱의 창구는 native/{gate} 하나다 — 거기를 거쳐라"
+                    )
+                    continue
+                wanted = imp.split("web/lib/", 1)[1] + ".ts"
+                if wanted not in PURE:
+                    problems.append(
+                        f"native/{here}: 순수가 아닌 `web/lib/{wanted}` 를 앱으로 끌어간다.\n"
+                        f"       서버 층은 API 뒤에 있어야 한다 — db.ts 가 딸려가면\n"
+                        f"       **접속 문자열이 앱 파일에 실린다**"
+                    )
 
     print(f"  순수 (그대로 옮겨진다)   {len(PURE & found):2d}개")
     print(f"  서버 (API 뒤로 들어간다) {len(SERVER & found):2d}개")

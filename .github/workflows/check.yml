@@ -1,7 +1,8 @@
-# 매 푸시마다 두 가지를 본다.
-#   seed  — 사전·파이프라인·마이그레이션이 실제로 DB 에 올라가는가
-#   web   — 앱이 타입 검사와 빌드를 통과하는가
-# 둘 다 API 키가 필요 없다. 파이프라인 검증은 LLM 자리에 가짜 응답을 넣는다.
+# 매 푸시마다 셋을 본다.
+#   seed   — 사전·파이프라인·마이그레이션이 실제로 DB 에 올라가는가
+#   web    — 앱이 타입 검사와 빌드를 통과하는가
+#   native — 폰 앱이 타입 검사를 통과하고 **진짜로 묶이는가**
+# 셋 다 API 키가 필요 없다. 파이프라인 검증은 LLM 자리에 가짜 응답을 넣는다.
 
 name: check
 
@@ -131,3 +132,52 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/recipe_ux_test
         run: npm run test:ux
+
+  native:
+    name: 폰 앱
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: 의존성
+        run: npm ci
+
+      # 타입 검사는 `web/lib/` 의 순수 파일까지 같이 본다 — 앱이 그것을
+      # 복사하지 않고 **그대로 읽기** 때문이다 (metro.config.js).
+      # 순수 층을 고치면 앱도 여기서 같이 깨진다. 그게 목적이다.
+      - name: 타입 검사
+        run: npx tsc --noEmit
+
+      # **타입만 보면 안 된다.** Metro 는 tsc 와 다른 규칙으로 파일을
+      # 찾는다 (`web/node_modules` 를 안 본다). 실제로 묶어봐야
+      # "타입은 되는데 번들이 안 되는" 것이 걸린다.
+      - name: 번들 (안드로이드)
+        env:
+          EXPO_NO_TELEMETRY: "1"
+          EXPO_OFFLINE: "1"
+        run: npx expo export --platform android --output-dir /tmp/expo-check
+
+      # 서버 코드가 앱 번들에 섞였나. 이게 섞이면 **접속 문자열이
+      # 사용자 기기에 실린다** — 층 경계가 지켜졌는지를 결과물에서 잰다.
+      - name: 번들에 DB 가 안 섞였나
+        run: |
+          bundle=$(ls /tmp/expo-check/_expo/static/js/android/*.hbc \
+                      /tmp/expo-check/_expo/static/js/android/*.js 2>/dev/null | head -1)
+          test -n "$bundle" || { echo "번들을 못 찾았다"; exit 1; }
+          for bad in 'postgres://' 'postgresql://' 'DATABASE_URL' 'shopping_list_recipe'; do
+            if grep -qF "$bad" "$bundle"; then
+              echo "번들에 '$bad' 가 들어 있다 — 서버 층이 앱으로 샜다"
+              exit 1
+            fi
+          done
+          echo "깨끗하다"

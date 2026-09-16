@@ -7,6 +7,12 @@ tools/images/
 *.env
 .env*
 
+# ...하지만 **본보기는 올린다.** 무엇을 채워야 하는지 적어둔 파일이라
+# 빠지면 다음 사람이 환경변수 이름을 코드에서 찾아 헤맨다.
+# (web/.env.example 은 예전에 -f 로 억지로 넣은 것이었다)
+!.env.example
+!**/.env.example
+
 # 파이썬
 __pycache__/
 *.pyc
