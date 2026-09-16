@@ -12,7 +12,7 @@ import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { color, TOUCH } from "../lib/tokens";
+import { TOUCH, useColors, type Colors } from "../lib/tokens";
 
 /**
  * 아이콘 대신 글자를 쓴다.
@@ -24,14 +24,14 @@ import { color, TOUCH } from "../lib/tokens";
  * "메뉴 고르기" 가 세 줄로 접혔다 (실제로 그렇게 나왔다).
  * `numberOfLines={1}` 은 그래도 접히지 않게 하는 마지막 빗장이다.
  */
-function label(text: string, focused: boolean) {
+function label(text: string, focused: boolean, c: Colors) {
   return (
     <Text
       numberOfLines={1}
       style={{
         fontSize: 12,
         fontWeight: focused ? "700" : "500",
-        color: focused ? color.accentStrong : color.textTertiary,
+        color: focused ? c.accentStrong : c.textTertiary,
       }}
     >
       {text}
@@ -40,15 +40,22 @@ function label(text: string, focused: boolean) {
 }
 
 export default function Layout() {
+  /*
+   * 어두운 모드는 폰 설정을 따라간다 (lib/tokens.ts). 앱 안에 스위치는
+   * 없다 — 웹도 같다 (`web/app/globals.css` 의 ⑥).
+   */
+  const c = useColors();
+
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      {/* 위 상태표시줄 글자색. `auto` 가 지금 바탕을 보고 고른다 */}
+      <StatusBar style="auto" />
       <Tabs
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
-            backgroundColor: color.surface,
-            borderTopColor: color.border,
+            backgroundColor: c.surface,
+            borderTopColor: c.border,
           },
           // 아이콘이 없으니 글자가 가운데 오게 그 칸을 비운다
           tabBarIconStyle: { display: "none" },
@@ -59,21 +66,21 @@ export default function Layout() {
           name="index"
           options={{
             title: "식단",
-            tabBarLabel: ({ focused }) => label("식단", focused),
+            tabBarLabel: ({ focused }) => label("식단", focused, c),
           }}
         />
         <Tabs.Screen
           name="recipes"
           options={{
             title: "메뉴 고르기",
-            tabBarLabel: ({ focused }) => label("메뉴 고르기", focused),
+            tabBarLabel: ({ focused }) => label("메뉴 고르기", focused, c),
           }}
         />
         <Tabs.Screen
           name="shopping"
           options={{
             title: "장보기",
-            tabBarLabel: ({ focused }) => label("장보기", focused),
+            tabBarLabel: ({ focused }) => label("장보기", focused, c),
           }}
         />
 

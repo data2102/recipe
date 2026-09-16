@@ -20,14 +20,13 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError, plan as planApi } from "../lib/api";
 import { dateFull, dateTiny, type PickDay, type Placement, type Which } from "../lib/pure";
-import { color, radius, sp, TOUCH } from "../lib/tokens";
+import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 const WEEK_NAME: Record<Which, string> = { this: "이번 주", next: "다음 주" };
 
@@ -60,6 +59,7 @@ export default function PlanSheet({
   /** 서버가 받아준 뒤에 부른다 — 화면이 다시 읽게 */
   onDone: () => void | Promise<void>;
 }) {
+  const { s, c } = useTheme();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState("");
@@ -228,43 +228,43 @@ export default function PlanSheet({
   );
 }
 
-const s = StyleSheet.create({
+const useTheme = themed((c) => ({
   primary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.accentStrong,
+    backgroundColor: c.accentStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[4],
   },
-  primaryText: { color: color.surface, fontSize: 15, fontWeight: "700" },
+  primaryText: { color: c.onAccent, fontSize: 15, fontWeight: "700" },
   secondary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surfaceSunken,
+    backgroundColor: c.surfaceSunken,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[4],
   },
-  secondaryText: { color: color.textSecondary, fontSize: 15, fontWeight: "600" },
+  secondaryText: { color: c.textSecondary, fontSize: 15, fontWeight: "600" },
   /** 줄 안에 얹는 작은 것 (식단의 날짜 버튼) */
   quiet: {
     minHeight: TOUCH,
     justifyContent: "center",
     paddingHorizontal: sp[2],
   },
-  quietText: { color: color.accent, fontSize: 14, fontWeight: "600" },
+  quietText: { color: c.accent, fontSize: 14, fontWeight: "600" },
   dim: { opacity: 0.5 },
 
   scrim: {
     flex: 1,
-    backgroundColor: "rgba(15,17,23,0.45)",
+    backgroundColor: c.scrim,
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     maxHeight: "86%",
@@ -275,21 +275,21 @@ const s = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: radius.pill,
-    backgroundColor: color.borderStrong,
+    backgroundColor: c.borderStrong,
   },
 
   head: { flexDirection: "row", alignItems: "flex-start", gap: sp[3] },
   headText: { flex: 1 },
-  dish: { fontSize: 13, color: color.textTertiary },
-  ask: { fontSize: 20, fontWeight: "700", color: color.text, marginTop: 2 },
+  dish: { fontSize: 13, color: c.textTertiary },
+  ask: { fontSize: 20, fontWeight: "700", color: c.text, marginTop: 2 },
   close: { minHeight: TOUCH, justifyContent: "center", paddingHorizontal: sp[2] },
-  closeText: { color: color.accent, fontSize: 15 },
+  closeText: { color: c.accent, fontSize: 15 },
 
   scroll: { marginTop: sp[3] },
   weekName: {
     fontSize: 13,
     fontWeight: "700",
-    color: color.textTertiary,
+    color: c.textTertiary,
     marginTop: sp[3],
     marginBottom: sp[2],
   },
@@ -300,29 +300,29 @@ const s = StyleSheet.create({
     paddingHorizontal: sp[3],
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: color.border,
+    borderColor: c.border,
     marginBottom: sp[2],
   },
-  mine: { borderColor: color.accent, backgroundColor: color.accentBg },
+  mine: { borderColor: c.accent, backgroundColor: c.accentBg },
   dayHead: { flexDirection: "row", alignItems: "center", gap: sp[2] },
-  when: { fontSize: 15, color: color.text, fontWeight: "600" },
+  when: { fontSize: 15, color: c.text, fontWeight: "600" },
   /** 지난 날도 **고를 수 있다** — "어제 만들었어요" 를 적으러 오기도 한다 */
-  gone: { color: color.textTertiary },
+  gone: { color: c.textTertiary },
   badge: {
     fontSize: 11,
-    color: color.accentStrong,
+    color: c.accentStrong,
     fontWeight: "700",
   },
-  tick: { fontSize: 11, color: color.accentStrong, fontWeight: "700" },
-  what: { fontSize: 13, color: color.textTertiary, marginTop: 2 },
+  tick: { fontSize: 11, color: c.accentStrong, fontWeight: "700" },
+  what: { fontSize: 13, color: c.textTertiary, marginTop: 2 },
 
   warn: {
-    backgroundColor: color.warmBg,
+    backgroundColor: c.warmBg,
     borderRadius: radius.md,
     padding: sp[3],
     marginTop: sp[2],
   },
-  warnText: { color: color.warm, fontSize: 13 },
+  warnText: { color: c.warm, fontSize: 13 },
 
   remove: {
     minHeight: TOUCH,
@@ -330,5 +330,5 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginTop: sp[2],
   },
-  removeText: { color: color.warm, fontSize: 14, fontWeight: "600" },
-});
+  removeText: { color: c.warm, fontSize: 14, fontWeight: "600" },
+}));

@@ -22,7 +22,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -42,7 +41,7 @@ import {
   type RecipeOrder,
 } from "../lib/pure";
 import PlanSheet, { placedLabel } from "../components/PlanSheet";
-import { color, radius, sp, TOUCH } from "../lib/tokens";
+import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 /**
  * 표지 사진. 없으면 유튜브 섬네일, 그것도 없으면 글자로 그린다.
@@ -75,6 +74,7 @@ const FILTERS = [
 ] as const;
 
 export default function Recipes() {
+  const { s, c } = useTheme();
   const [data, setData] = useState<RecipesScreen | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,7 +127,7 @@ export default function Recipes() {
   if (loading && !data) {
     return (
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={color.accent} />
+        <ActivityIndicator color={c.accent} />
       </View>
     );
   }
@@ -194,7 +194,7 @@ export default function Recipes() {
         value={term}
         onChangeText={setTerm}
         placeholder="어떤 요리, 어떤 재료가 당기세요?"
-        placeholderTextColor={color.textDisabled}
+        placeholderTextColor={c.textDisabled}
         returnKeyType="search"
         accessibilityLabel="요리명이나 재료 검색"
       />
@@ -377,31 +377,31 @@ export default function Recipes() {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
+const useTheme = themed((c) => ({
+  screen: { flex: 1, backgroundColor: c.bg },
   center: { alignItems: "center", justifyContent: "center", gap: sp[3] },
   body: { padding: sp[4], gap: sp[2], paddingBottom: sp[12] },
 
   head: { flexDirection: "row", alignItems: "flex-end", gap: sp[3] },
   headText: { flex: 1 },
-  eyebrow: { fontSize: 13, color: color.textTertiary },
-  title: { fontSize: 22, fontWeight: "700", color: color.text },
-  sub: { fontSize: 14, color: color.textSecondary },
+  eyebrow: { fontSize: 13, color: c.textTertiary },
+  title: { fontSize: 22, fontWeight: "700", color: c.text },
+  sub: { fontSize: 14, color: c.textSecondary },
 
   search: {
     minHeight: TOUCH,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     borderRadius: radius.md,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     paddingHorizontal: sp[3],
     fontSize: 15,
-    color: color.text,
+    color: c.text,
     marginTop: sp[2],
   },
 
   chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: sp[2] },
-  sortLabel: { fontSize: 13, color: color.textTertiary },
+  sortLabel: { fontSize: 13, color: c.textTertiary },
 
   /* 접었다 펴는 줄 — 웹의 `.ds-fold` 와 같은 모양이다 */
   foldHead: {
@@ -410,21 +410,21 @@ const s = StyleSheet.create({
     gap: sp[2],
     minHeight: TOUCH,
   },
-  foldLabel: { fontSize: 15, fontWeight: "600", color: color.text },
-  foldHint: { fontSize: 13, color: color.textTertiary },
-  foldChevron: { marginLeft: "auto", fontSize: 13, color: color.textTertiary },
+  foldLabel: { fontSize: 15, fontWeight: "600", color: c.text },
+  foldHint: { fontSize: 13, color: c.textTertiary },
+  foldChevron: { marginLeft: "auto", fontSize: 13, color: c.textTertiary },
   chip: {
     minHeight: TOUCH,
     justifyContent: "center",
     paddingHorizontal: sp[3],
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: color.border,
-    backgroundColor: color.surface,
+    borderColor: c.border,
+    backgroundColor: c.surface,
   },
-  chipOn: { borderColor: color.accent, backgroundColor: color.accentBg },
-  chipText: { fontSize: 13, color: color.textSecondary },
-  chipTextOn: { color: color.accentStrong, fontWeight: "700" },
+  chipOn: { borderColor: c.accent, backgroundColor: c.accentBg },
+  chipText: { fontSize: 13, color: c.textSecondary },
+  chipTextOn: { color: c.accentStrong, fontWeight: "700" },
 
   results: {
     flexDirection: "row",
@@ -433,50 +433,50 @@ const s = StyleSheet.create({
     gap: sp[2],
     marginTop: sp[3],
   },
-  resultsText: { fontSize: 15, fontWeight: "700", color: color.text },
+  resultsText: { fontSize: 15, fontWeight: "700", color: c.text },
 
   card: {
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: sp[3],
     gap: sp[2],
     borderWidth: 1,
     borderColor: "transparent",
   },
-  selected: { borderColor: color.accent },
+  selected: { borderColor: c.accent },
   coverRow: { flexDirection: "row", gap: sp[3] },
-  cover: { width: 84, height: 84, borderRadius: radius.md, backgroundColor: color.surfaceSunken },
+  cover: { width: 84, height: 84, borderRadius: radius.md, backgroundColor: c.surfaceSunken },
   noPhoto: { alignItems: "center", justifyContent: "center", padding: sp[2] },
-  noPhotoText: { fontSize: 11, color: color.textTertiary, textAlign: "center" },
+  noPhotoText: { fontSize: 11, color: c.textTertiary, textAlign: "center" },
   cardBody: { flex: 1, justifyContent: "center" },
-  cardTitle: { fontSize: 16, fontWeight: "600", color: color.text },
-  cardItems: { fontSize: 13, color: color.textTertiary, marginTop: 2 },
-  when: { fontSize: 12, color: color.accentStrong, marginTop: sp[1] },
+  cardTitle: { fontSize: 16, fontWeight: "600", color: c.text },
+  cardItems: { fontSize: 13, color: c.textTertiary, marginTop: 2 },
+  when: { fontSize: 12, color: c.accentStrong, marginTop: sp[1] },
 
   empty: { alignItems: "center", gap: sp[3], paddingVertical: sp[10] },
-  emptyTitle: { fontSize: 16, fontWeight: "600", color: color.text },
+  emptyTitle: { fontSize: 16, fontWeight: "600", color: c.text },
 
   primary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.accentStrong,
+    backgroundColor: c.accentStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[5],
   },
-  primaryText: { color: color.surface, fontSize: 15, fontWeight: "700" },
+  primaryText: { color: c.onAccent, fontSize: 15, fontWeight: "700" },
   secondary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[4],
   },
-  secondaryText: { color: color.textSecondary, fontSize: 14, fontWeight: "600" },
+  secondaryText: { color: c.textSecondary, fontSize: 14, fontWeight: "600" },
 
-  warn: { backgroundColor: color.warmBg, borderRadius: radius.md, padding: sp[3] },
-  warnText: { color: color.warm, fontSize: 13 },
-});
+  warn: { backgroundColor: c.warmBg, borderRadius: radius.md, padding: sp[3] },
+  warnText: { color: c.warm, fontSize: 13 },
+}));

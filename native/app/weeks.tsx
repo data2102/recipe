@@ -20,7 +20,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -40,9 +39,10 @@ import {
   monthWeek,
   whenShort,
 } from "../lib/pure";
-import { color, radius, sp, TOUCH } from "../lib/tokens";
+import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 export default function Weeks() {
+  const { s, c } = useTheme();
   const [data, setData] = useState<{
     weeks: PastWeek[];
     dishes: PastDish[];
@@ -76,7 +76,7 @@ export default function Weeks() {
   if (loading && !data) {
     return (
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={color.accent} />
+        <ActivityIndicator color={c.accent} />
       </View>
     );
   }
@@ -251,25 +251,25 @@ export default function Weeks() {
   );
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
+const useTheme = themed((c) => ({
+  screen: { flex: 1, backgroundColor: c.bg },
   center: { alignItems: "center", justifyContent: "center", gap: sp[3], padding: sp[4] },
   body: { padding: sp[4], gap: sp[2], paddingBottom: sp[12] },
 
   back: { minHeight: TOUCH, justifyContent: "center" },
-  backText: { color: color.accent, fontSize: 15 },
+  backText: { color: c.accent, fontSize: 15 },
 
-  title: { fontSize: 22, fontWeight: "700", color: color.text },
-  sub: { fontSize: 14, color: color.textSecondary, marginBottom: sp[2] },
+  title: { fontSize: 22, fontWeight: "700", color: c.text },
+  sub: { fontSize: 14, color: c.textSecondary, marginBottom: sp[2] },
   empty: {
     fontSize: 14,
-    color: color.textSecondary,
+    color: c.textSecondary,
     textAlign: "center",
     paddingVertical: sp[10],
   },
 
   card: {
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     paddingHorizontal: sp[4],
     marginBottom: sp[2],
@@ -281,24 +281,24 @@ const s = StyleSheet.create({
     minHeight: TOUCH + 12,
     paddingVertical: sp[3],
   },
-  caret: { color: color.textTertiary, fontSize: 16, width: 12 },
+  caret: { color: c.textTertiary, fontSize: 16, width: 12 },
   summaryText: { flex: 1 },
-  when: { fontSize: 16, fontWeight: "600", color: color.text },
-  range: { fontSize: 13, color: color.textTertiary, marginTop: 2 },
+  when: { fontSize: 16, fontWeight: "600", color: c.text },
+  range: { fontSize: 13, color: c.textTertiary, marginTop: 2 },
 
   detail: {
     borderTopWidth: 1,
-    borderTopColor: color.border,
+    borderTopColor: c.border,
     paddingTop: sp[3],
     paddingBottom: sp[4],
     gap: sp[1],
   },
   day: { marginTop: sp[3] },
   dayName: { fontSize: 14 },
-  date: { color: color.text, fontWeight: "700" },
-  weekday: { color: color.textTertiary, fontWeight: "400" },
-  memo: { fontSize: 13, color: color.textSecondary, marginTop: 2 },
-  none: { fontSize: 13, color: color.textTertiary, marginTop: 2 },
+  date: { color: c.text, fontWeight: "700" },
+  weekday: { color: c.textTertiary, fontWeight: "400" },
+  memo: { fontSize: 13, color: c.textSecondary, marginTop: 2 },
+  none: { fontSize: 13, color: c.textTertiary, marginTop: 2 },
 
   dish: {
     flexDirection: "row",
@@ -306,18 +306,18 @@ const s = StyleSheet.create({
     gap: sp[2],
     minHeight: TOUCH,
   },
-  dishTitle: { flex: 1, fontSize: 15, color: color.accent },
-  mark: { fontSize: 11, color: color.textTertiary },
-  markOn: { color: color.accentStrong, fontWeight: "700" },
+  dishTitle: { flex: 1, fontSize: 15, color: c.accent },
+  mark: { fontSize: 11, color: c.textTertiary },
+  markOn: { color: c.accentStrong, fontWeight: "700" },
 
-  bought: { fontSize: 13, color: color.textTertiary, marginTop: sp[4] },
+  bought: { fontSize: 13, color: c.textTertiary, marginTop: sp[4] },
 
   secondary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: color.borderStrong,
+    borderColor: c.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: sp[4],
@@ -325,15 +325,15 @@ const s = StyleSheet.create({
   secondaryBlock: {
     minHeight: TOUCH,
     borderRadius: radius.md,
-    backgroundColor: color.surfaceSunken,
+    backgroundColor: c.surfaceSunken,
     borderWidth: 1,
-    borderColor: color.border,
+    borderColor: c.border,
     alignItems: "center",
     justifyContent: "center",
     marginTop: sp[3],
   },
-  secondaryText: { color: color.textSecondary, fontSize: 14, fontWeight: "600" },
+  secondaryText: { color: c.textSecondary, fontSize: 14, fontWeight: "600" },
 
-  warn: { backgroundColor: color.warmBg, borderRadius: radius.md, padding: sp[3] },
-  warnText: { color: color.warm, fontSize: 13 },
-});
+  warn: { backgroundColor: c.warmBg, borderRadius: radius.md, padding: sp[3] },
+  warnText: { color: c.warm, fontSize: 13 },
+}));
