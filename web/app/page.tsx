@@ -78,6 +78,14 @@ export default async function Home() {
           {dateRange(data.from, data.to)} · 담은 메뉴 {data.picked}개
           {left > 0 ? ` · 안 정한 날 ${left}일` : ""}
         </p>
+        {/*
+          **한 번만 말한다.** 줄마다 "+ 메모" 를 달던 자리를 날짜 누르기로
+          바꿨다 (docs/ui-references.md 9장) — 빈 날이 아홉이면 그 글자가
+          아홉 번 반복됐다. 어떻게 하는지는 여기서 한 줄로 알려준다.
+        */}
+        <p className={styles.hint}>
+          약속이 있는 날은 날짜를 눌러 적어두세요.
+        </p>
       </header>
 
       {data.picked === 0 && (

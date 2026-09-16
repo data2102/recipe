@@ -98,7 +98,6 @@
  * "고치기" 가 21px 이었다 — 엄지로는 못 짚는다. 색은 조용하게 두되
  * 손가락 자리는 44px 로 준다 (지시서 5장: 조용한 것과 작은 것은 다르다).
  */
-.addNote,
 .quiet {
   background: none;
   border: 0;
@@ -107,10 +106,6 @@
   font-size: var(--fs-caption);
   color: var(--text-tertiary);
   cursor: pointer;
-}
-
-.addNote {
-  flex: none;
 }
 
 .noteForm {
@@ -324,4 +319,31 @@
   font-size: var(--fs-caption);
   color: var(--text-tertiary);
   margin: 0 0 var(--sp-2);
+}
+
+
+/*
+ * 적을 게 없는 앞으로의 날 — **줄 전체가 누르는 자리다** (`Plan.tsx`).
+ *
+ * 날짜 글자만 버튼으로 했다가 44px 최소 높이가 줄을 61 → 81px 로
+ * 밀어올렸다. 빈 날 아홉 개면 180px 이다 — 화면을 짧게 하려다 길게
+ * 만들었다 (docs/ui-references.md 9장).
+ *
+ * 줄을 덮는 투명 버튼을 **글자 아래에** 깐다. 높이는 그대로고 누를 데는
+ * 줄 전체가 된다.
+ */
+.tappable {
+  position: relative;
+}
+.dayTap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.dayTap:active {
+  background: var(--surface-sunken);
 }

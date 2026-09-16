@@ -91,35 +91,30 @@
   justify-content: space-between;
   gap: var(--sp-2);
 }
+/*
+ * "집에 있어요" — **버튼처럼 보이게.**
+ *
+ * 테두리 없는 파란 글씨라 버튼인지 설명인지 애매했다
+ * (docs/ui-references.md 9장). 마트에서 자주 누르는 것이라 눌린다는 게
+ * 보여야 한다. 테두리를 주되 칸(체크박스)과 경쟁하지 않게 조용한 색으로 —
+ * 파랑은 **한 줄에 하나**여야 눈이 어디로 갈지 안다.
+ */
 .exclude {
   min-height: 44px;
-  border: 0;
-  background: transparent;
-  color: var(--accent-strong);
-  flex-shrink: 0;
-  padding: var(--sp-2);
-}
-.uses {
-  font-size: var(--fs-caption);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
   color: var(--text-secondary);
-  padding: var(--sp-2) 0;
-  overflow-wrap: anywhere;
-}
-.uses a {
-  color: var(--accent-strong);
-}
-.summary {
-  cursor: pointer;
-  padding: var(--sp-2) 0;
+  font-weight: var(--fw-medium);
+  flex-shrink: 0;
+  padding: var(--sp-2) var(--sp-3);
 }
 
 .line > .reason {
   margin: 0;
   padding: 0 var(--sp-4) var(--sp-2);
 }
-.line .uses {
-  padding: 0 var(--sp-4) var(--sp-3);
-}
+.line 
 .itemHead > .name {
   padding: var(--sp-3) var(--sp-4);
 }
@@ -143,7 +138,6 @@
 }
 .exclude {
   font-size: var(--fs-caption);
-  color: var(--text-secondary);
 }
 .quantities {
   padding: 0 var(--sp-3) var(--sp-1) calc(var(--sp-3) + 22px + var(--sp-3));
@@ -151,24 +145,7 @@
   color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
-.line .uses {
-  padding: 0 var(--sp-3) var(--sp-1);
-}
-.uses summary {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: var(--text-secondary);
-}
-.uses summary::before {
-  content: "›";
-  margin-right: var(--sp-2);
-}
-.uses[open] summary::before {
-  content: "⌄";
-}
-
+.line 
 
 .line {
   display: grid;
@@ -182,12 +159,7 @@
   align-self: center;
   padding-bottom: var(--sp-2);
 }
-.line .uses {
-  min-width: 0;
-}
-.uses[open] {
-  grid-column: 1 / -1;
-}
+.line 
 
 .quantityInline {
   display: block;
@@ -196,13 +168,7 @@
   font-weight: var(--fw-regular);
   text-decoration: none;
 }
-.line .uses {
-  grid-column: 1 / -1;
-  padding-left: calc(var(--sp-3) + 22px + var(--sp-3));
-}
-
-
-
+.line 
 
 /* 매대 이름. 칸 제목보다 한 단계 조용하게 — 동선 안내지 분류가 아니다 */
 .aisle {
