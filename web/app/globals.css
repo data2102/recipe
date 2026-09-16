@@ -194,6 +194,48 @@ a.ds-btn {
   --fs-body: 15px;
   --fs-caption: 13px;
   --fs-footnote: 12px;
+
+  /*
+   * 캡션이 안 읽혔다 — 여백 기본값 #8b95a1 은 흰 카드에서 **3.04:1** 이라
+   * WCAG AA(4.5:1)에 못 미친다. 페이지 바탕 위에서는 2.76:1 까지 떨어진다.
+   * 그런데 이 색에 13px 캡션이 거의 전부 걸려 있다 — 날짜, 개수,
+   * "비어 있어요", "보유 확인 전 3". **마트 형광등 아래에서 제일 먼저
+   * 안 보이는 글자다.**
+   *
+   * #626c7a 는 같은 회색 계열에서 한 단계만 내린 것이고
+   * 흰 카드 5.32:1 · 눌린 면 5.09:1 · 페이지 바탕 4.83:1 로 셋 다 넘긴다.
+   *
+   * 여백 원본(app/yeobaek/*.css)은 복사본이라 직접 안 고친다 (CLAUDE.md).
+   * 앱에서 덮어쓸 일은 여기 한 군데에 모은다.
+   */
+  --text-tertiary: #626c7a;
+}
+
+/*
+ * 예전에는 이걸 화면마다 따로 걸었다 — `.compact-page` 와 메뉴 고르기의
+ * `.shell` 이 `--text-tertiary` 를 `--text-secondary` 로 별칭 걸어서
+ * 캡션을 읽히게 만들었다. 그래서 **식단·장보기·고르기만 고쳐져 있고**
+ * 레시피 상세·지난 식단·추가 화면은 그대로 3.04:1 이었다.
+ *
+ * 이제 :root 한 군데서 정하니 그 별칭들은 없앴다. 대신 그 화면들의 캡션은
+ * 7.11:1 에서 5.32:1 로 조금 옅어진다 — 여백이 텍스트를 3단계로 나눈 뜻
+ * (본문 / 보조 / 캡션)이 살아나고, 앱 어디서나 같은 색이 된다.
+ */
+
+/*
+ * 켜진 칩의 글자. 여백 기본은 연한 파랑 배경에 밝은 파랑 글자라
+ * 3.31:1 이다. 진한 쪽으로 바꾸면 5.08:1.
+ */
+.ds-chip.on {
+  color: var(--accent-strong);
+}
+
+/*
+ * 칩도 누르는 것이다. 여백 기본(padding 6px)은 약 33px 이라
+ * 엄지로 집기에 작다 — 마트에서 쓰는 화면의 기준은 44px 이다.
+ */
+.ds-chip {
+  min-height: 44px;
 }
 
 /* Compact meal and shopping surfaces; keep readable type and 44px targets. */
@@ -220,9 +262,6 @@ a.ds-btn {
   outline: 2px solid var(--accent-strong);
   outline-offset: 3px;
   box-shadow: var(--shadow-focus);
-}
-.compact-page {
-  --text-tertiary: var(--text-secondary);
 }
 .has-meal-basket {
   padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
@@ -279,5 +318,27 @@ a.ds-btn {
   }
   .recipe-sheet {
     margin: auto;
+  }
+}
+
+/*
+ * 되돌리기 토스트의 자리.
+ *
+ * 여백 기본은 `bottom: 24px` 인데 우리 화면은 아래에 탭바(56px)가 깔려
+ * 있어서 그 위에 겹쳐 떴다. 탭바 위로 올린다.
+ *
+ * 너비도 잡아준다 — 안 잡으면 글자가 든 칸이 flex 에서 0 으로 줄어들어
+ * **"고춧가루 담았…" 처럼 잘린다.** 이름이 진짜 길 때만 말줄임이 되게.
+ */
+.ds-toast-wrap {
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--sp-3));
+  width: max-content;
+  max-width: min(92vw, 420px);
+}
+
+@media (min-width: 900px) {
+  /* 넓은 화면에서는 탭바가 위로 올라가 있다 */
+  .ds-toast-wrap {
+    bottom: calc(var(--sp-5) + env(safe-area-inset-bottom, 0px));
   }
 }

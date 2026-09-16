@@ -3,6 +3,7 @@
  * TEST_DATABASE_URL must explicitly name a local recipe_ux_test database.
  */
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
 import { sortRecipes } from "../web/lib/recipe-sort";
 import { query } from "../web/lib/db";
 import {
@@ -40,6 +41,7 @@ import {
   searchRecipes,
   recipeCatalog,
   detail,
+  cooked,
   remove as dropRecipe,
 } from "../web/lib/recipes";
 import { picked, removeRecipe } from "../web/lib/shopping";
@@ -58,6 +60,7 @@ import {
   assetKeys,
 } from "../web/lib/parse/store";
 import { loadDictionary, normalize } from "../web/lib/parse/normalize";
+import { allow } from "../web/lib/api/guard";
 import { remaining } from "../web/lib/shopping.types";
 
 async function main() {
@@ -124,6 +127,84 @@ async function main() {
   assert.equal(ingredientSummary([], true), "재료는 링크에서 확인해요");
   assert.equal(ingredientSummary(["양파", "대파"], true), "양파 · 대파");
   console.log("PASS: Korean clock, date arithmetic, and saying it in words");
+  /*
+   * API 문지기 — **토큰 없이는 안 연다.**
+   *
+   * 이 앱에 로그인이 없어도 안전했던 이유는 서버만 DB 에 붙기 때문이다.
+   * 네이티브를 위해 HTTP 문을 내면서 그 전제가 깨지므로, 공유 비밀 하나로
+   * 막는다. 보안 성격이라 사람 기억에 맡기지 않고 여기서 잰다.
+   */
+  const ask = (auth?: string) =>
+    new Request("https://x/api/plan", auth ? { headers: { authorization: auth } } : undefined);
+  const token = "a".repeat(32);
+  const had = process.env.APP_API_TOKEN;
+
+  delete process.env.APP_API_TOKEN;
+  let gate = allow(ask(`Bearer ${token}`));
+  assert.equal(gate.ok, false, "**설정을 깜빡한 배포는 닫혀 있어야 한다**");
+  assert.equal(
+    !gate.ok && gate.response.status,
+    503,
+    "요청이 틀린 게 아니라 문이 아직 안 열린 것이다",
+  );
+
+  process.env.APP_API_TOKEN = "short";
+  assert.equal(allow(ask("Bearer short")).ok, false, "짧은 비밀은 없는 것과 같다");
+
+  process.env.APP_API_TOKEN = token;
+  assert.equal(allow(ask()).ok, false, "헤더가 없으면 거절");
+  assert.equal(allow(ask(token)).ok, false, "Bearer 가 아니면 거절");
+  assert.equal(allow(ask(`Bearer ${"b".repeat(32)}`)).ok, false, "틀린 토큰은 거절");
+  assert.equal(allow(ask(`Bearer ${token.slice(0, -1)}`)).ok, false, "한 글자만 달라도 거절");
+  assert.equal(allow(ask(`bearer ${token}`)).ok, true, "대소문자는 가리지 않는다");
+  assert.equal(allow(ask(`Bearer ${token}`)).ok, true, "맞으면 연다");
+  if (had === undefined) delete process.env.APP_API_TOKEN;
+  else process.env.APP_API_TOKEN = had;
+
+  /*
+    **문지기를 붙이는 걸 깜빡한 경로가 있나.**
+
+    위의 시험은 `allow` 가 제대로 도는지만 잰다. 진짜 사고는 다른
+    데서 난다 — 경로를 새로 만들고 `allow` 를 안 부르는 것. 그러면
+    그 문 하나가 통째로 열려 있고, 아무도 모른다.
+
+    그래서 파일을 읽어서 센다. 새 경로를 만들 때 **한 번 묻게 만드는**
+    것이 목적이다 (tools/verify_layers.py 와 같은 성격).
+  */
+  const apiDir = new URL("../web/app/api/", import.meta.url);
+  const routes = readdirSync(apiDir, { recursive: true, encoding: "utf-8" })
+    .filter((f) => f.endsWith("route.ts"));
+  assert(routes.length > 0, "경로를 하나도 못 찾았다 — 이 검사가 헛돌고 있다");
+  for (const file of routes) {
+    const src = readFileSync(new URL(file, apiDir), "utf-8");
+    assert(
+      /\ballow\(request\)/.test(src) && /if\s*\(!\w+\.ok\)\s*return/.test(src),
+      `app/api/${file}: 문지기(allow)를 안 부른다 — 이 문은 열려 있다`,
+    );
+  }
+  /*
+    **날것의 오류가 밖으로 나가나.**
+
+    처음에는 경로마다 `e.message` 를 그대로 돌려줬다. 그게 앱 화면에
+    `connect ECONNREFUSED 127.0.0.1:5432` 로 찍혔다 — DB 가 어디서
+    도는지를 그대로 말한 것이다. 이제 `oops()` 가 로그에 남기고 화면에는
+    우리가 쓴 말만 낸다.
+
+    400 은 다르다 (`bad`) — 거기는 요청이 틀린 것이라 무엇이 틀렸는지
+    말해줘야 고친다. 그래서 500 자리만 센다.
+  */
+  for (const file of routes) {
+    const src = readFileSync(new URL(file, apiDir), "utf-8");
+    assert(
+      !/status:\s*500/.test(src),
+      `app/api/${file}: 500 을 손으로 만든다 — oops() 를 써라 (날것의 오류가 샌다)`,
+    );
+  }
+
+  console.log(
+    `PASS: the API stays shut unless a real token is configured and sent (${routes.length} routes gated)`,
+  );
+
   const raw = process.env.TEST_DATABASE_URL;
   assert(raw, "TEST_DATABASE_URL is required (never uses DATABASE_URL)");
   const url = new URL(raw);
@@ -367,6 +448,90 @@ async function main() {
     );
     console.log("PASS: one line per name in the merged shopping list");
 
+    /*
+      **매대 순서.** 칸(BUY/CHECK/HAVE) 안에서는 마트 동선대로 선다 —
+      같은 구역을 두 번 안 가려는 것이다.
+
+      예전에는 `COALESCE(i.aisle, 'zz')` 로 **파수꾼 문자열**을 세웠다.
+      그게 왜 틀렸나 — 한글이 'zz' 앞에 서는지 뒤에 서는지는 **DB 의
+      콜레이션이 정한다.** 우리가 고르는 값이 아니다:
+
+        C / C.UTF-8 (바이트순)  '청과' > 'zz'  → 참   미분류가 맨 위로
+        en_US.utf8  (어순)      '청과' > 'zz'  → 거짓 우연히 맞게 선다
+
+      이걸 실제로 밟았다. 이 단언을 콜레이션 안 걸고 썼더니 로컬(C.UTF-8)
+      에서는 통과하고 **CI(en_US.utf8) 에서만 빨갛게** 떴다. 시험이 환경을
+      베껴 적고 있었던 것이다.
+
+      그래서 `NULLS LAST` 로 갔다 — **콜레이션과 무관하게** 비어 있는 것이
+      뒤로 간다. 아래 단언이 그 성질을 잰다.
+
+      여기서는 콜레이션을 못 박아(`COLLATE "C"`) 파수꾼이 왜 못 믿을
+      것인지만 보인다. "C" 는 어느 PostgreSQL 에나 있다.
+    */
+    assert.equal(
+      (await query<{ ok: boolean }>(
+        `SELECT ('청과' COLLATE "C") > ('zz' COLLATE "C") AS ok`,
+      ))[0].ok,
+      true,
+      "바이트순에서는 한글이 'zz' 뒤다 — 파수꾼 문자열의 뜻이 DB 마다 달라진다",
+    );
+    const aisled = await items(thisId);
+    const 양파 = aisled.findIndex((i) => i.label === "양파");
+    const 미분류 = aisled.findIndex((i) => i.label === "UXTEST 미분류");
+    assert(양파 >= 0 && 미분류 >= 0, "둘 다 목록에 있다");
+    /*
+      이게 진짜 재는 것이다. **콜레이션이 무엇이든 성립해야 한다.**
+
+      다만 이 단언이 옛 코드(`COALESCE(aisle,'zz')`)를 **모든 DB 에서
+      잡아내지는 못한다** — 어순 콜레이션에서는 파수꾼도 우연히 맞게
+      서기 때문이다. 옛 코드가 위험한 건 틀려서가 아니라 **DB 에 따라
+      달라져서**다. NULLS LAST 는 그 우연에 기대지 않는다.
+    */
+    assert(
+      양파 < 미분류,
+      "매대를 아는 재료가 먼저 온다 — 모르는 것이 맨 뒤 (NULLS LAST)",
+    );
+    /*
+      **칸이 먼저, 그 안에서 매대.** 자릿수(ORDER BY 4)로 정렬하다가 컬럼을
+      하나 끼워 넣는 순간 조용히 매대 기준으로 정렬됐다 — 실제로 그랬다.
+      순서가 뒤집히면 "사야 해요" 와 "있는지 봐주세요" 가 섞여 나온다.
+    */
+    //  칸이 둘로 갈려야 잴 수 있다 — 양파를 오늘 산 것으로 만들어 CHECK 로
+    //  보낸다 (미분류는 구매 이력이 없으니 BUY 로 남는다).
+    await query(
+      `INSERT INTO purchase (ingredient_id, purchased_on, source)
+       VALUES ($1, (now() AT TIME ZONE 'Asia/Seoul')::date, 'UXTEST-order')`,
+      [ing.id],
+    );
+    const mixed = await items(thisId);
+    const rank = { BUY: 0, CHECK: 1, HAVE: 2 } as const;
+    assert(
+      new Set(mixed.map((i) => i.bucket)).size > 1,
+      "칸이 둘 이상이어야 이 검사가 뜻이 있다",
+    );
+    assert.deepEqual(
+      mixed.map((i) => rank[i.bucket]),
+      [...mixed.map((i) => rank[i.bucket])].sort((x, y) => x - y),
+      "칸이 먼저다 — 매대가 칸을 앞지르면 '사야 해요' 와 '있는지 봐주세요' 가 섞인다",
+    );
+    await query(`DELETE FROM purchase WHERE source = 'UXTEST-order'`);
+    assert(
+      aisled.every((i) => "aisle" in i),
+      "매대가 화면까지 따라온다 (shopping_item 에 굳히지 않는다)",
+    );
+    assert.equal(
+      aisled.find((i) => i.label === "양파")?.aisle,
+      "청과",
+      "사전이 아는 매대를 그대로 낸다",
+    );
+    assert.equal(
+      aisled.find((i) => i.label === "UXTEST 미분류")?.aisle,
+      null,
+      "모르는 건 null 이다 — 지어내지 않는다",
+    );
+    console.log("PASS: known aisles come first, buckets still lead the order");
+
     /* 담기와 빼기는 그 주 목록에만 걸린다 */
     assert.deepEqual(
       (await picked(thisId)).map((r) => r.title),
@@ -442,6 +607,84 @@ async function main() {
       "같은 목록의 다른 요리도 남는다",
     );
     console.log("PASS: deleting a recipe that is still in a list");
+
+    /*
+      만들었어요 — **화면과 API 가 같은 걸 부른다.**
+
+      예전에는 이 일이 서버 액션 안에 있었다 (app/actions.ts markCooked).
+      네이티브 앱은 서버 액션을 못 쓰니 `app/api/cooked` 가 따로 필요한데,
+      로직이 액션 안에 있으면 저쪽에 한 벌을 더 쓰게 된다 — 그러면
+      캐시를 고치는 SQL 이 두 군데가 되고 한쪽만 고쳐진다.
+      그래서 `recipes.cooked` 로 빼냈다. 여기서 그 한 벌을 잰다.
+    */
+    const [fresh] = await query<{ id: number }>(
+      `INSERT INTO recipe (title, status) VALUES ('UXTEST 만들어볼 것', 'WISH')
+       RETURNING id`,
+    );
+    extra.push(fresh.id);
+
+    await cooked(fresh.id, "2026-07-20");
+    const [once] = await query<{
+      status: string;
+      cook_count: number;
+      last_cooked_on: string | null;
+    }>(
+      `SELECT status, cook_count, last_cooked_on::text AS last_cooked_on
+         FROM recipe WHERE id = $1`,
+      [fresh.id],
+    );
+    assert.equal(once.status, "GOOD", "WISH 였으면 GOOD 으로 올라간다 — 만들어봤으니 탭 2 로 간다");
+    assert.equal(once.cook_count, 1, "캐시가 이력을 따라온다");
+    assert.equal(once.last_cooked_on, "2026-07-20", "고른 날짜로 적힌다 — 오늘이 아니다");
+
+    // 더 옛날 것을 나중에 적어도 `last_cooked_on` 은 제일 최근이어야 한다.
+    // +1 로 더하는 구현은 여기서 안 걸리지만 MAX 를 안 쓰면 여기서 걸린다.
+    await cooked(fresh.id, "2026-05-01");
+    const [twice] = await query<{ cook_count: number; last_cooked_on: string }>(
+      `SELECT cook_count, last_cooked_on::text AS last_cooked_on
+         FROM recipe WHERE id = $1`,
+      [fresh.id],
+    );
+    assert.equal(twice.cook_count, 2, "두 번 만들었으면 2 다");
+    assert.equal(
+      twice.last_cooked_on,
+      "2026-07-20",
+      "**이력에서 다시 센다** — 나중에 적은 옛날 기록이 최근 날짜를 밀어내면 안 된다",
+    );
+
+    /*
+      날짜를 안 고르면 **한국 기준 오늘**이다. `CURRENT_DATE` 는 서버
+      시계(UTC)라 한국 새벽 0~9시에 어제로 적히고, 그 하루가 그대로
+      "어제 만들었어요" 라는 문장이 된다.
+
+      **같은 SQL 을 여기 다시 쓰지 않는다.** `(now() AT TIME ZONE
+      'Asia/Seoul')::date` 로 재면 구현을 베껴 적는 것이라 둘 다 UTC 로
+      바뀌어도 통과한다. 앱의 시계인 순수 함수(`todayInput`)로 잰다.
+
+      **이 시험에는 한계가 있다:** UTC 와 한국 날짜가 같은 시간대(UTC
+      00~15시)에 돌리면 `CURRENT_DATE` 로 바꿔도 안 걸린다. CI 가 도는
+      시각을 우리가 못 정해서 남겨둔 구멍이다 — 하루 중 9시간은 잡는다.
+    */
+    await cooked(fresh.id);
+    const [today] = await query<{ on: string }>(
+      `SELECT MAX(cooked_on)::text AS on FROM cook_log WHERE recipe_id = $1`,
+      [fresh.id],
+    );
+    assert.equal(
+      today.on,
+      todayInput(),
+      "날짜를 안 고르면 한국 기준 오늘로 적힌다 (서버 시계가 아니라)",
+    );
+
+    // 이미 GOOD 인 것을 또 만들어도 상태는 안 건드린다 (BAD 도 마찬가지).
+    await query(`UPDATE recipe SET status = 'BAD' WHERE id = $1`, [fresh.id]);
+    await cooked(fresh.id);
+    const [kept] = await query<{ status: string }>(
+      `SELECT status FROM recipe WHERE id = $1`,
+      [fresh.id],
+    );
+    assert.equal(kept.status, "BAD", "WISH 일 때만 올린다 — 다른 상태는 그대로 둔다");
+    console.log("PASS: cooking is recorded once, in Korean time, and the cache is recounted");
 
     /*
       지난 주 — 끝낸 장보기를 지우지 않는다. 목록 하나가 지난 한 주다.

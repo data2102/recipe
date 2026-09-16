@@ -32,6 +32,7 @@
   padding: var(--sp-5) var(--sp-5)
     calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 @media (min-width: 900px) {
@@ -41,6 +42,35 @@
 
   .sheet {
     border-radius: var(--radius-lg);
+  }
+}
+
+/*
+ * 손잡이. 폰에서 판이 뜨면 손이 먼저 여기로 간다.
+ * 끌 수 있는 자리라 눌리는 영역을 넉넉히 준다 (막대 자체는 얇다).
+ */
+.grip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  margin: calc(var(--sp-5) * -1) calc(var(--sp-5) * -1) var(--sp-2);
+  touch-action: none;
+  cursor: grab;
+}
+
+.gripBar {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+}
+
+@media (min-width: 900px) {
+  /* 큰 화면에서는 가운데 상자라 쓸어내릴 일이 없다 */
+  .grip {
+    display: none;
   }
 }
 

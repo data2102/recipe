@@ -4,8 +4,10 @@
  * 사용자가 하는 일은 두 가지다 — 올리고, 만들고 나서 체크한다 (지시서 1장).
  * 여기 있는 게 그 "체크" 다.
  *
- * `recipe.cook_count` · `recipe.last_cooked_on` 은 `cook_log` 의 캐시다.
- * 이력이 원본이고 캐시는 따라간다 — 그래서 한 트랜잭션 안에서 같이 고친다.
+ * **여기에 로직을 두지 마라.** 하는 일은 전부 `lib/` 에 있고 이 파일은
+ * 폼을 값으로 바꿔 넘기고 화면을 터는 자리다. 네이티브 앱은 서버 액션을
+ * 못 쓰고 `app/api/` 를 타는데, 로직이 여기 있으면 저쪽에 한 벌을 더
+ * 쓰게 된다 — 그러면 한쪽만 고쳐진다.
  */
 
 /*
@@ -15,7 +17,6 @@
  * `revalidatePath("/", "layout")` 이 루트 레이아웃 아래를 전부 턴다.
  */
 import { revalidatePath } from "next/cache";
-import { tx } from "@/lib/db";
 import * as notes from "@/lib/notes";
 import * as recipes from "@/lib/recipes";
 import * as shopping from "@/lib/shopping";
@@ -28,41 +29,16 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * 만들었어요.
  *
- * 날짜를 고를 수 있어야 한다 — 그날 체크를 못 하고 다음날 하는 경우가 흔하고,
- * 초기 데이터를 채울 때도 "두 달 전쯤" 이 필요하다 (지시서 3장).
- * 정확할 필요는 없다. 순서만 맞으면 정렬은 작동한다.
- *
- * WISH 였으면 GOOD 으로 올린다. 만들어봤다는 건 탭 2 로 간다는 뜻이다.
- * "별로였어요" 를 안 눌렀으니 괜찮았던 걸로 본다 — 별점을 묻지 않는 이유다.
+ * 하는 일은 `recipes.cooked` 에 있다 — 날짜를 안 골랐을 때 한국 기준
+ * 오늘로 적는 것도, 캐시를 이력에서 다시 세는 것도 거기다. 여기는 화면이
+ * 보낸 폼을 값으로 바꾸고, 끝나면 세 화면을 터는 자리다.
  */
 export async function markCooked(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) throw new Error("레시피를 못 찾았어요");
 
   const raw = String(formData.get("cookedOn") ?? "").trim();
-  const cookedOn = ISO_DATE.test(raw) ? raw : null; // 없으면 DB 기본값 = 오늘
-
-  await tx(async (q) => {
-    await q(
-      // 날짜를 안 골랐으면 오늘이다 — **한국 기준** 오늘 (lib/say.ts TZ).
-      // CURRENT_DATE 는 서버 시계(UTC)라 한국 새벽에 어제로 적힌다.
-      `INSERT INTO cook_log (recipe_id, cooked_on)
-       VALUES ($1, COALESCE($2::date, (now() AT TIME ZONE 'Asia/Seoul')::date))`,
-      [id, cookedOn],
-    );
-    // 캐시는 이력에서 다시 센다. +1 로 더하면 어긋난 뒤 되돌릴 수 없다.
-    await q(
-      `UPDATE recipe r
-          SET cook_count     = c.n,
-              last_cooked_on = c.latest,
-              status         = CASE WHEN r.status = 'WISH' THEN 'GOOD'
-                                    ELSE r.status END
-         FROM (SELECT COUNT(*) AS n, MAX(cooked_on) AS latest
-                 FROM cook_log WHERE recipe_id = $1) c
-        WHERE r.id = $1`,
-      [id],
-    );
-  });
+  await recipes.cooked(id, ISO_DATE.test(raw) ? raw : null);
 
   revalidatePath("/", "layout");
 }

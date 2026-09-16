@@ -217,3 +217,13 @@
   margin-top: var(--sp-6);
   border-top: 1px solid var(--border);
 }
+
+/* 접었다 펴는 줄 (오류 화면의 "무슨 일이 있었나"). 누르는 것이라 44px */
+.summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
