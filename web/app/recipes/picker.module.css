@@ -40,12 +40,6 @@
 .filters button {
   padding: var(--sp-2) var(--sp-3);
 }
-.ingredients summary {
-  min-height: 44px;
-  padding-top: var(--sp-3);
-  cursor: pointer;
-  font-size: var(--fs-caption);
-}
 .results {
   display: flex;
   justify-content: space-between;
@@ -93,27 +87,9 @@
   height: 100%;
   object-fit: cover;
 }
-.noPhoto {
-  height: 100%;
-  padding: var(--sp-3);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--sp-2);
-  color: var(--text-primary);
-}
-.noPhoto span {
-  font-size: var(--fs-footnote);
-  color: var(--text-secondary);
-}
-.noPhoto strong {
-  font-size: var(--fs-heading);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+
+
+
 .cardBody {
   padding: var(--sp-3);
   display: flex;
@@ -145,30 +121,21 @@
   font-size: var(--fs-caption);
   padding: var(--sp-2);
 }
+/*
+ * 담은 결과 — **탭바 위에 또 하나의 바를 두지 않는다.**
+ *
+ * 예전에는 `position: fixed; bottom: 56px` 이라 탭바 바로 위에 떠 있었다.
+ * 하단이 두 겹이고, 거기서 가는 곳(장보기)은 **탭바에 이미 있었다**
+ * (docs/ui-references.md 9장). 목록 끝에 한 줄로 둔다.
+ */
 .basket {
-  position: fixed;
-  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(100%, 1000px);
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  z-index: var(--z-sticky);
-  padding: var(--sp-3) var(--sp-4);
   display: flex;
   justify-content: space-between;
   gap: var(--sp-3);
   align-items: center;
-}
-.basket > div > strong,
-.basket > div > a {
-  display: block;
-}
-.basket > div > a {
-  font-size: var(--fs-footnote);
-  margin-top: var(--sp-1);
-  color: var(--accent-strong);
-  text-decoration: none;
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
 }
 .sr {
   position: absolute;
@@ -193,5 +160,17 @@
   }
 }
 
-.sort { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); font-size: var(--fs-caption); }
-.sort select { width: auto; flex: 1; min-width: 0; min-height: 44px; }
+
+/* 도구 줄의 앞머리 글자 ("정렬", "재료로 좁히기") — 칩이 아니라 이름표다 */
+.basket a {
+  font-size: var(--fs-footnote);
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+/* 도구 줄의 앞머리 글자 ("정렬", "재료로 좁히기") — 칩이 아니라 이름표다 */
+.toolLabel {
+  font-size: var(--fs-footnote);
+  color: var(--text-tertiary);
+  align-self: center;
+}

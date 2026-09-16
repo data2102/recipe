@@ -17,14 +17,15 @@
 
 import { useState } from "react";
 import { dropRecipe, markCooked } from "../../actions";
+import Fold from "../../Fold";
 import styles from "./recipe.module.css";
 
 export default function More({ id, today }: { id: number; today: string }) {
   const [dropping, setDropping] = useState(false);
 
   return (
-    <details className={`ds-card ${styles.more}`}>
-      <summary className={styles.moreHead}>더보기</summary>
+    <section className={`ds-card ${styles.more}`}>
+      <Fold title="더보기">
 
       <form action={markCooked} className={styles.pickDay}>
         <input type="hidden" name="id" value={id} />
@@ -81,6 +82,7 @@ export default function More({ id, today }: { id: number; today: string }) {
           레시피 삭제
         </button>
       )}
-    </details>
+      </Fold>
+    </section>
   );
 }

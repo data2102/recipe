@@ -100,15 +100,17 @@ export default async function Home() {
         today={today}
       />
 
+      {/*
+        **탭바에 이미 있는 곳은 여기 또 적지 않는다.** 예전에는 "메뉴
+        고르기 →" 와 "장보기 →" 가 여기 있었는데, 둘 다 화면 아래
+        탭바에 그대로 있는 곳이다 (docs/ui-references.md 9장).
+
+        지난 주는 탭이 없다 — **화면은 셋**이라는 규칙을 지키려고 탭으로
+        안 올렸고, 그래서 들어가는 길이 여기 하나다.
+      */}
       <nav className={styles.after} aria-label="이어서 할 일">
-        <Link href="/recipes" className={styles.more}>
-          메뉴 고르기 →
-        </Link>
-        <Link href="/shopping" className={styles.more}>
-          장보기 →
-        </Link>
         <Link href="/weeks" className={styles.more}>
-          지난 식단 보기 →
+          지난 주 보기 →
         </Link>
       </nav>
     </main>

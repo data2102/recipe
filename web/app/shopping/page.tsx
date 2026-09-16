@@ -157,9 +157,12 @@ export default async function ShoppingPage({
         </Link>
       </nav>
 
-      <p className={styles.note}>
-        집에 있는 재료는 ‘집에 있어요’를 눌러 빼주세요.
-      </p>
+      {/*
+        예전에는 여기 "집에 있는 재료는 '집에 있어요'를 눌러 빼주세요" 가
+        늘 떠 있었다. 줄마다 그 버튼이 붙어 있어서 **버튼이 스스로 하는
+        말**이고, 마트에서 여는 화면의 머리말을 한 줄 늘릴 값은 아니었다
+        (docs/ui-references.md 9장 — 머리말이 화면의 54% 였다).
+      */}
 
       {data.cart.length > 0 && (
         <nav className={styles.viewSwitch} aria-label="장보기 보기 방식">

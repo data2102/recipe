@@ -20,6 +20,7 @@
 
 import Link from "next/link";
 import { reopenWeek } from "../actions";
+import Fold from "../Fold";
 import { Broken, Setup } from "../Shell";
 import { dbUrl } from "@/lib/db";
 import {
@@ -101,23 +102,21 @@ export default async function WeeksPage() {
           const made = mine.filter((d) => d.cooked).length;
 
           return (
-            <details key={w.id} className="ds-card">
+            <section key={w.id} className="ds-card">
               {/*
                 접힌 채로도 그 주가 어땠는지 한 줄로 알 수 있어야 한다.
                 펼쳐야만 보이면 열두 주를 다 펼쳐보게 된다.
               */}
-              <summary className={weekStyles.when}>
-                {monthWeek(w.opened_on)}
-                <span className={weekStyles.range}>
-                  {w.closed_on
-                    ? `${whenShort(w.closed_on)} 끝냈어요`
-                    : "안 끝냈어요"}
-                  {" · "}
-                  {mine.length > 0
+              <Fold
+                title={monthWeek(w.opened_on)}
+                hint={`${
+                  w.closed_on ? `${whenShort(w.closed_on)} 끝냈어요` : "안 끝냈어요"
+                } · ${
+                  mine.length > 0
                     ? `담은 ${mine.length} · 만든 ${made}`
-                    : "담은 요리 없음"}
-                </span>
-              </summary>
+                    : "담은 요리 없음"
+                }`}
+              >
 
               {/*
                 **그 주 이레를 그대로 적는다.** 예전에는 "연 날 ~ 끝낸 날" 이라
@@ -203,7 +202,8 @@ export default async function WeeksPage() {
                   </button>
                 </form>
               )}
-            </details>
+              </Fold>
+            </section>
           );
         })
       )}

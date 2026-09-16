@@ -168,16 +168,8 @@
 .uses[open] summary::before {
   content: "⌄";
 }
-.help {
-  font-size: var(--fs-caption);
-  color: var(--text-secondary);
-  margin-bottom: var(--sp-3);
-}
-.help summary {
-  cursor: pointer;
-  min-height: 44px;
-  padding: var(--sp-2) 0;
-}
+
+
 .line {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -208,31 +200,9 @@
   grid-column: 1 / -1;
   padding-left: calc(var(--sp-3) + 22px + var(--sp-3));
 }
-.progressHead {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-3);
-}
-.progressHead strong {
-  font-size: var(--fs-heading);
-}
-.progressHead span {
-  font-size: var(--fs-footnote);
-  color: var(--text-secondary);
-}
-.progressCard {
-  position: sticky;
-  top: var(--sp-2);
-  z-index: 1;
-}
-@media (min-width: 900px) {
-  .progressCard {
-    top: 60px;
-  }
-}
+
+
+
 
 /* 매대 이름. 칸 제목보다 한 단계 조용하게 — 동선 안내지 분류가 아니다 */
 .aisle {
@@ -265,4 +235,12 @@
   color: var(--surface);
   text-decoration: underline;
   cursor: pointer;
+}
+
+/*
+ * 진행 막대 — **뭔가 진행됐을 때만** 뜬다 (`Shopping.tsx`).
+ * 예전에는 카드 안에 있었는데 "살 것 3개" 를 부제와 두 번 쓰고 있었다.
+ */
+.slimBar {
+  margin: 0 0 var(--sp-3);
 }

@@ -342,3 +342,47 @@ a.ds-btn {
     bottom: calc(var(--sp-5) + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/*
+ * 접었다 펴는 줄 (`app/Fold.tsx`)
+ *
+ * 여백에 없는 모양이라 여기서 만든다. 앱 곳곳이 `<details>` 를 쓰고
+ * 있었는데, 브라우저 기본 ▶ 삼각형이 붙어서 폰 앱 안에 웹 문서 조각이
+ * 섞인 것처럼 보였다 (docs/ui-references.md 9장).
+ *
+ * **언젠가 여백으로 올릴 자리다** (`app/yeobaek/README.md` 의 "손볼 것").
+ * 그때까지는 이 한 군데만 고친다 — 화면마다 다시 그리지 마라.
+ */
+.ds-fold > .head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  /* 손가락이 닿는 것은 44 이상 (docs/ui-references.md 8장 A4) */
+  min-height: 44px;
+  padding: var(--sp-2) 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.ds-fold > .head > .label {
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+.ds-fold > .head > .hint {
+  /* 접힌 채로도 안에 뭐가 있는지 알 수 있어야 한다 */
+  font-size: var(--fs-footnote);
+  color: var(--text-tertiary);
+}
+.ds-fold > .head > .chevron {
+  /* 꺾쇠는 줄 끝에. 앞에 두면 제목이 밀려 줄마다 들쭉날쭉해 보인다 */
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: var(--fs-footnote);
+}
+.ds-fold > .body {
+  padding-bottom: var(--sp-2);
+}

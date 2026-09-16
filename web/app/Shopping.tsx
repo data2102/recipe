@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { excludeItem, toggleItem } from "./actions";
+import Fold from "./Fold";
 import ShoppingFinish from "./ShoppingFinish";
 import {
   BUCKET_TITLE,
@@ -188,42 +189,37 @@ export default function Shopping({
           )}
         </div>
         {item.reason && <p className={styles.reason}>{item.reason}</p>}
-        <details className={styles.uses}>
-          <summary>사용할 요리 {uses.length}개</summary>
-          {uses.map((g) => (
-            <div key={g.recipe_id}>
-              <Link href={`/recipe/${g.recipe_id}?week=${week}`}>
-                {g.title}
-              </Link>
-              {" · "}
-              {g.quantities
-                .filter((q) => q.label === item.label)
-                .map((q) => q.qty || "수량 확인 필요")
-                .join(" + ")}
-            </div>
-          ))}
-        </details>
+        {/*
+          예전에는 줄마다 "사용할 요리 N개" 접기가 붙어서, 재료가 셋인
+          주에도 세 줄이 더 늘었다. **겹칠 때만** 한 줄로 적는다 —
+          대파가 세 요리에 들어가는 걸 아는 게 목적이고, 한 요리에만
+          쓰는 재료는 말할 게 없다 (폰 앱도 같은 규칙이다).
+        */}
+        {uses.length > 1 && (
+          <p className={styles.reason}>
+            다른 요리에도 —{" "}
+            {uses.map((g) => g.title).join(" · ")}
+          </p>
+        )}
       </li>
     );
   }
 
   return (
     <div>
-      <section
-        className={`ds-card ${styles.progressCard}`}
-        aria-label="장보기 진행"
-      >
-        <div className={styles.progressHead} role="status" aria-live="polite">
-          <strong>{left ? `살 것 ${left}개` : "필요한 재료 준비 끝"}</strong>
-          <span>
-            구매 {checked}개 · 집에 있음{" "}
-            {shown.filter((i) => i.bucket === "HAVE" && !i.checked).length}개
-          </span>
-        </div>
+      {/*
+        **진행 카드를 걷어냈다.** "살 것 3개" 가 화면 부제에 이미 있어서
+        같은 숫자를 두 번 쓰고 있었고, 아무것도 안 산 주에는 빈 막대만
+        자리를 먹었다 (docs/ui-references.md 9장).
+
+        막대는 **뭔가 진행됐을 때만** 남긴다 — 마트에서 몇 개나 남았는지
+        한눈에 보는 값은 있다.
+      */}
+      {confirmed > 0 && (
         <div
-          className="ds-progress"
+          className={`ds-progress ${styles.slimBar}`}
           role="progressbar"
-          aria-label="재료 준비"
+          aria-label={`재료 ${shown.length}개 중 ${confirmed}개 확인`}
           aria-valuemin={0}
           aria-valuemax={shown.length || 1}
           aria-valuenow={confirmed}
@@ -235,25 +231,24 @@ export default function Shopping({
             }}
           />
         </div>
-      </section>
+      )}
       {error && (
         <p className="ds-banner ds-banner-danger" role="alert">
           변경하지 못했어요. 연결을 확인하고 다시 눌러주세요.
         </p>
       )}
-      <details className={styles.help}>
-        <summary>수량 표시 기준</summary>
-        <p className={styles.note}>
-          레시피에 저장된 수량이며, 서로 다른 단위는 그대로 표시해요.
-        </p>
-      </details>
+      {/*
+        "수량 표시 기준" 접기를 걷어냈다. 마트에서 아무도 안 연다 —
+        그리고 그 안에 있던 말("서로 다른 단위는 그대로 표시해요")은
+        줄마다 붙는 **"수량 확인 필요"** 가 이미 하고 있다.
+      */}
       {byRecipe ? (
         groups.map((g) => (
-          <details key={g.recipe_id} className="ds-card">
-            <summary className={styles.summary}>
-              {g.title} · 남은 항목{" "}
-              {remaining(shown.filter((i) => g.labels.includes(i.label)))}개
-            </summary>
+          <section key={g.recipe_id} className="ds-card">
+            <Fold
+              title={g.title}
+              hint={`남은 항목 ${remaining(shown.filter((i) => g.labels.includes(i.label)))}개`}
+            >
             <ul className={styles.list}>
               {boughtLast(shown.filter((i) => g.labels.includes(i.label))).map(
                 row,
@@ -267,7 +262,8 @@ export default function Shopping({
                 </Link>
               </p>
             )}
-          </details>
+            </Fold>
+          </section>
         ))
       ) : (
         <>
@@ -295,18 +291,18 @@ export default function Shopping({
             );
           })}
           {shown.some((i) => i.bucket === "HAVE" && !i.checked) && (
-            <details className="ds-card">
-              <summary className={styles.summary}>
-                집에 있어요 ·{" "}
-                {shown.filter((i) => i.bucket === "HAVE" && !i.checked).length}
-                개
-              </summary>
-              <ul className={styles.list}>
-                {shown
-                  .filter((i) => i.bucket === "HAVE" && !i.checked)
-                  .map(row)}
-              </ul>
-            </details>
+            <section className="ds-card">
+              <Fold
+                title="집에 있어요"
+                hint={`${shown.filter((i) => i.bucket === "HAVE" && !i.checked).length}개`}
+              >
+                <ul className={styles.list}>
+                  {shown
+                    .filter((i) => i.bucket === "HAVE" && !i.checked)
+                    .map(row)}
+                </ul>
+              </Fold>
+            </section>
           )}
           {/*
             **체크한 것은 접지 않는다.** 접어두면 누른 것이 사라져 보여서
@@ -316,7 +312,7 @@ export default function Shopping({
           {shown.some((i) => i.checked) && (
             <section className={styles.group}>
               <h2 className={styles.bucket}>
-                구매했어요 · {shown.filter((i) => i.checked).length}
+                구매했어요 · {checked}
               </h2>
               <ul className={styles.list}>
                 {shown.filter((i) => i.checked).map(row)}
