@@ -78,6 +78,14 @@ export default async function Home() {
           {dateRange(data.from, data.to)} · 담은 메뉴 {data.picked}개
           {left > 0 ? ` · 안 정한 날 ${left}일` : ""}
         </p>
+        {/*
+          **한 번만 말한다.** 줄마다 "+ 메모" 를 달던 자리를 날짜 누르기로
+          바꿨다 (docs/ui-references.md 9장) — 빈 날이 아홉이면 그 글자가
+          아홉 번 반복됐다. 어떻게 하는지는 여기서 한 줄로 알려준다.
+        */}
+        <p className={styles.hint}>
+          약속이 있는 날은 날짜를 눌러 적어두세요.
+        </p>
       </header>
 
       {data.picked === 0 && (
@@ -100,15 +108,17 @@ export default async function Home() {
         today={today}
       />
 
+      {/*
+        **탭바에 이미 있는 곳은 여기 또 적지 않는다.** 예전에는 "메뉴
+        고르기 →" 와 "장보기 →" 가 여기 있었는데, 둘 다 화면 아래
+        탭바에 그대로 있는 곳이다 (docs/ui-references.md 9장).
+
+        지난 주는 탭이 없다 — **화면은 셋**이라는 규칙을 지키려고 탭으로
+        안 올렸고, 그래서 들어가는 길이 여기 하나다.
+      */}
       <nav className={styles.after} aria-label="이어서 할 일">
-        <Link href="/recipes" className={styles.more}>
-          메뉴 고르기 →
-        </Link>
-        <Link href="/shopping" className={styles.more}>
-          장보기 →
-        </Link>
         <Link href="/weeks" className={styles.more}>
-          지난 식단 보기 →
+          지난 주 보기 →
         </Link>
       </nav>
     </main>

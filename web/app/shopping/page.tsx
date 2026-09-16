@@ -109,16 +109,41 @@ export default async function ShoppingPage({
         <h1 className={styles.title}>
           {next ? "다음 주 장보기" : "이번 주 장보기"}
         </h1>
-        <p className={styles.sub}>
-          {dateRange(data.dates[0], data.dates[6])} ·{" "}
-          {data.cart.length === 0
-            ? "담은 요리가 없어요"
-            : data.closed
-              ? "장 다 봤어요"
-              : buy === 0
-                ? "더 살 것이 없어요"
-                : `살 것 ${buy}개`}
-        </p>
+        {/*
+          부제와 보기 전환을 **한 줄에** 둔다. 따로 두면 머리말이 한 줄
+          더 길어지는데, 요리별/합쳐서는 매일 누르는 게 아니다
+          (docs/ui-references.md 9장 — 마트에서 여는 화면이다).
+        */}
+        <div className={styles.subRow}>
+          <p className={styles.sub}>
+            {dateRange(data.dates[0], data.dates[6])} ·{" "}
+            {data.cart.length === 0
+              ? "담은 요리가 없어요"
+              : data.closed
+                ? "장 다 봤어요"
+                : buy === 0
+                  ? "더 살 것이 없어요"
+                  : `살 것 ${buy}개`}
+          </p>
+          {data.cart.length > 0 && (
+            <nav className={styles.viewSwitch} aria-label="장보기 보기 방식">
+              <Link
+                href={`/shopping?${byRecipe}`}
+                className={`ds-chip ${merged ? "" : "on"}`}
+                aria-current={merged ? undefined : "page"}
+              >
+                요리별
+              </Link>
+              <Link
+                href={`/shopping?${flat}`}
+                className={`ds-chip ${merged ? "on" : ""}`}
+                aria-current={merged ? "page" : undefined}
+              >
+                합쳐서
+              </Link>
+            </nav>
+          )}
+        </div>
       </header>
 
       {data.closed && (
@@ -157,28 +182,13 @@ export default async function ShoppingPage({
         </Link>
       </nav>
 
-      <p className={styles.note}>
-        집에 있는 재료는 ‘집에 있어요’를 눌러 빼주세요.
-      </p>
+      {/*
+        예전에는 여기 "집에 있는 재료는 '집에 있어요'를 눌러 빼주세요" 가
+        늘 떠 있었다. 줄마다 그 버튼이 붙어 있어서 **버튼이 스스로 하는
+        말**이고, 마트에서 여는 화면의 머리말을 한 줄 늘릴 값은 아니었다
+        (docs/ui-references.md 9장 — 머리말이 화면의 54% 였다).
+      */}
 
-      {data.cart.length > 0 && (
-        <nav className={styles.viewSwitch} aria-label="장보기 보기 방식">
-          <Link
-            href={`/shopping?${byRecipe}`}
-            className={`ds-chip ${merged ? "" : "on"}`}
-            aria-current={merged ? undefined : "page"}
-          >
-            요리별
-          </Link>
-          <Link
-            href={`/shopping?${flat}`}
-            className={`ds-chip ${merged ? "on" : ""}`}
-            aria-current={merged ? "page" : undefined}
-          >
-            합쳐서
-          </Link>
-        </nav>
-      )}
 
       {data.cart.length > 0 ? (
         merged ? (

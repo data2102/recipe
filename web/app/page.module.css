@@ -204,10 +204,17 @@
 :global(.compact-page) > .note {
   margin: var(--sp-2) 0;
 }
+/* 부제와 한 줄에 선다 — 머리말을 한 줄 아끼려고 (docs/ui-references.md 9장) */
+.subRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
 .viewSwitch {
   display: flex;
   gap: var(--sp-2);
-  margin: var(--sp-3) 0;
 }
 .viewSwitch a {
   text-decoration: none;
@@ -226,4 +233,11 @@
   align-items: center;
   font-size: var(--fs-caption);
   color: var(--text-secondary);
+}
+
+/* 한 번만 하는 안내. 부제보다 한 단계 조용하게 */
+.hint {
+  font-size: var(--fs-footnote);
+  color: var(--text-tertiary);
+  margin: var(--sp-1) 0 0;
 }

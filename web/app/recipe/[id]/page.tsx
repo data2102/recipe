@@ -136,10 +136,18 @@ export default async function RecipePage({
         />
       </section>
       {/*
-        만든 사진이 먼저다. 재료·만드는 법보다 이게 이 요리를 기억하게
-        한다 — "저번에 이렇게 나왔지" 가 다시 만들 이유가 된다.
+        **사진이 있으면 먼저다.** 재료·만드는 법보다 이게 이 요리를
+        기억하게 한다 — "저번에 이렇게 나왔지" 가 다시 만들 이유가 된다
+        (CLAUDE.md). 그 규칙은 그대로다.
+
+        **없으면 아래로 내린다.** 사진이 없을 때 이 카드는 올리기 버튼
+        하나뿐인데, 그게 재료와 만드는 법을 473px 아래로 밀고 있었다
+        (docs/ui-references.md 9장). 읽으러 연 화면에서 제일 위에 있을
+        것은 아니다 — 우리 레시피는 대부분 아직 사진이 없다.
       */}
-      <Photos recipeId={r.id} photos={photos} attachesTo={attachesTo} />
+      {photos.length > 0 && (
+        <Photos recipeId={r.id} photos={photos} attachesTo={attachesTo} />
+      )}
 
       <section className="ds-card">
         <h2 className={styles.cardTitle}>재료</h2>
@@ -187,6 +195,10 @@ export default async function RecipePage({
           </p>
         )}
       </section>
+
+      {photos.length === 0 && (
+        <Photos recipeId={r.id} photos={photos} attachesTo={attachesTo} />
+      )}
 
       <Link
         href={`/recipe/${r.id}?edit=1&week=${week}`}

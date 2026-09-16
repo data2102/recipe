@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useMemo, useState, useOptimistic } from "react";
 import type { RecipeCard } from "@/lib/recipes";
 import type { PickDay, Placement } from "@/lib/plan.types";
+import Fold from "../Fold";
 import PlanButton from "../PlanButton";
 import { sortRecipes, type RecipeOrder } from "@/lib/recipe-sort";
 import { dateTiny } from "@/lib/say";
@@ -40,19 +41,24 @@ function imageFor(r: Card) {
   }
 }
 
+/**
+ * 표지 사진 — **없으면 안 그린다.**
+ *
+ * 예전에는 사진이 없을 때 그 자리에 *제목 + 재료*를 크게 그렸다.
+ * 그런데 바로 아래 본문이 **같은 제목과 재료**를 또 쓴다 — 카드 하나에
+ * 요리 이름이 두 번 나왔다 (docs/ui-references.md 9장).
+ *
+ * 빈 회색 네모로 바꾸지도 않는다. 우리 레시피는 대부분 사진이 없어서
+ * **빈 네모가 줄줄이 늘어선다** — 그건 5장에서 안 가져오기로 한 것이다.
+ * 사진이 있는 카드만 사진을 갖고, 없는 카드는 글자로 선다.
+ */
 function Cover({ recipe }: { recipe: Card }) {
   const [failed, setFailed] = useState(false);
   const src = imageFor(recipe);
-  return src && !failed ? (
+  if (!src || failed) return null;
+  return (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} />
-  ) : (
-    <div className={styles.noPhoto}>
-      <span>
-        {recipe.ingredients.slice(0, 2).join(" · ") || "내가 저장한 요리"}
-      </span>
-      <strong>{recipe.title}</strong>
-    </div>
   );
 }
 
@@ -167,41 +173,69 @@ export default function Picker({
             </button>
           ))}
         </div>
-        <label className={styles.sort}>
-          <span>정렬</span>
-          <select
-            className="ds-input"
-            value={order}
-            onChange={(e) =>
-              setOrders((previous) => ({
-                ...previous,
-                [filter]: e.target.value as RecipeOrder,
-              }))
-            }
-          >
-            <option value="default">
-              {filter === "cooked" ? "만든 일자순 · 오래된 순" : "최근 등록순"}
-            </option>
-            <option value="name">이름순</option>
-          </select>
-        </label>
-        <details className={styles.ingredients}>
-          <summary>
-            재료로 좁혀보기{ingredient ? ` · ${ingredient}` : ""}
-          </summary>
-          <div className={styles.filters}>
-            {ingredients.map((n) => (
-              <button
-                key={n}
-                className={`ds-chip ${ingredient === n ? "on" : ""}`}
-                aria-pressed={ingredient === n}
-                onClick={() => setIngredient(ingredient === n ? "" : n)}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </details>
+        {/*
+          **정렬도 칩이다.** 예전에는 `<select>` 였는데, 바로 윗줄이 이미
+          칩(전체·안 만들어본·만들어본)이라 한 도구 상자 안에서 두 가지
+          모양이 섞여 있었다. 폰에서 누르면 OS 기본 드롭다운이 떠서
+          앱 안에 웹 폼 조각이 낀 것처럼 보이기도 했다.
+
+          **폰 앱(`native/app/recipes.tsx`)이 이미 칩으로 내고 있었다** —
+          웹만 남아서 둘이 갈려 있었다. 이제 같다.
+
+          **오래된 순을 뒤집지 마라 — 그 정렬이 곧 추천이다.**
+          이름순은 찾을 때 쓰는 것이고 기본이 아니다.
+        */}
+        <div className={styles.filters} aria-label="정렬">
+          <span className={styles.toolLabel}>정렬</span>
+          {(
+            [
+              [
+                "default",
+                filter === "cooked" ? "만든 일자순 · 오래된 순" : "최근 등록순",
+              ],
+              ["name", "이름순"],
+            ] as [RecipeOrder, string][]
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              className={`ds-chip ${order === value ? "on" : ""}`}
+              aria-pressed={order === value}
+              onClick={() =>
+                setOrders((previous) => ({ ...previous, [filter]: value }))
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {/*
+          재료 칩은 **접어둔다.** 한 번 펼쳐놨다가 도구 상자가 403 → 463px
+          로 늘어서 되돌렸다 — 여덟 개가 폰 폭에서 두세 줄을 먹고, 그만큼
+          첫 카드가 아래로 밀렸다. 이 화면을 여는 이유는 **요리를 고르는
+          것**이지 도구를 보는 게 아니다.
+
+          접혀 있으면 있는 줄 모른다는 건 맞다. 그래서 몇 가지가 있는지,
+          지금 뭘 골랐는지를 **접힌 줄에 적는다.** 삼각형은 없어졌다.
+
+          그리고 검색창이 이미 재료까지 훑는다 — 칩은 자주 쓰는 여덟 개로
+          가는 지름길이지 유일한 길이 아니다.
+        */}
+        {ingredients.length > 0 && (
+          <Fold title="재료로 좁히기" hint={ingredient || `${ingredients.length}가지`}>
+            <div className={styles.filters}>
+              {ingredients.map((n) => (
+                <button
+                  key={n}
+                  className={`ds-chip ${ingredient === n ? "on" : ""}`}
+                  aria-pressed={ingredient === n}
+                  onClick={() => setIngredient(ingredient === n ? "" : n)}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </Fold>
+        )}
       </div>
 
       <div className={styles.results}>
@@ -228,13 +262,15 @@ export default function Picker({
             key={r.id}
             className={`${styles.card} ${chosen(r.id).length ? styles.selected : ""}`}
           >
-            <Link
-              href={`/recipe/${r.id}`}
-              className={styles.cover}
-              aria-label={`${r.title} 레시피 보기`}
-            >
-              <Cover recipe={r} />
-            </Link>
+            {imageFor(r) && (
+              <Link
+                href={`/recipe/${r.id}`}
+                className={styles.cover}
+                aria-label={`${r.title} 레시피 보기`}
+              >
+                <Cover recipe={r} />
+              </Link>
+            )}
             <div className={styles.cardBody}>
               <Link href={`/recipe/${r.id}`} className={styles.title}>
                 {r.title}
@@ -285,15 +321,18 @@ export default function Picker({
         </section>
       )}
 
-      <aside className={styles.basket} aria-label="담은 결과">
-        <div>
+      {/*
+        담은 결과. **"장보기로 →" 를 걷어냈다** — 탭바에 이미 있는 곳이라
+        같은 목적지가 둘이었다. 남긴 "식단에서 날짜 보기" 는 탭바의 식단과
+        가는 곳은 같지만 **하려는 일이 다르다**: 방금 담은 것의 날짜를
+        보러 가는 길이다.
+      */}
+      {pickedCount > 0 && (
+        <aside className={styles.basket} aria-label="담은 결과">
           <strong>{pickedCount}개 담았어요</strong>
           <Link href="/">식단에서 날짜 보기 →</Link>
-        </div>
-        <Link href="/shopping" className="ds-btn ds-btn-primary">
-          장보기로 →
-        </Link>
-      </aside>
+        </aside>
+      )}
     </main>
   );
 }

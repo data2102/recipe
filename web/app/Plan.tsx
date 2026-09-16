@@ -270,13 +270,23 @@ export default function Plan({
         </p>
       )}
 
-      {days.map((day, i) => (
+      {days.map((day, i) => {
+        /*
+          적을 게 없는 **앞으로의** 날 — 여기를 누르면 메모를 적는다.
+          지난 날은 안 누른다: 지나간 날에 약속을 적을 일은 없다.
+        */
+        const empty =
+          !day.note &&
+          editing !== day.iso &&
+          day.iso >= today &&
+          day.dishes.length === 0;
+        return (
         <div key={day.iso}>
           {i === 7 && <h2 className={styles.weekMark}>다음 주</h2>}
           <section
             className={`${styles.day} ${day.iso === today ? styles.todayDay : ""} ${
               day.iso < today ? styles.pastDay : ""
-            }`}
+            } ${empty ? styles.tappable : ""}`}
           >
             {/*
               빈 날은 한 줄이다. 열나흘마다 "아직 안 정했어요" 를 적으면
@@ -284,6 +294,20 @@ export default function Plan({
               메모 버튼도 날짜 줄 오른쪽에 붙여서 줄을 안 늘린다.
             */}
             <div className={styles.dayHead}>
+              {/*
+                **날짜를 누르면 메모를 적는다.**
+
+                예전에는 줄마다 "+ 메모" 버튼이 붙어 있었다. 빈 날이 아홉
+                개면 그 글자가 아홉 번 반복돼서 오른쪽 열을 통째로 채웠다
+                (docs/ui-references.md 9장). 메모는 가끔 적는 것인데
+                늘 자리를 차지했다.
+
+                날짜 자체를 누르게 한다 — 쓰는 사람이 이미 "그냥 날짜를
+                터치하면" 이라고 말한 방식이고, 담기 판도 같은 식이다.
+                어떻게 하는지는 화면 맨 위 부제가 **한 번** 말한다.
+
+                지난 날은 못 누른다. 지나간 날에 약속을 적을 일은 없다.
+              */}
               <h3 className={styles.dayName}>
                 <span className={styles.date}>{dateSay(day.iso)}</span>
                 <span className={styles.weekday}>
@@ -291,14 +315,23 @@ export default function Plan({
                 </span>
                 {day.iso === today && <span className={styles.badge}>오늘</span>}
               </h3>
-              {!day.note && editing !== day.iso && day.iso >= today && (
+              {/*
+                **줄 전체가 누르는 자리다.** 처음에는 날짜 글자만 버튼으로
+                했는데, 44px 최소 높이가 줄을 61 → 81px 로 밀어올려서
+                빈 날 아홉 개에 180px 이 붙었다 — 화면을 짧게 하려다
+                길게 만든 셈이다.
+
+                줄을 덮는 버튼을 깔면 높이는 그대로고 누를 데는 훨씬
+                넓어진다. 글자 위가 아니라 **아래**에 깔아서(z-index 없이
+                먼저 그린다) 날짜 글자를 고르거나 복사하는 걸 막지 않는다.
+              */}
+              {empty && (
                 <button
                   type="button"
-                  className={styles.addNote}
+                  className={styles.dayTap}
                   onClick={() => setEditing(day.iso)}
-                >
-                  + 메모
-                </button>
+                  aria-label={`${dateFull(day.iso)}에 메모 적기`}
+                />
               )}
             </div>
 
@@ -313,7 +346,8 @@ export default function Plan({
             )}
           </section>
         </div>
-      ))}
+        );
+      })}
 
       {loose.length > 0 && (
         <section className={styles.day}>

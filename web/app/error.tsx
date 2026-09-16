@@ -16,6 +16,7 @@
  */
 
 import Link from "next/link";
+import Fold from "./Fold";
 import styles from "./page.module.css";
 
 export default function Error({
@@ -70,11 +71,12 @@ export default function Error({
         무슨 일이 있었는지는 적어둔다. 안 적으면 "그냥 안 됐어요" 밖에 못
         말하고, 그러면 고칠 수가 없다. 접어두는 건 평소에 볼 것이 아니라서다.
       */}
-      <details className="ds-card">
-        <summary className={styles.summary}>무슨 일이 있었나</summary>
-        <p className={styles.note}>{error.message}</p>
-        {error.digest && <p className={styles.note}>표시: {error.digest}</p>}
-      </details>
+      <section className="ds-card">
+        <Fold title="무슨 일이 있었나">
+          <p className={styles.note}>{error.message}</p>
+          {error.digest && <p className={styles.note}>표시: {error.digest}</p>}
+        </Fold>
+      </section>
     </main>
   );
 }

@@ -85,6 +85,8 @@ export default function Recipes() {
   const [orders, setOrders] = useState<Record<string, RecipeOrder>>({});
   const order = orders[filter] ?? "default";
   const [ingredient, setIngredient] = useState("");
+  /** 재료 칩을 펴뒀나. 접힌 게 기본이다 — 도구가 요리를 밀어내지 않게 */
+  const [pickIngredient, setPickIngredient] = useState(false);
   const [review, setReview] = useState(false);
 
   const router = useRouter();
@@ -238,20 +240,44 @@ export default function Recipes() {
         ))}
       </View>
 
+      {/*
+        재료 칩은 **접어둔다.** 웹에서 펼쳐놨다가 도구 상자가 화면의
+        절반을 먹어서 되돌렸다 — 여덟 개가 폰 폭에서 두세 줄이고, 그만큼
+        첫 카드가 아래로 밀린다. 이 화면을 여는 이유는 **요리를 고르는
+        것**이지 도구를 보는 게 아니다 (docs/ui-references.md 9장).
+
+        접힌 줄에 몇 가지인지·뭘 골랐는지를 적어서 "있는 줄 모르는" 것만
+        막는다. **웹과 같은 모양이어야 한다** (`web/app/Fold.tsx`).
+      */}
       {ingredients.length > 0 && (
-        <View style={s.chips}>
-          <Text style={s.sortLabel}>재료로 좁히기</Text>
-          {ingredients.map((n) => (
-            <Pressable
-              key={n}
-              style={[s.chip, ingredient === n && s.chipOn]}
-              onPress={() => setIngredient(ingredient === n ? "" : n)}
-            >
-              <Text style={[s.chipText, ingredient === n && s.chipTextOn]}>
-                {n}
-              </Text>
-            </Pressable>
-          ))}
+        <View>
+          <Pressable
+            style={s.foldHead}
+            onPress={() => setPickIngredient(!pickIngredient)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: pickIngredient }}
+          >
+            <Text style={s.foldLabel}>재료로 좁히기</Text>
+            <Text style={s.foldHint}>
+              {ingredient || `${ingredients.length}가지`}
+            </Text>
+            <Text style={s.foldChevron}>{pickIngredient ? "⌃" : "⌄"}</Text>
+          </Pressable>
+          {pickIngredient && (
+            <View style={s.chips}>
+              {ingredients.map((n) => (
+                <Pressable
+                  key={n}
+                  style={[s.chip, ingredient === n && s.chipOn]}
+                  onPress={() => setIngredient(ingredient === n ? "" : n)}
+                >
+                  <Text style={[s.chipText, ingredient === n && s.chipTextOn]}>
+                    {n}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -376,6 +402,17 @@ const s = StyleSheet.create({
 
   chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: sp[2] },
   sortLabel: { fontSize: 13, color: color.textTertiary },
+
+  /* 접었다 펴는 줄 — 웹의 `.ds-fold` 와 같은 모양이다 */
+  foldHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: sp[2],
+    minHeight: TOUCH,
+  },
+  foldLabel: { fontSize: 15, fontWeight: "600", color: color.text },
+  foldHint: { fontSize: 13, color: color.textTertiary },
+  foldChevron: { marginLeft: "auto", fontSize: 13, color: color.textTertiary },
   chip: {
     minHeight: TOUCH,
     justifyContent: "center",
