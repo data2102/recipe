@@ -150,11 +150,23 @@ a {
 
 /* --- ④ 시스템에 없는 상태·형태 ------------------------------------ */
 
-/* 링크를 버튼 모양으로 쓸 때 (레시피 추가, 레시피 열기) */
+/* 링크를 버튼 모양으로 쓸 때 (레시피 추가, 레시피 열기).
+   **가운데로 모으는 건 flex 가 해야 한다.** `inline-block` 은 위의
+   `min-height: 48px` 을 상자에만 주고 글자는 **위에 붙여둔다** —
+   `<button>` 은 스스로 가운데로 모으니까 이 어긋남은 링크에만 난다.
+   여백값(14px) 그대로 쓰는 링크는 안쪽 높이가 이미 48px 을 넘어서
+   **우연히** 맞고 있었고, 패딩을 줄인 "+ 레시피" 하나만 한가운데보다
+   5.5px 위에 떠 있었다 (재서 확인했다). 나머지가 멀쩡해 보인 건 규칙이
+   맞아서가 아니라 값이 맞아떨어져서다 — 그래서 값이 아니라 규칙을 고친다 */
 a.ds-btn {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   text-decoration: none;
+}
+a.ds-btn.ds-btn-block {
+  display: flex;
 }
 
 .ds-btn-secondary:hover {

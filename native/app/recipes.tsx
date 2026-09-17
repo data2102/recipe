@@ -14,7 +14,7 @@
  * 담기는 한 번에 끝난다. "+ 담기" 가 날짜를 묻고 고른 날짜로 바로 들어간다.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -84,9 +84,6 @@ export default function Recipes() {
   /** 정렬은 **갈래마다 따로 기억한다.** "만들어본 요리" 의 기본은 오래된 순이다 */
   const [orders, setOrders] = useState<Record<string, RecipeOrder>>({});
   const order = orders[filter] ?? "default";
-  const [ingredient, setIngredient] = useState("");
-  /** 재료 칩을 펴뒀나. 접힌 게 기본이다 — 도구가 요리를 밀어내지 않게 */
-  const [pickIngredient, setPickIngredient] = useState(false);
   const [review, setReview] = useState(false);
 
   const router = useRouter();
@@ -108,21 +105,6 @@ export default function Recipes() {
       void load();
     }, [load]),
   );
-
-  /** 자주 쓰는 재료 여덟. **레시피에 적힌 표기 그대로다** (원칙 ①) */
-  const ingredients = useMemo(() => {
-    if (!data) return [];
-    const counts = new Map<string, number>();
-    data.recipes.forEach((r) =>
-      new Set(r.ingredients).forEach((n) =>
-        counts.set(n, (counts.get(n) || 0) + 1),
-      ),
-    );
-    return [...counts]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([name]) => name);
-  }, [data]);
 
   if (loading && !data) {
     return (
@@ -155,7 +137,6 @@ export default function Recipes() {
         (!review || chosen(r.id).length > 0) &&
         (filter === "all" ||
           (filter === "new" ? !r.last_cooked_on : !!r.last_cooked_on)) &&
-        (!ingredient || r.ingredients.includes(ingredient)) &&
         `${r.title} ${r.ingredients.join(" ")}`
           .toLocaleLowerCase()
           .includes(term.trim().toLocaleLowerCase()),
@@ -240,47 +221,6 @@ export default function Recipes() {
         ))}
       </View>
 
-      {/*
-        재료 칩은 **접어둔다.** 웹에서 펼쳐놨다가 도구 상자가 화면의
-        절반을 먹어서 되돌렸다 — 여덟 개가 폰 폭에서 두세 줄이고, 그만큼
-        첫 카드가 아래로 밀린다. 이 화면을 여는 이유는 **요리를 고르는
-        것**이지 도구를 보는 게 아니다 (docs/ui-references.md 9장).
-
-        접힌 줄에 몇 가지인지·뭘 골랐는지를 적어서 "있는 줄 모르는" 것만
-        막는다. **웹과 같은 모양이어야 한다** (`web/app/Fold.tsx`).
-      */}
-      {ingredients.length > 0 && (
-        <View>
-          <Tap
-            style={s.foldHead}
-            onPress={() => setPickIngredient(!pickIngredient)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: pickIngredient }}
-          >
-            <Text style={s.foldLabel}>재료로 좁히기</Text>
-            <Text style={s.foldHint}>
-              {ingredient || `${ingredients.length}가지`}
-            </Text>
-            <Text style={s.foldChevron}>{pickIngredient ? "⌃" : "⌄"}</Text>
-          </Tap>
-          {pickIngredient && (
-            <View style={s.chips}>
-              {ingredients.map((n) => (
-                <Tap
-                  key={n}
-                  style={[s.chip, ingredient === n && s.chipOn]}
-                  onPress={() => setIngredient(ingredient === n ? "" : n)}
-                >
-                  <Text style={[s.chipText, ingredient === n && s.chipTextOn]}>
-                    {n}
-                  </Text>
-                </Tap>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
-
       <View style={s.results}>
         <Text style={s.resultsText}>
           {review ? "담은 메뉴" : "내 레시피"} {visible.length}
@@ -291,7 +231,6 @@ export default function Recipes() {
             setReview(!review);
             setFilter("all");
             setTerm("");
-            setIngredient("");
           }}
         >
           <Text style={[s.chipText, review && s.chipTextOn]}>
@@ -358,7 +297,6 @@ export default function Recipes() {
               style={s.secondary}
               onPress={() => {
                 setTerm("");
-                setIngredient("");
                 setFilter("all");
                 setReview(false);
               }}
@@ -403,16 +341,6 @@ const useTheme = themed((c) => ({
   chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: sp[2] },
   sortLabel: { fontSize: 13, color: c.textTertiary },
 
-  /* 접었다 펴는 줄 — 웹의 `.ds-fold` 와 같은 모양이다 */
-  foldHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: sp[2],
-    minHeight: TOUCH,
-  },
-  foldLabel: { fontSize: 15, fontWeight: "600", color: c.text },
-  foldHint: { fontSize: 13, color: c.textTertiary },
-  foldChevron: { marginLeft: "auto", fontSize: 13, color: c.textTertiary },
   chip: {
     minHeight: TOUCH,
     justifyContent: "center",
