@@ -17,7 +17,6 @@ import { useCallback, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -39,6 +38,7 @@ import {
   monthWeek,
   whenShort,
 } from "../lib/pure";
+import Tap from "../components/Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 export default function Weeks() {
@@ -86,9 +86,9 @@ export default function Weeks() {
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
         <Text style={s.title}>지난 주를 못 읽었어요</Text>
         <Text style={s.sub}>{failed}</Text>
-        <Pressable style={s.secondary} onPress={() => void load()}>
+        <Tap style={s.secondary} onPress={() => void load()}>
           <Text style={s.secondaryText}>다시 해볼게요</Text>
-        </Pressable>
+        </Tap>
       </View>
     );
   }
@@ -101,9 +101,9 @@ export default function Weeks() {
         <RefreshControl refreshing={loading} onRefresh={() => void load()} />
       }
     >
-      <Pressable style={s.back} onPress={() => router.back()}>
+      <Tap style={s.back} onPress={() => router.back()}>
         <Text style={s.backText}>← 식단</Text>
-      </Pressable>
+      </Tap>
 
       <Text style={s.title}>지난 주</Text>
       <Text style={s.sub}>지나간 주 {data.weeks.length}개</Text>
@@ -129,7 +129,7 @@ export default function Weeks() {
 
         return (
           <View key={w.id} style={s.card}>
-            <Pressable
+            <Tap
               style={s.summary}
               onPress={() => setOpen(isOpen ? null : w.id)}
               accessibilityRole="button"
@@ -148,7 +148,7 @@ export default function Weeks() {
                     : "담은 요리 없음"}
                 </Text>
               </View>
-            </Pressable>
+            </Tap>
 
             {isOpen && (
               <View style={s.detail}>
@@ -172,7 +172,7 @@ export default function Weeks() {
                       {!!memo && <Text style={s.memo}>{memo}</Text>}
                       {day.length > 0 ? (
                         day.map((d) => (
-                          <Pressable
+                          <Tap
                             key={d.recipe_id}
                             style={s.dish}
                             onPress={() => router.push(`/recipe/${d.recipe_id}`)}
@@ -183,7 +183,7 @@ export default function Weeks() {
                             >
                               {d.cooked ? "만들었어요" : "안 만들었어요"}
                             </Text>
-                          </Pressable>
+                          </Tap>
                         ))
                       ) : (
                         !memo && <Text style={s.none}>안 정했어요</Text>
@@ -199,13 +199,13 @@ export default function Weeks() {
                       <Text style={s.weekday}> {loose.length}개</Text>
                     </Text>
                     {loose.map((d) => (
-                      <Pressable
+                      <Tap
                         key={d.recipe_id}
                         style={s.dish}
                         onPress={() => router.push(`/recipe/${d.recipe_id}`)}
                       >
                         <Text style={s.dishTitle}>{d.title}</Text>
-                      </Pressable>
+                      </Tap>
                     ))}
                   </View>
                 )}
@@ -218,7 +218,7 @@ export default function Weeks() {
                   되돌려야 해서 최근 것 하나만 됐다.
                 */}
                 {!!w.closed_on && (
-                  <Pressable
+                  <Tap
                     style={s.secondaryBlock}
                     disabled={busy}
                     onPress={async () => {
@@ -240,7 +240,7 @@ export default function Weeks() {
                     <Text style={s.secondaryText}>
                       아직 안 끝낸 걸로 돌릴게요
                     </Text>
-                  </Pressable>
+                  </Tap>
                 )}
               </View>
             )}

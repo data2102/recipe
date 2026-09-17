@@ -216,7 +216,32 @@ export default async function ShoppingPage({
           />
         )
       ) : (
-        <Empty>
+        <Empty
+          /*
+            **비어 있다는 말만 두지 마라.** 세 경우가 다 "그래서 뭘 하지" 를
+            남긴다 (docs/ui-references.md 11장 A5). 다 만들었으면 다음 주를
+            보러, 재료가 없으면 레시피를 고치러, 아무것도 안 담았으면
+            담으러 — 갈 데는 경우마다 하나씩이다.
+          */
+          action={
+            allMade && !next ? (
+              <Link
+                href="/shopping?week=next&view=merged"
+                className="ds-btn ds-btn-secondary"
+              >
+                다음 주 장보기 보기
+              </Link>
+            ) : data.basket.length > 0 ? (
+              <Link href="/" className="ds-btn ds-btn-secondary">
+                식단에서 확인하기
+              </Link>
+            ) : (
+              <Link href="/recipes" className="ds-btn ds-btn-primary">
+                메뉴 고르러 가기
+              </Link>
+            )
+          }
+        >
           {/*
             **다 만든 주를 "재료가 없어요" 라고 말하면 안 된다.** 그때그때
             정해서 담고 바로 만들면 목록이 통째로 빈다 — 그건 고장이 아니라

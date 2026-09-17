@@ -22,7 +22,6 @@ import * as ImageManipulator from "expo-image-manipulator";
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -35,6 +34,7 @@ import {
   type Draft,
   type DraftItem,
 } from "../lib/api";
+import Tap from "../components/Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 /**
@@ -231,7 +231,7 @@ export default function Add() {
                   <Text style={s.why}>{item.evidence}</Text>
                 )}
                 <View style={s.yesno}>
-                  <Pressable
+                  <Tap
                     style={[
                       s.choice,
                       item.answered && item.confirmed && s.picked,
@@ -246,8 +246,8 @@ export default function Add() {
                     >
                       넣을게요
                     </Text>
-                  </Pressable>
-                  <Pressable
+                  </Tap>
+                  <Tap
                     style={[
                       s.choice,
                       item.answered && !item.confirmed && s.picked,
@@ -262,7 +262,7 @@ export default function Add() {
                     >
                       아니요
                     </Text>
-                  </Pressable>
+                  </Tap>
                 </View>
               </View>
             ))}
@@ -290,7 +290,7 @@ export default function Add() {
           </View>
         )}
 
-        <Pressable
+        <Tap
           style={[s.primary, busy && s.dim]}
           disabled={busy}
           onPress={() => void save()}
@@ -298,10 +298,10 @@ export default function Add() {
           <Text style={s.primaryText}>
             {busy ? "저장 중…" : "이대로 저장할게요"}
           </Text>
-        </Pressable>
-        <Pressable style={s.quiet} onPress={() => router.back()}>
+        </Tap>
+        <Tap style={s.quiet} onPress={() => router.back()}>
           <Text style={s.quietText}>그만두기</Text>
-        </Pressable>
+        </Tap>
       </ScrollView>
     );
   }
@@ -313,9 +313,9 @@ export default function Add() {
       contentContainerStyle={s.body}
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable style={s.back} onPress={() => router.back()}>
+      <Tap style={s.back} onPress={() => router.back()}>
         <Text style={s.backText}>← 돌아가기</Text>
-      </Pressable>
+      </Tap>
 
       <Text style={s.title}>레시피 넣기</Text>
       <Text style={s.sub}>
@@ -329,11 +329,11 @@ export default function Add() {
         </View>
       )}
 
-      <Pressable style={s.secondaryBlock} onPress={() => void pick()}>
+      <Tap style={s.secondaryBlock} onPress={() => void pick()}>
         <Text style={s.secondaryText}>
           {shots.length > 0 ? `캡처 ${shots.length}장 · 다시 고르기` : "캡처 고르기"}
         </Text>
-      </Pressable>
+      </Tap>
 
       {shots.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -355,9 +355,9 @@ export default function Add() {
         />
       </View>
 
-      <Pressable style={s.primary} onPress={() => void read()}>
+      <Tap style={s.primary} onPress={() => void read()}>
         <Text style={s.primaryText}>읽어주세요</Text>
-      </Pressable>
+      </Tap>
 
       {/*
         영상에서 장면 뽑기는 아직 안 옮겼다 (`web/lib/frames.ts` 는
