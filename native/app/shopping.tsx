@@ -16,9 +16,9 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -34,10 +34,12 @@ import {
   type ShoppingItem,
   type Which,
 } from "../lib/pure";
+import Tap from "../components/Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 export default function Shopping() {
   const { s, c } = useTheme();
+  const router = useRouter();
   const [week, setWeek] = useState<Which>("this");
   const [data, setData] = useState<ShoppingScreen | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -148,9 +150,9 @@ export default function Shopping() {
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
         <Text style={s.title}>장보기를 못 읽었어요</Text>
         <Text style={s.sub}>{failed}</Text>
-        <Pressable style={s.primary} onPress={() => void load(week)}>
+        <Tap style={s.primary} onPress={() => void load(week)}>
           <Text style={s.primaryText}>다시 해볼게요</Text>
-        </Pressable>
+        </Tap>
       </View>
     );
   }
@@ -224,7 +226,7 @@ export default function Shopping() {
               <Text style={s.quantity}>{quantity}</Text>
             </View>
           ) : (
-            <Pressable
+            <Tap
               style={s.tap}
               disabled={locked}
               onPress={() => void check(item, !item.checked)}
@@ -241,11 +243,11 @@ export default function Shopping() {
                 </Text>
                 <Text style={s.quantity}>{quantity}</Text>
               </View>
-            </Pressable>
+            </Tap>
           )}
 
           {!item.checked && (
-            <Pressable
+            <Tap
               disabled={locked}
               onPress={() => void have(item, item.bucket !== "HAVE")}
               style={s.side}
@@ -253,7 +255,7 @@ export default function Shopping() {
               <Text style={[s.sideText, locked && s.dim]}>
                 {item.bucket === "HAVE" ? "다시 살 것에" : "집에 있어요"}
               </Text>
-            </Pressable>
+            </Tap>
           )}
         </View>
 
@@ -297,7 +299,7 @@ export default function Shopping() {
         */}
         <View style={s.tabs}>
           {(["this", "next"] as const).map((w) => (
-            <Pressable
+            <Tap
               key={w}
               onPress={() => setWeek(w)}
               style={[s.tab, week === w && s.tabOn]}
@@ -305,7 +307,7 @@ export default function Shopping() {
               <Text style={[s.tabText, week === w && s.tabTextOn]}>
                 {w === "this" ? "이번 주" : "다음 주"}
               </Text>
-            </Pressable>
+            </Tap>
           ))}
         </View>
 
@@ -322,7 +324,7 @@ export default function Shopping() {
               담았던 요리는 그대로 남아 있어요 — 잘못 눌렀으면 다시 열 수
               있어요.
             </Text>
-            <Pressable
+            <Tap
               style={s.secondary}
               onPress={async () => {
                 await shopping.finish(week, false);
@@ -330,23 +332,42 @@ export default function Shopping() {
               }}
             >
               <Text style={s.secondaryText}>다시 열게요</Text>
-            </Pressable>
+            </Tap>
           </View>
         )}
 
         {data.items.length === 0 ? (
-          <Text style={s.empty}>
+          <>
+            <Text style={s.empty}>
+              {/*
+                **다 만든 주를 "재료가 없어요" 라고 말하면 안 된다.** 그때그때
+                정해서 담고 바로 만들면 목록이 통째로 빈다 — 고장이 아니라
+                다 먹었다는 뜻이다 (웹도 같다).
+              */}
+              {made > 0 && made === data.picked.length
+                ? "담은 메뉴를 다 만들었어요. 살 것이 없어요."
+                : data.picked.length > 0
+                  ? "담은 요리에 재료가 아직 안 붙어 있어요."
+                  : "메뉴 고르기에서 담으면 살 것을 합쳐서 보여드려요."}
+            </Text>
             {/*
-              **다 만든 주를 "재료가 없어요" 라고 말하면 안 된다.** 그때그때
-              정해서 담고 바로 만들면 목록이 통째로 빈다 — 고장이 아니라
-              다 먹었다는 뜻이다 (웹도 같다).
+              **비어 있다는 말만 두지 마라** (11장 A5, 웹과 같다). 담은 게
+              없으면 담으러, 재료가 안 붙었으면 식단에서 확인하러 — 갈 데는
+              경우마다 하나씩이다.
             */}
-            {made > 0 && made === data.picked.length
-              ? "담은 메뉴를 다 만들었어요. 살 것이 없어요."
-              : data.picked.length > 0
-                ? "담은 요리에 재료가 아직 안 붙어 있어요."
-                : "메뉴 고르기에서 담으면 살 것을 합쳐서 보여드려요."}
-          </Text>
+            <Tap
+              style={s.secondary}
+              onPress={() =>
+                router.push(data.picked.length > 0 ? "/" : "/recipes")
+              }
+            >
+              <Text style={s.secondaryText}>
+                {data.picked.length > 0
+                  ? "식단에서 확인하기"
+                  : "메뉴 고르러 가기"}
+              </Text>
+            </Tap>
+          </>
         ) : (
           <>
             <Text style={s.note}>
@@ -405,7 +426,7 @@ export default function Shopping() {
             )}
 
             {!data.closed && left === 0 && (
-              <Pressable
+              <Tap
                 style={s.primary}
                 onPress={async () => {
                   await shopping.finish(week, true);
@@ -413,7 +434,7 @@ export default function Shopping() {
                 }}
               >
                 <Text style={s.primaryText}>장보기 끝</Text>
-              </Pressable>
+              </Tap>
             )}
           </>
         )}
@@ -428,7 +449,7 @@ export default function Shopping() {
           <Text style={s.toastText} numberOfLines={1}>
             {undo} 담았어요
           </Text>
-          <Pressable
+          <Tap
             onPress={() => {
               const item = data.items.find((i) => i.label === undo);
               setUndo(null);
@@ -436,7 +457,7 @@ export default function Shopping() {
             }}
           >
             <Text style={s.toastAction}>취소</Text>
-          </Pressable>
+          </Tap>
         </View>
       )}
     </View>

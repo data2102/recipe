@@ -32,6 +32,40 @@
   padding-left: var(--sp-3);
 }
 
+/*
+ * **이 화면의 주인공은 오늘이다** (docs/ui-references.md 11장 A1).
+ *
+ * 예전에는 열나흘이 전부 15px 이라 오늘도 왼쪽 선 하나로만 달랐다.
+ * 훑어 내릴 때 안 걸려서, 사람이 묻는 "수요일에 뭐 먹지" 에 답하려면
+ * 날짜를 하나씩 읽어야 했다.
+ *
+ * **위계는 하나를 키우는 일이 아니라 나머지를 내리는 일이다.** 오늘을
+ * 28px 로 올리고 나머지 열세 날을 13px 로 내렸더니 화면이 오히려 22px
+ * 짧아졌다 (1,460 → 1,438px). 키우기만 하면 길어진다.
+ */
+.todayDay .date {
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
+}
+
+.todayDay .weekday {
+  font-size: var(--fs-subhead);
+}
+
+/* 오늘 배지도 같이 올린다 — 파랑은 누를 수 있는 것에만이지만 (CLAUDE.md)
+   이건 배경 틴트라 액션색이 아니다 */
+.todayDay .badge {
+  background: var(--accent-bg);
+  color: var(--accent-strong);
+  font-weight: var(--fw-medium);
+}
+
+/* 나머지 날은 한 단 내린다. 자리는 지키되 눈을 안 끈다 */
+.day:not(.todayDay) .date {
+  font-size: var(--fs-caption);
+  color: var(--text-secondary);
+}
+
 /* 지난 날은 조용히. 지워지진 않는다 — "만들었어요?" 를 여기서 묻는다 */
 .pastDay .dayName {
   color: var(--text-tertiary);
@@ -320,7 +354,6 @@
   color: var(--text-tertiary);
   margin: 0 0 var(--sp-2);
 }
-
 
 /*
  * 적을 게 없는 앞으로의 날 — **줄 전체가 누르는 자리다** (`Plan.tsx`).

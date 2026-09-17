@@ -28,9 +28,21 @@ export default function TabBar() {
   const week = params.get("week");
   const q = week === "next" ? "week=next" : "";
 
+  /*
+   * **탭은 옆으로 미끄러진다** (docs/ui-references.md 11장 B1).
+   *
+   * 화면 셋이 왼쪽부터 식단·고르기·장보기 순서로 서 있다. 오른쪽 탭으로
+   * 가면 왼쪽으로 밀리고, 왼쪽 탭으로 가면 오른쪽으로 밀린다 — 방향이
+   * 어디로 가는지를 말해준다. 지금은 셋이 똑같이 순간이동해서 **어디서
+   * 어디로 갔는지 화면이 말해주지 않는다.**
+   *
+   * 방향은 자동으로 안 정해진다. 우리가 탭 순서로 정해서 실어 보낸다.
+   */
+  const here = TABS.findIndex((t) => t.href === path);
+
   return (
     <nav className={styles.bar} aria-label="화면">
-      {TABS.map((t) => {
+      {TABS.map((t, i) => {
         const on = path === t.href;
         return (
           <Link
@@ -38,6 +50,11 @@ export default function TabBar() {
             href={q && t.href === "/shopping" ? `${t.href}?${q}` : t.href}
             className={`${styles.tab} ${on ? styles.on : ""}`}
             aria-current={on ? "page" : undefined}
+            transitionTypes={
+              here < 0 || i === here
+                ? undefined
+                : [i > here ? "nav-forward" : "nav-back"]
+            }
           >
             {t.label}
           </Link>

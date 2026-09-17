@@ -13,6 +13,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useOptimistic } from "react";
+import { useSearchParams } from "next/navigation";
 import type { RecipeCard } from "@/lib/recipes";
 import type { PickDay, Placement } from "@/lib/plan.types";
 import Fold from "../Fold";
@@ -96,12 +97,49 @@ export default function Picker({
     ) => ({ ...state, [change.id]: change.next }),
   );
 
+  /*
+    **도구 상자는 주소에 산다** (docs/ui-references.md 11장 B3).
+
+    예전에는 검색어 말고는 전부 `useState` 였다. 그래서 요리를 골라
+    상세로 들어갔다 **뒤로 오면 필터·정렬·재료가 통째로 초기화**됐다 —
+    고르는 화면인데 고르던 자리를 잃었다.
+
+    `localStorage` 에 기억시키지 않는다. 마지막에 이름순을 썼으면 다음에
+    열 때도 이름순이 되는데, **그 정렬이 곧 추천이다** (CLAUDE.md) —
+    기본을 이름순으로 바꾸면 추천이 통째로 사라진다. 주소에 실으면
+    뒤로 가기로는 돌아오고 **새로 열면 추천순으로 시작**한다.
+
+    냉장고 재료를 주소에만 싣는 것(`?have=`)과 같은 방식이다.
+  */
+  const params = useSearchParams();
   const [term, setTerm] = useState(initialTerm);
-  const [filter, setFilter] = useState("all");
-  const [orders, setOrders] = useState<Record<string, RecipeOrder>>({});
+  const [filter, setFilter] = useState(params.get("f") ?? "all");
+  const [orders, setOrders] = useState<Record<string, RecipeOrder>>(() => {
+    const s = params.get("s");
+    const f = params.get("f") ?? "all";
+    return s === "name" || s === "default" ? { [f]: s } : {};
+  });
   const order = orders[filter] ?? "default";
-  const [ingredient, setIngredient] = useState("");
-  const [review, setReview] = useState(false);
+  const [ingredient, setIngredient] = useState(params.get("i") ?? "");
+  const [review, setReview] = useState(params.get("r") === "1");
+
+  /*
+    주소만 바꾸고 서버에 다시 안 묻는다 (`replaceState`). Next 가 이걸
+    라우터에 이어줘서 `useSearchParams` 와 어긋나지 않는다
+    (`docs/01-app/02-guides/single-page-applications.md`).
+
+    **`pushState` 가 아니다.** 칩을 누를 때마다 히스토리가 쌓이면
+    뒤로 가기를 다섯 번 눌러야 상세에서 목록으로 못 나간다.
+  */
+  function remember(next: Partial<Record<"f" | "s" | "i" | "r", string>>) {
+    const u = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(next)) {
+      if (v) u.set(k, v);
+      else u.delete(k);
+    }
+    const q = u.toString();
+    window.history.replaceState(null, "", q ? `?${q}` : location.pathname);
+  }
 
   const ingredients = useMemo(() => {
     const counts = new Map<string, number>();
@@ -167,7 +205,10 @@ export default function Picker({
               key={v}
               className={`ds-chip ${filter === v ? "on" : ""}`}
               aria-pressed={filter === v}
-              onClick={() => setFilter(v)}
+              onClick={() => {
+                setFilter(v);
+                remember({ f: v === "all" ? "" : v });
+              }}
             >
               {label}
             </button>
@@ -200,9 +241,10 @@ export default function Picker({
               key={value}
               className={`ds-chip ${order === value ? "on" : ""}`}
               aria-pressed={order === value}
-              onClick={() =>
-                setOrders((previous) => ({ ...previous, [filter]: value }))
-              }
+              onClick={() => {
+                setOrders((previous) => ({ ...previous, [filter]: value }));
+                remember({ s: value === "default" ? "" : value });
+              }}
             >
               {label}
             </button>
@@ -221,14 +263,21 @@ export default function Picker({
           가는 지름길이지 유일한 길이 아니다.
         */}
         {ingredients.length > 0 && (
-          <Fold title="재료로 좁히기" hint={ingredient || `${ingredients.length}가지`}>
+          <Fold
+            title="재료로 좁히기"
+            hint={ingredient || `${ingredients.length}가지`}
+          >
             <div className={styles.filters}>
               {ingredients.map((n) => (
                 <button
                   key={n}
                   className={`ds-chip ${ingredient === n ? "on" : ""}`}
                   aria-pressed={ingredient === n}
-                  onClick={() => setIngredient(ingredient === n ? "" : n)}
+                  onClick={() => {
+                    const next = ingredient === n ? "" : n;
+                    setIngredient(next);
+                    remember({ i: next });
+                  }}
                 >
                   {n}
                 </button>
@@ -250,6 +299,7 @@ export default function Picker({
             setFilter("all");
             setTerm("");
             setIngredient("");
+            remember({ r: review ? "" : "1", f: "", i: "" });
           }}
         >
           {review ? "전체 레시피 보기" : `담은 메뉴만 · ${pickedCount}`}
@@ -309,6 +359,7 @@ export default function Picker({
                 setIngredient("");
                 setFilter("all");
                 setReview(false);
+                remember({ f: "", i: "", r: "" });
               }}
             >
               전체 레시피 보기

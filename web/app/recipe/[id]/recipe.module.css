@@ -13,9 +13,14 @@
   text-decoration: none;
 }
 
+/*
+ * **이 화면의 주인공은 레시피 이름이다** (docs/ui-references.md 11장 A1).
+ * 읽으러 온 화면이라 제목이 제일 커야 한다 — 20px 면 아래 카드 제목들과
+ * 거의 같아서 "여기가 어디지" 가 된다.
+ */
 .title {
-  font-size: var(--fs-title);
-  font-weight: var(--fw-medium);
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
   margin: var(--sp-2) 0 var(--sp-1);
 }

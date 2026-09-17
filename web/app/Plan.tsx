@@ -17,7 +17,7 @@
  */
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { markCooked, planOnDate, removeFromWeek, setDayNote } from "./actions";
 import PlanButton from "./PlanButton";
 import { dateFull, dateSay, dateTiny, dayIndex } from "@/lib/say";
@@ -54,6 +54,37 @@ export default function Plan({
   /** 오늘 (한국 기준) */
   today: string;
 }) {
+  /*
+    **열면 오늘부터 보인다** (docs/ui-references.md 11장 A4).
+
+    열나흘을 쭉 늘어놓는 건 그대로다 — 위로 밀면 지난 날이 그대로 있고,
+    지난 날에 물어보는 "만들었어요?" 도 그대로 있다. 다만 **처음 보이는
+    자리**를 오늘로 옮긴다. 사람이 묻는 건 "수요일에 뭐 먹지" 인데 열면
+    사흘 전부터 나와서, 매번 같은 만큼 밀어 내려야 했다 (오늘이 343px
+    아래였다). 네이버웹툰의 이어보기와 같은 생각이다.
+
+    **딱 한 번만 한다.** 담기·메모로 화면이 다시 그려질 때마다 스크롤이
+    튀면 쓰던 자리를 잃는다 — 그래서 의존성이 비어 있다.
+
+    이미 보이면 안 움직인다. 주 초에는 오늘이 원래 위에 있다.
+  */
+  const todayRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = todayRef.current;
+    if (!el) return;
+    // 이미 맨 위 근처면 안 움직인다 (주 초에는 오늘이 원래 위에 있다).
+    // 화면 절반으로 재면 안 된다 — 지난 사흘이 위에 깔려 있어도
+    // "보이니까 됐다" 로 넘어간다 (실제로 321px 에서 안 움직였다).
+    if (el.getBoundingClientRect().top < 100) return;
+    /*
+      `scrollIntoView` 가 아니라 직접 셈한다. ref 가 붙은 건 바깥 `div`
+      인데 `scroll-margin` 은 안쪽 `section`(.todayDay)에 걸려서, 그냥
+      부르면 화면 맨 위에 딱 붙는다 — 갇힌 것처럼 보인다.
+    */
+    const y = el.getBoundingClientRect().top + window.scrollY - 20;
+    window.scrollTo({ top: Math.max(0, y), behavior: "instant" });
+  }, []);
+
   const [open, setOpen] = useState<number | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -171,7 +202,11 @@ export default function Plan({
             </Link>
             <ul className={styles.items}>
               {p.items.map((it) => {
-                const hasIt = atHome(have[p.which], it.ingredient_id, it.raw_name);
+                const hasIt = atHome(
+                  have[p.which],
+                  it.ingredient_id,
+                  it.raw_name,
+                );
                 return (
                   <li key={it.id}>
                     <span className={`ds-check ${styles.item}`}>
@@ -281,20 +316,20 @@ export default function Plan({
           day.iso >= today &&
           day.dishes.length === 0;
         return (
-        <div key={day.iso}>
-          {i === 7 && <h2 className={styles.weekMark}>다음 주</h2>}
-          <section
-            className={`${styles.day} ${day.iso === today ? styles.todayDay : ""} ${
-              day.iso < today ? styles.pastDay : ""
-            } ${empty ? styles.tappable : ""}`}
-          >
-            {/*
+          <div key={day.iso} ref={day.iso === today ? todayRef : undefined}>
+            {i === 7 && <h2 className={styles.weekMark}>다음 주</h2>}
+            <section
+              className={`${styles.day} ${day.iso === today ? styles.todayDay : ""} ${
+                day.iso < today ? styles.pastDay : ""
+              } ${empty ? styles.tappable : ""}`}
+            >
+              {/*
               빈 날은 한 줄이다. 열나흘마다 "아직 안 정했어요" 를 적으면
               화면의 절반이 그 말이 된다 — 안 정한 건 비어 있는 것으로 보인다.
               메모 버튼도 날짜 줄 오른쪽에 붙여서 줄을 안 늘린다.
             */}
-            <div className={styles.dayHead}>
-              {/*
+              <div className={styles.dayHead}>
+                {/*
                 **날짜를 누르면 메모를 적는다.**
 
                 예전에는 줄마다 "+ 메모" 버튼이 붙어 있었다. 빈 날이 아홉
@@ -308,14 +343,16 @@ export default function Plan({
 
                 지난 날은 못 누른다. 지나간 날에 약속을 적을 일은 없다.
               */}
-              <h3 className={styles.dayName}>
-                <span className={styles.date}>{dateSay(day.iso)}</span>
-                <span className={styles.weekday}>
-                  ({DAYS[dayIndex(day.iso)]})
-                </span>
-                {day.iso === today && <span className={styles.badge}>오늘</span>}
-              </h3>
-              {/*
+                <h3 className={styles.dayName}>
+                  <span className={styles.date}>{dateSay(day.iso)}</span>
+                  <span className={styles.weekday}>
+                    ({DAYS[dayIndex(day.iso)]})
+                  </span>
+                  {day.iso === today && (
+                    <span className={styles.badge}>오늘</span>
+                  )}
+                </h3>
+                {/*
                 **줄 전체가 누르는 자리다.** 처음에는 날짜 글자만 버튼으로
                 했는데, 44px 최소 높이가 줄을 61 → 81px 로 밀어올려서
                 빈 날 아홉 개에 180px 이 붙었다 — 화면을 짧게 하려다
@@ -325,27 +362,27 @@ export default function Plan({
                 넓어진다. 글자 위가 아니라 **아래**에 깔아서(z-index 없이
                 먼저 그린다) 날짜 글자를 고르거나 복사하는 걸 막지 않는다.
               */}
-              {empty && (
-                <button
-                  type="button"
-                  className={styles.dayTap}
-                  onClick={() => setEditing(day.iso)}
-                  aria-label={`${dateFull(day.iso)}에 메모 적기`}
-                />
+                {empty && (
+                  <button
+                    type="button"
+                    className={styles.dayTap}
+                    onClick={() => setEditing(day.iso)}
+                    aria-label={`${dateFull(day.iso)}에 메모 적기`}
+                  />
+                )}
+              </div>
+
+              <Note day={day} />
+
+              {day.dishes.length > 0 && (
+                <ul className={styles.list}>
+                  {day.dishes.map((p) => (
+                    <Dish key={`${p.which}-${p.recipe_id}`} p={p} />
+                  ))}
+                </ul>
               )}
-            </div>
-
-            <Note day={day} />
-
-            {day.dishes.length > 0 && (
-              <ul className={styles.list}>
-                {day.dishes.map((p) => (
-                  <Dish key={`${p.which}-${p.recipe_id}`} p={p} />
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+            </section>
+          </div>
         );
       })}
 

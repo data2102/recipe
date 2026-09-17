@@ -19,7 +19,6 @@ import { useCallback, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -44,6 +43,7 @@ import {
   dayIndex,
 } from "../lib/pure";
 import PlanSheet from "../components/PlanSheet";
+import Tap from "../components/Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 export default function Plan() {
@@ -106,9 +106,9 @@ export default function Plan() {
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
         <Text style={s.title}>식단을 못 읽었어요</Text>
         <Text style={s.sub}>{failed}</Text>
-        <Pressable style={s.primary} onPress={() => void load()}>
+        <Tap style={s.primary} onPress={() => void load()}>
           <Text style={s.primaryText}>다시 해볼게요</Text>
-        </Pressable>
+        </Tap>
       </View>
     );
   }
@@ -138,7 +138,7 @@ export default function Plan() {
     return (
       <View style={s.dish}>
         <View style={s.dishHead}>
-          <Pressable
+          <Tap
             style={s.name}
             onPress={() => setOpen(isOpen ? null : `${p.week}-${p.recipeId}`)}
             accessibilityRole="button"
@@ -160,7 +160,7 @@ export default function Plan() {
                       : `보유 확인 전 ${need.length}`}
               </Text>
             </View>
-          </Pressable>
+          </Tap>
 
           {/*
             **날짜를 누르면 고르는 판이 뜬다.** 웹에서는 여기가 <select>
@@ -190,7 +190,7 @@ export default function Plan() {
               {dateFull(p.date)}이 지났어요. 만들었어요?
             </Text>
             <View style={s.askRow}>
-              <Pressable
+              <Tap
                 style={s.secondary}
                 disabled={busy}
                 onPress={async () => {
@@ -204,12 +204,12 @@ export default function Plan() {
                 }}
               >
                 <Text style={s.secondaryText}>만들었어요</Text>
-              </Pressable>
+              </Tap>
               {/*
                 "안 먹었어요" 는 **요일만 미정으로 되돌린다.** 못 먹었을
                 뿐이지 이번 주에서 빼는 게 아니다 — 장보기에는 남는다.
               */}
-              <Pressable
+              <Tap
                 style={s.secondary}
                 disabled={busy}
                 onPress={async () => {
@@ -223,16 +223,16 @@ export default function Plan() {
                 }}
               >
                 <Text style={s.secondaryText}>안 먹었어요</Text>
-              </Pressable>
+              </Tap>
             </View>
           </View>
         )}
 
         {isOpen && (
           <View style={s.detail}>
-            <Pressable onPress={() => router.push(`/recipe/${p.recipeId}`)}>
+            <Tap onPress={() => router.push(`/recipe/${p.recipeId}`)}>
               <Text style={s.read}>만드는 법 보기 →</Text>
-            </Pressable>
+            </Tap>
 
             {p.items.map((it) => {
               const hasIt = atHome(have, it.ingredient_id, it.raw_name);
@@ -261,7 +261,7 @@ export default function Plan() {
               </Text>
             )}
 
-            <Pressable
+            <Tap
               disabled={busy}
               onPress={async () => {
                 setBusy(true);
@@ -274,7 +274,7 @@ export default function Plan() {
               }}
             >
               <Text style={s.unpick}>식단에서 뺄게요</Text>
-            </Pressable>
+            </Tap>
           </View>
         )}
       </View>
@@ -316,14 +316,25 @@ export default function Plan() {
                 화면의 절반이 그 말이 된다 — 안 정한 건 비어 있는 것으로 보인다.
               */}
               <View style={s.dayHead}>
+                {/*
+                  **이 화면의 주인공은 오늘이다** (웹의 `Plan.module.css` 와
+                  같은 규칙 — docs/ui-references.md 11장 A1). 위계는 하나를
+                  키우는 일이 아니라 나머지를 내리는 일이라, 오늘을 올리고
+                  열세 날을 내리면 화면이 오히려 짧아진다.
+                */}
                 <Text style={s.dayName}>
-                  <Text style={s.date}>{dateSay(day.date)}</Text>
-                  <Text style={s.weekday}> ({DAYS[dayIndex(day.date)]})</Text>
+                  <Text style={isToday ? s.dateToday : s.dateOther}>
+                    {dateSay(day.date)}
+                  </Text>
+                  <Text style={isToday ? s.weekdayToday : s.weekday}>
+                    {" "}
+                    ({DAYS[dayIndex(day.date)]})
+                  </Text>
                 </Text>
                 {isToday && <Text style={s.badge}>오늘</Text>}
                 <View style={s.spacer} />
                 {!day.note && editing !== day.date && day.date >= today && (
-                  <Pressable
+                  <Tap
                     style={s.addNote}
                     onPress={() => {
                       setEditing(day.date);
@@ -331,7 +342,7 @@ export default function Plan() {
                     }}
                   >
                     <Text style={s.addNoteText}>+ 메모</Text>
-                  </Pressable>
+                  </Tap>
                 )}
               </View>
 
@@ -352,21 +363,21 @@ export default function Plan() {
                     placeholderTextColor={c.textDisabled}
                     onSubmitEditing={() => void saveNote(day.date, draft)}
                   />
-                  <Pressable
+                  <Tap
                     style={s.secondary}
                     disabled={busy}
                     onPress={() => void saveNote(day.date, draft)}
                   >
                     <Text style={s.secondaryText}>저장</Text>
-                  </Pressable>
-                  <Pressable style={s.quiet} onPress={() => setEditing(null)}>
+                  </Tap>
+                  <Tap style={s.quiet} onPress={() => setEditing(null)}>
                     <Text style={s.quietText}>그만두기</Text>
-                  </Pressable>
+                  </Tap>
                 </View>
               ) : day.note ? (
                 <View style={s.noteRow}>
                   <Text style={s.noteText}>{day.note}</Text>
-                  <Pressable
+                  <Tap
                     style={s.quiet}
                     onPress={() => {
                       setEditing(day.date);
@@ -374,7 +385,7 @@ export default function Plan() {
                     }}
                   >
                     <Text style={s.quietText}>고치기</Text>
-                  </Pressable>
+                  </Tap>
                 </View>
               ) : null}
 
@@ -390,7 +401,7 @@ export default function Plan() {
         <View style={s.day}>
           <View style={s.dayHead}>
             <Text style={s.dayName}>
-              <Text style={s.date}>날짜 미정</Text>
+              <Text style={s.dateOther}>날짜 미정</Text>
               <Text style={s.weekday}> {loose.length}개</Text>
             </Text>
           </View>
@@ -404,9 +415,9 @@ export default function Plan() {
       )}
 
       {/* 지난 주는 따로 본다 — 목록 하나가 지난 한 주다 */}
-      <Pressable style={s.secondaryBlock} onPress={() => router.push("/weeks")}>
+      <Tap style={s.secondaryBlock} onPress={() => router.push("/weeks")}>
         <Text style={s.secondaryText}>지난 주 보기</Text>
-      </Pressable>
+      </Tap>
     </ScrollView>
   );
 }
@@ -441,8 +452,11 @@ const useTheme = themed((c) => ({
   dayHead: { flexDirection: "row", alignItems: "center", gap: sp[2] },
   spacer: { flex: 1 },
   dayName: { fontSize: 15 },
-  date: { color: c.text, fontWeight: "700" },
+  /* 오늘 28 / 나머지 13 — 웹의 --fs-display · --fs-caption 과 같은 값 */
+  dateToday: { fontSize: 28, lineHeight: 34, color: c.text, fontWeight: "700" },
+  dateOther: { fontSize: 13, color: c.textSecondary, fontWeight: "700" },
   weekday: { color: c.textTertiary, fontWeight: "400" },
+  weekdayToday: { fontSize: 15, color: c.textTertiary, fontWeight: "400" },
   badge: {
     fontSize: 11,
     fontWeight: "700",

@@ -21,7 +21,6 @@ import {
   Alert,
   Image,
   Linking,
-  Pressable,
   ScrollView,
   Text,
   View,
@@ -36,6 +35,7 @@ import {
 } from "../../lib/api";
 import { cookedAgo, dateFull, dateSay, todayInput } from "../../lib/pure";
 import PlanSheet from "../../components/PlanSheet";
+import Tap from "../../components/Tap";
 import { radius, sp, themed, TOUCH } from "../../lib/tokens";
 
 export default function Recipe() {
@@ -85,9 +85,9 @@ export default function Recipe() {
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
         <Text style={s.title}>레시피를 못 읽었어요</Text>
         <Text style={s.sub}>{failed}</Text>
-        <Pressable style={s.secondary} onPress={() => router.back()}>
+        <Tap style={s.secondary} onPress={() => router.back()}>
           <Text style={s.secondaryText}>돌아가기</Text>
-        </Pressable>
+        </Tap>
       </View>
     );
   }
@@ -141,9 +141,9 @@ export default function Recipe() {
       style={[s.screen, { paddingTop: insets.top }]}
       contentContainerStyle={s.body}
     >
-      <Pressable style={s.back} onPress={() => router.back()}>
+      <Tap style={s.back} onPress={() => router.back()}>
         <Text style={s.backText}>← 돌아가기</Text>
-      </Pressable>
+      </Tap>
 
       <Text style={s.title}>{data.title}</Text>
       <Text style={s.sub}>
@@ -173,7 +173,7 @@ export default function Recipe() {
           onDone={load}
         />
         <View style={s.gap} />
-        <Pressable
+        <Tap
           style={[s.primary, (busy || done) && s.dim]}
           disabled={busy || done}
           onPress={async () => {
@@ -192,7 +192,7 @@ export default function Recipe() {
           <Text style={s.primaryText}>
             {done ? "기록했어요" : "오늘 만들었어요"}
           </Text>
-        </Pressable>
+        </Tap>
       </View>
 
       {/*
@@ -268,12 +268,12 @@ export default function Recipe() {
       </View>
 
       {!!data.source_url && (
-        <Pressable
+        <Tap
           style={s.secondaryBlock}
           onPress={() => void Linking.openURL(data.source_url!)}
         >
           <Text style={s.secondaryText}>원본 열기</Text>
-        </Pressable>
+        </Tap>
       )}
 
       {/*
@@ -283,9 +283,9 @@ export default function Recipe() {
       */}
       <Text style={s.hint}>고치기는 아직 웹에서만 돼요.</Text>
 
-      <Pressable style={s.danger} disabled={busy} onPress={confirmRemove}>
+      <Tap style={s.danger} disabled={busy} onPress={confirmRemove}>
         <Text style={s.dangerText}>레시피 지우기</Text>
-      </Pressable>
+      </Tap>
     </ScrollView>
   );
 }
@@ -298,7 +298,8 @@ const useTheme = themed((c) => ({
   back: { minHeight: TOUCH, justifyContent: "center" },
   backText: { color: c.accent, fontSize: 15 },
 
-  title: { fontSize: 22, fontWeight: "700", color: c.text },
+  /* 읽으러 온 화면이라 레시피 이름이 주인공이다 (11장 A1, 웹과 같은 값) */
+  title: { fontSize: 28, lineHeight: 34, fontWeight: "700", color: c.text },
   sub: { fontSize: 14, color: c.textSecondary },
   body2: { fontSize: 14, color: c.textSecondary, lineHeight: 21 },
   hint: { fontSize: 13, color: c.textTertiary, textAlign: "center" },

@@ -19,7 +19,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -41,6 +40,7 @@ import {
   type RecipeOrder,
 } from "../lib/pure";
 import PlanSheet, { placedLabel } from "../components/PlanSheet";
+import Tap from "../components/Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 /**
@@ -137,9 +137,9 @@ export default function Recipes() {
       <View style={[s.screen, s.center, { paddingTop: insets.top }]}>
         <Text style={s.title}>레시피를 못 읽었어요</Text>
         <Text style={s.sub}>{failed}</Text>
-        <Pressable style={s.primary} onPress={() => void load()}>
+        <Tap style={s.primary} onPress={() => void load()}>
           <Text style={s.primaryText}>다시 해볼게요</Text>
-        </Pressable>
+        </Tap>
       </View>
     );
   }
@@ -178,9 +178,9 @@ export default function Recipes() {
           <Text style={s.eyebrow}>고르면 날짜를 물어봐요</Text>
           <Text style={s.title}>뭐 먹을까요?</Text>
         </View>
-        <Pressable style={s.secondary} onPress={() => router.push("/add")}>
+        <Tap style={s.secondary} onPress={() => router.push("/add")}>
           <Text style={s.secondaryText}>+ 레시피</Text>
-        </Pressable>
+        </Tap>
       </View>
 
       {!!failed && (
@@ -201,7 +201,7 @@ export default function Recipes() {
 
       <View style={s.chips}>
         {FILTERS.map(([v, label]) => (
-          <Pressable
+          <Tap
             key={v}
             style={[s.chip, filter === v && s.chipOn]}
             onPress={() => setFilter(v)}
@@ -209,7 +209,7 @@ export default function Recipes() {
             <Text style={[s.chipText, filter === v && s.chipTextOn]}>
               {label}
             </Text>
-          </Pressable>
+          </Tap>
         ))}
       </View>
 
@@ -228,7 +228,7 @@ export default function Recipes() {
             ["name", "이름순"],
           ] as [RecipeOrder, string][]
         ).map(([v, label]) => (
-          <Pressable
+          <Tap
             key={v}
             style={[s.chip, order === v && s.chipOn]}
             onPress={() => setOrders((o) => ({ ...o, [filter]: v }))}
@@ -236,7 +236,7 @@ export default function Recipes() {
             <Text style={[s.chipText, order === v && s.chipTextOn]}>
               {label}
             </Text>
-          </Pressable>
+          </Tap>
         ))}
       </View>
 
@@ -251,7 +251,7 @@ export default function Recipes() {
       */}
       {ingredients.length > 0 && (
         <View>
-          <Pressable
+          <Tap
             style={s.foldHead}
             onPress={() => setPickIngredient(!pickIngredient)}
             accessibilityRole="button"
@@ -262,11 +262,11 @@ export default function Recipes() {
               {ingredient || `${ingredients.length}가지`}
             </Text>
             <Text style={s.foldChevron}>{pickIngredient ? "⌃" : "⌄"}</Text>
-          </Pressable>
+          </Tap>
           {pickIngredient && (
             <View style={s.chips}>
               {ingredients.map((n) => (
-                <Pressable
+                <Tap
                   key={n}
                   style={[s.chip, ingredient === n && s.chipOn]}
                   onPress={() => setIngredient(ingredient === n ? "" : n)}
@@ -274,7 +274,7 @@ export default function Recipes() {
                   <Text style={[s.chipText, ingredient === n && s.chipTextOn]}>
                     {n}
                   </Text>
-                </Pressable>
+                </Tap>
               ))}
             </View>
           )}
@@ -285,7 +285,7 @@ export default function Recipes() {
         <Text style={s.resultsText}>
           {review ? "담은 메뉴" : "내 레시피"} {visible.length}
         </Text>
-        <Pressable
+        <Tap
           style={[s.chip, review && s.chipOn]}
           onPress={() => {
             setReview(!review);
@@ -297,7 +297,7 @@ export default function Recipes() {
           <Text style={[s.chipText, review && s.chipTextOn]}>
             {review ? "전체 레시피 보기" : `담은 메뉴만 · ${pickedCount}`}
           </Text>
-        </Pressable>
+        </Tap>
       </View>
 
       {visible.map((r) => {
@@ -305,7 +305,7 @@ export default function Recipes() {
         const here = chosen(r.id);
         return (
           <View key={r.id} style={[s.card, here.length > 0 && s.selected]}>
-            <Pressable
+            <Tap
               style={s.coverRow}
               onPress={() => router.push(`/recipe/${r.id}`)}
               accessibilityLabel={`${r.title} 레시피 보기`}
@@ -330,7 +330,7 @@ export default function Recipes() {
                   <Text style={s.when}>{placedSay(here)}</Text>
                 )}
               </View>
-            </Pressable>
+            </Tap>
             <PlanSheet
               recipeId={r.id}
               title={r.title}
@@ -354,7 +354,7 @@ export default function Recipes() {
               : "먹고 싶은 요리를 모아보세요"}
           </Text>
           {data.recipes.length > 0 && (
-            <Pressable
+            <Tap
               style={s.secondary}
               onPress={() => {
                 setTerm("");
@@ -364,12 +364,12 @@ export default function Recipes() {
               }}
             >
               <Text style={s.secondaryText}>전체 레시피 보기</Text>
-            </Pressable>
+            </Tap>
           )}
           {data.recipes.length === 0 && (
-            <Pressable style={s.primary} onPress={() => router.push("/add")}>
+            <Tap style={s.primary} onPress={() => router.push("/add")}>
               <Text style={s.primaryText}>캡처로 레시피 넣기</Text>
-            </Pressable>
+            </Tap>
           )}
         </View>
       )}

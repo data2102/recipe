@@ -18,7 +18,6 @@
 import { useState } from "react";
 import {
   Modal,
-  Pressable,
   ScrollView,
   Text,
   View,
@@ -26,6 +25,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError, plan as planApi } from "../lib/api";
 import { dateFull, dateTiny, type PickDay, type Placement, type Which } from "../lib/pure";
+import Tap from "./Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 const WEEK_NAME: Record<Which, string> = { this: "이번 주", next: "다음 주" };
@@ -108,7 +108,7 @@ export default function PlanSheet({
 
   return (
     <>
-      <Pressable
+      <Tap
         style={[btn, busy && s.dim]}
         disabled={busy}
         onPress={() => setOpen(true)}
@@ -118,7 +118,7 @@ export default function PlanSheet({
         <Text style={btnText} numberOfLines={1}>
           {busy ? "저장 중…" : (label ?? placedLabel(placed))}
         </Text>
-      </Pressable>
+      </Tap>
 
       {/*
         `Modal` 의 `onRequestClose` 가 **안드로이드 뒤로가기**다. 이게
@@ -132,8 +132,8 @@ export default function PlanSheet({
         onRequestClose={() => setOpen(false)}
       >
         {/* 스크림. 제스처만 두지 않는다 — 누를 수 있는 "닫기" 도 아래 있다 */}
-        <Pressable style={s.scrim} onPress={() => setOpen(false)}>
-          <Pressable
+        <Tap style={s.scrim} onPress={() => setOpen(false)}>
+          <Tap
             style={[s.sheet, { paddingBottom: insets.bottom + sp[4] }]}
             onPress={() => {}}
           >
@@ -148,9 +148,9 @@ export default function PlanSheet({
                 </Text>
                 <Text style={s.ask}>언제 먹을까요?</Text>
               </View>
-              <Pressable style={s.close} onPress={() => setOpen(false)}>
+              <Tap style={s.close} onPress={() => setOpen(false)}>
                 <Text style={s.closeText}>닫기</Text>
-              </Pressable>
+              </Tap>
             </View>
 
             {!!failed && (
@@ -169,7 +169,7 @@ export default function PlanSheet({
                       const mine = placed.some((p) => p.date === d.iso);
                       const gone = d.iso < today;
                       return (
-                        <Pressable
+                        <Tap
                           key={d.iso}
                           style={[s.day, mine && s.mine]}
                           disabled={busy}
@@ -194,11 +194,11 @@ export default function PlanSheet({
                                 ? d.titles.join(" · ")
                                 : "비어 있어요")}
                           </Text>
-                        </Pressable>
+                        </Tap>
                       );
                     })}
 
-                  <Pressable
+                  <Tap
                     style={[
                       s.day,
                       placed.some((p) => p.date === null && p.which === w) &&
@@ -211,18 +211,18 @@ export default function PlanSheet({
                     <Text style={s.what}>
                       {WEEK_NAME[w]} 장보기에는 들어가요
                     </Text>
-                  </Pressable>
+                  </Tap>
                 </View>
               ))}
             </ScrollView>
 
             {placed.length > 0 && (
-              <Pressable style={s.remove} disabled={busy} onPress={() => void clear()}>
+              <Tap style={s.remove} disabled={busy} onPress={() => void clear()}>
                 <Text style={s.removeText}>식단에서 빼기</Text>
-              </Pressable>
+              </Tap>
             )}
-          </Pressable>
-        </Pressable>
+          </Tap>
+        </Tap>
       </Modal>
     </>
   );

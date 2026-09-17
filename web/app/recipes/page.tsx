@@ -4,6 +4,7 @@ import { todayInput } from "@/lib/say";
 import { dbUrl } from "@/lib/db";
 import { Broken, Setup } from "../Shell";
 import Picker from "./Picker";
+import Slide from "../Slide";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "메뉴 고르기" };
@@ -26,12 +27,14 @@ export default async function RecipesPage({
   }
 
   return (
-    <Picker
-      recipes={cards}
-      days={dates.days}
-      placed={dates.placed}
-      today={todayInput()}
-      initialTerm={typeof params.q === "string" ? params.q : ""}
-    />
+    <Slide>
+      <Picker
+        recipes={cards}
+        days={dates.days}
+        placed={dates.placed}
+        today={todayInput()}
+        initialTerm={typeof params.q === "string" ? params.q : ""}
+      />
+    </Slide>
   );
 }

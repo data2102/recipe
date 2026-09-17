@@ -476,3 +476,138 @@ a.ds-btn {
 .ds-fold > .body {
   padding-bottom: var(--sp-2);
 }
+
+/* --- ⑦ 누르면 눌린다 -------------------------------------------------
+   위 `*` 규칙이 안드로이드의 기본 탭 하이라이트를 껐다. 회색 네모가 우리
+   둥근 모양과 안 맞아서 끈 것인데, **대체를 안 했다** — 앱 전체에서
+   `:active` 로 반응을 주는 곳이 세 군데뿐이었다 (docs/ui-references.md 11장).
+
+   누를 때 아무 일도 안 일어나면 **눌린 건지 몰라서 한 번 더 누른다.**
+   마트에서 장갑 낀 손으로 누를 때 특히 그렇다. 플랫폼이 공짜로 주던 것을
+   껐으면 우리가 채워야 한다.
+
+   **색이 아니라 크기로 준다.** 색을 바꾸면 칸(BUY/CHECK/HAVE)의 색과
+   섞여서 "칸이 바뀌었나" 로 읽힌다. 살짝 눌리는 것은 어느 색 위에서든
+   같은 뜻이다.
+
+   `scale(0.97)` 은 눈에 보이되 글자가 안 뭉개지는 선이다. 줄 전체처럼 큰
+   것은 덜 눌린다 (0.99) — 큰 면이 크게 줄면 출렁여 보인다. */
+:where(button, a.ds-btn, [role="button"], label.ds-check):active {
+  transform: scale(0.97);
+}
+
+/* 줄·카드처럼 넓은 것은 덜 */
+:where(.ds-card, li, .ds-fold > .head):active {
+  transform: scale(0.995);
+}
+
+/* --- ⑧ 짧은 전환 -----------------------------------------------------
+   여백이 `--dur-fast`(120ms)·`--ease-standard` 를 주는데 앱이 한 곳에서만
+   썼다. 상태가 바뀔 때 **순간이동하면 뭐가 바뀌었는지 모른다** — 체크한
+   줄이 어디로 갔는지, 담은 것이 어디에 들어갔는지.
+
+   **짧게.** 마트에서 연달아 누르는 화면이라 기다리게 하면 안 된다.
+   누르는 반응은 `--dur-fast`, 나타나고 사라지는 것만 `--dur-base`(200ms).
+
+   `prefers-reduced-motion` 은 여백이 이미 애니메이션을 끄지만, 여기서
+   만든 transform·transition 은 여백이 모른다. 아래에서 같이 끈다. */
+:where(button, a, label, .ds-card, li, .ds-fold > .head) {
+  transition:
+    transform var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
+}
+
+/* 나타나는 것 — 담은 항목, 펼친 재료 */
+.ds-fold > .body {
+  animation: fold-in var(--dur-base) var(--ease-out);
+}
+
+@keyframes fold-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/*
+  **움직임을 싫어하는 사람에게는 안 움직인다.** 어지럼증·멀미가 있는
+  사람에게 화면이 흔들리는 것은 접근성 문제다. 여백은 자기 애니메이션만
+  끄므로 여기서 만든 것은 여기서 끈다.
+*/
+/* --- ⑨ 탭을 옮길 때 옆으로 미끄러진다 -------------------------------
+   화면 셋이 왼쪽부터 식단·고르기·장보기 순서로 서 있다 (`TabBar.tsx`).
+   오른쪽 탭으로 가면 왼쪽으로 밀리고, 왼쪽이면 오른쪽으로 밀린다 —
+   **어디서 어디로 갔는지**를 화면이 말해준다 (11장 B1).
+
+   **짧다.** Next 문서의 예시는 150·210·400ms 인데 그건 사진 갤러리 값이다.
+   마트에서 연달아 탭을 누르는 화면이라 기다리게 하면 안 돼서, 우리는
+   여백의 `--dur-fast`(120ms)·`--dur-base`(200ms) 안에서 끝낸다.
+
+   나가는 쪽이 들어오는 쪽보다 빠르다. 옛 화면이 꾸물대면 새 화면과
+   눈길을 다툰다.
+
+   `default="none"` 은 `Slide.tsx` 에 있다 — 방향이 안 실린 이동(뒤로
+   가기, 서버 액션 뒤의 다시 그리기)에는 아무것도 안 움직인다. */
+::view-transition-old(.nav-forward) {
+  animation: var(--dur-fast) var(--ease-standard) both slide-out-left;
+}
+::view-transition-new(.nav-forward) {
+  animation: var(--dur-base) var(--ease-out) both slide-in-right;
+}
+::view-transition-old(.nav-back) {
+  animation: var(--dur-fast) var(--ease-standard) both slide-out-right;
+}
+::view-transition-new(.nav-back) {
+  animation: var(--dur-base) var(--ease-out) both slide-in-left;
+}
+
+/* 8% 면 방향은 읽히고 화면은 안 출렁인다. 24px 쯤이다 */
+@keyframes slide-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-8%);
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(8%);
+  }
+}
+@keyframes slide-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(8%);
+  }
+}
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a, label, .ds-card, li, .ds-fold > .head) {
+    transition: none;
+  }
+  :where(
+    button,
+    a.ds-btn,
+    [role="button"],
+    label.ds-check,
+    .ds-card,
+    li,
+    .ds-fold > .head
+  ):active {
+    transform: none;
+  }
+  .ds-fold > .body {
+    animation: none;
+  }
+  /* 화면 전환도 끈다. 여백이 모르는 것은 우리가 끈다 */
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}

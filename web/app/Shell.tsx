@@ -6,11 +6,27 @@
 
 import styles from "./page.module.css";
 
-/** 빈 화면. 사과 말고 초대다 (design-system.md 7장 마이크로카피) */
-export function Empty({ children }: { children: React.ReactNode }) {
+/**
+ * 빈 화면. 사과 말고 초대다 (design-system.md 7장 마이크로카피)
+ *
+ * **문장만 두지 마라.** 비어 있다는 말은 "그래서 뭘 하지" 를 남기는데,
+ * 답이 화면에 없으면 탭바를 더듬게 된다 (docs/ui-references.md 11장 A5).
+ * 식단·메뉴 고르기의 빈 화면에는 이미 버튼이 있다 — 여기만 없었다.
+ *
+ * `action` 은 **하나만** 받는다. 빈 화면에 고를 것이 둘이면 그건 빈
+ * 화면이 아니라 또 하나의 갈림길이다.
+ */
+export function Empty({
+  children,
+  action,
+}: {
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <div className={`ds-empty ${styles.empty}`}>
       <p>{children}</p>
+      {action}
     </div>
   );
 }
