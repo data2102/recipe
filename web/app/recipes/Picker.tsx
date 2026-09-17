@@ -3,7 +3,7 @@
 /**
  * 메뉴 고르기 — 모아둔 레시피에서 골라 **날짜에 담는다.**
  *
- * 고르는 방법이 셋이다: 검색, 정렬(등록순·이름순·오래된 순), 재료로 좁히기.
+ * 고르는 방법이 둘이다: 검색, 정렬(등록순·이름순·오래된 순).
  * 정렬이 곧 추천이라는 규칙은 그대로다 (지시서 3장) — "만들어본 요리" 는
  * 오래된 순이 기본이고, 이름순은 찾을 때 쓰는 것이다.
  *
@@ -12,11 +12,10 @@
  */
 
 import Link from "next/link";
-import { useMemo, useState, useOptimistic } from "react";
+import { useState, useOptimistic } from "react";
 import { useSearchParams } from "next/navigation";
 import type { RecipeCard } from "@/lib/recipes";
 import type { PickDay, Placement } from "@/lib/plan.types";
-import Fold from "../Fold";
 import PlanButton from "../PlanButton";
 import { sortRecipes, type RecipeOrder } from "@/lib/recipe-sort";
 import { dateTiny } from "@/lib/say";
@@ -120,7 +119,6 @@ export default function Picker({
     return s === "name" || s === "default" ? { [f]: s } : {};
   });
   const order = orders[filter] ?? "default";
-  const [ingredient, setIngredient] = useState(params.get("i") ?? "");
   const [review, setReview] = useState(params.get("r") === "1");
 
   /*
@@ -131,7 +129,7 @@ export default function Picker({
     **`pushState` 가 아니다.** 칩을 누를 때마다 히스토리가 쌓이면
     뒤로 가기를 다섯 번 눌러야 상세에서 목록으로 못 나간다.
   */
-  function remember(next: Partial<Record<"f" | "s" | "i" | "r", string>>) {
+  function remember(next: Partial<Record<"f" | "s" | "r", string>>) {
     const u = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(next)) {
       if (v) u.set(k, v);
@@ -140,19 +138,6 @@ export default function Picker({
     const q = u.toString();
     window.history.replaceState(null, "", q ? `?${q}` : location.pathname);
   }
-
-  const ingredients = useMemo(() => {
-    const counts = new Map<string, number>();
-    recipes.forEach((r) =>
-      new Set(r.ingredients).forEach((n) =>
-        counts.set(n, (counts.get(n) || 0) + 1),
-      ),
-    );
-    return [...counts]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([name]) => name);
-  }, [recipes]);
 
   const chosen = (id: number) => plan[id] ?? [];
   const pickedCount = Object.values(plan).filter((p) => p.length > 0).length;
@@ -163,7 +148,6 @@ export default function Picker({
         (!review || chosen(r.id).length > 0) &&
         (filter === "all" ||
           (filter === "new" ? !r.last_cooked_on : !!r.last_cooked_on)) &&
-        (!ingredient || r.ingredients.includes(ingredient)) &&
         `${r.title} ${r.ingredients.join(" ")}`
           .toLocaleLowerCase()
           .includes(term.trim().toLocaleLowerCase()),
@@ -179,8 +163,17 @@ export default function Picker({
           <p className={styles.eyebrow}>고르면 날짜를 물어봐요</p>
           <h1>뭐 먹을까요?</h1>
         </div>
-        <Link href="/add" className="ds-btn ds-btn-secondary">
-          + 레시피
+        {/*
+          **레시피를 넣는 문은 앱에 이것 하나다.** 화면 셋(식단·고르기·
+          장보기) 어디에도 `/add` 로 가는 길이 여기 말고 없는데, 그 하나가
+          투명한 회색 테두리에 13px 이었다 — 제일 안 보이는 것이 제일
+          중요한 자리였다.
+
+          **파랑은 누를 수 있는 것에만** 쓴다는 규칙에 걸리는 게 아니라,
+          이게 바로 그 자리다 (CLAUDE.md). 제목보다 작게 두되 채워서 낸다.
+        */}
+        <Link href="/add" className={`ds-btn ds-btn-primary ${styles.add}`}>
+          <span aria-hidden="true">＋</span> 레시피
         </Link>
       </header>
 
@@ -250,41 +243,6 @@ export default function Picker({
             </button>
           ))}
         </div>
-        {/*
-          재료 칩은 **접어둔다.** 한 번 펼쳐놨다가 도구 상자가 403 → 463px
-          로 늘어서 되돌렸다 — 여덟 개가 폰 폭에서 두세 줄을 먹고, 그만큼
-          첫 카드가 아래로 밀렸다. 이 화면을 여는 이유는 **요리를 고르는
-          것**이지 도구를 보는 게 아니다.
-
-          접혀 있으면 있는 줄 모른다는 건 맞다. 그래서 몇 가지가 있는지,
-          지금 뭘 골랐는지를 **접힌 줄에 적는다.** 삼각형은 없어졌다.
-
-          그리고 검색창이 이미 재료까지 훑는다 — 칩은 자주 쓰는 여덟 개로
-          가는 지름길이지 유일한 길이 아니다.
-        */}
-        {ingredients.length > 0 && (
-          <Fold
-            title="재료로 좁히기"
-            hint={ingredient || `${ingredients.length}가지`}
-          >
-            <div className={styles.filters}>
-              {ingredients.map((n) => (
-                <button
-                  key={n}
-                  className={`ds-chip ${ingredient === n ? "on" : ""}`}
-                  aria-pressed={ingredient === n}
-                  onClick={() => {
-                    const next = ingredient === n ? "" : n;
-                    setIngredient(next);
-                    remember({ i: next });
-                  }}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </Fold>
-        )}
       </div>
 
       <div className={styles.results}>
@@ -298,8 +256,7 @@ export default function Picker({
             setReview(!review);
             setFilter("all");
             setTerm("");
-            setIngredient("");
-            remember({ r: review ? "" : "1", f: "", i: "" });
+            remember({ r: review ? "" : "1", f: "" });
           }}
         >
           {review ? "전체 레시피 보기" : `담은 메뉴만 · ${pickedCount}`}
@@ -356,10 +313,9 @@ export default function Picker({
               className="ds-btn ds-btn-secondary"
               onClick={() => {
                 setTerm("");
-                setIngredient("");
                 setFilter("all");
                 setReview(false);
-                remember({ f: "", i: "", r: "" });
+                remember({ f: "", r: "" });
               }}
             >
               전체 레시피 보기

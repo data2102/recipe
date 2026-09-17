@@ -2,21 +2,41 @@
   max-width: 1000px;
   padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px));
 }
+/*
+ * 머리말과 그 옆의 버튼.
+ *
+ * **버튼을 제목 줄에 세운다** (`flex-end`). 예전에는 `center` 라 두 줄
+ * 짜리 왼쪽 덩어리(작은 글 + 제목)의 한가운데에 걸쳐서, 위로도 아래로도
+ * 맞는 줄이 없었다. 제목의 행동이니 제목 옆에 선다.
+ */
 .head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--sp-3);
   margin-bottom: var(--sp-4);
 }
 .head h1 {
   font-size: var(--fs-title);
-  margin: var(--sp-1) 0;
+  margin: var(--sp-1) 0 0;
 }
-.head > a {
+/*
+ * 레시피 넣기 — **화면의 유일한 파란 버튼이다.**
+ *
+ * `.ds-btn` 의 48px 은 한 손으로 누르는 큰 버튼 값이라 머리말에서는
+ * 제목보다 커진다. 44px 로 낮추되 **터치 영역 아래로는 안 내려간다**
+ * (간격·터치 영역은 px 로 둔다 — CLAUDE.md).
+ *
+ * 글자는 `--fs-caption` 이다. 위계는 나머지를 내리는 일이라 (11장 A1)
+ * 제목(`--fs-title`) 옆에서 이게 더 크면 주인공이 둘이 된다 — 눈에 띄는
+ * 건 크기가 아니라 **채운 면**이 한다.
+ */
+.add {
   flex-shrink: 0;
   font-size: var(--fs-caption);
-  padding: var(--sp-2);
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  gap: 2px;
 }
 .eyebrow {
   font-size: var(--fs-footnote);
@@ -161,14 +181,13 @@
 }
 
 
-/* 도구 줄의 앞머리 글자 ("정렬", "재료로 좁히기") — 칩이 아니라 이름표다 */
 .basket a {
   font-size: var(--fs-footnote);
   color: var(--accent-strong);
   text-decoration: none;
 }
 
-/* 도구 줄의 앞머리 글자 ("정렬", "재료로 좁히기") — 칩이 아니라 이름표다 */
+/* 도구 줄의 앞머리 글자 ("정렬") — 칩이 아니라 이름표다 */
 .toolLabel {
   font-size: var(--fs-footnote);
   color: var(--text-tertiary);
