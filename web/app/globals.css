@@ -534,6 +534,59 @@ a.ds-btn {
   사람에게 화면이 흔들리는 것은 접근성 문제다. 여백은 자기 애니메이션만
   끄므로 여기서 만든 것은 여기서 끈다.
 */
+/* --- ⑨ 탭을 옮길 때 옆으로 미끄러진다 -------------------------------
+   화면 셋이 왼쪽부터 식단·고르기·장보기 순서로 서 있다 (`TabBar.tsx`).
+   오른쪽 탭으로 가면 왼쪽으로 밀리고, 왼쪽이면 오른쪽으로 밀린다 —
+   **어디서 어디로 갔는지**를 화면이 말해준다 (11장 B1).
+
+   **짧다.** Next 문서의 예시는 150·210·400ms 인데 그건 사진 갤러리 값이다.
+   마트에서 연달아 탭을 누르는 화면이라 기다리게 하면 안 돼서, 우리는
+   여백의 `--dur-fast`(120ms)·`--dur-base`(200ms) 안에서 끝낸다.
+
+   나가는 쪽이 들어오는 쪽보다 빠르다. 옛 화면이 꾸물대면 새 화면과
+   눈길을 다툰다.
+
+   `default="none"` 은 `Slide.tsx` 에 있다 — 방향이 안 실린 이동(뒤로
+   가기, 서버 액션 뒤의 다시 그리기)에는 아무것도 안 움직인다. */
+::view-transition-old(.nav-forward) {
+  animation: var(--dur-fast) var(--ease-standard) both slide-out-left;
+}
+::view-transition-new(.nav-forward) {
+  animation: var(--dur-base) var(--ease-out) both slide-in-right;
+}
+::view-transition-old(.nav-back) {
+  animation: var(--dur-fast) var(--ease-standard) both slide-out-right;
+}
+::view-transition-new(.nav-back) {
+  animation: var(--dur-base) var(--ease-out) both slide-in-left;
+}
+
+/* 8% 면 방향은 읽히고 화면은 안 출렁인다. 24px 쯤이다 */
+@keyframes slide-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-8%);
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(8%);
+  }
+}
+@keyframes slide-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(8%);
+  }
+}
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :where(button, a, label, .ds-card, li, .ds-fold > .head) {
     transition: none;
@@ -550,6 +603,11 @@ a.ds-btn {
     transform: none;
   }
   .ds-fold > .body {
+    animation: none;
+  }
+  /* 화면 전환도 끈다. 여백이 모르는 것은 우리가 끈다 */
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation: none;
   }
 }
