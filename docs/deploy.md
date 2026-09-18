@@ -263,6 +263,103 @@ Supabase 프로젝트를 다른 지역에 만들었으면 이 값도 같이 바�
 
 ---
 
+## 6. 폰 앱(React Native) 을 폰에 올리기
+
+**여기까지가 PWA 다.** `native/` 는 같은 서버를 보는 **다른 앱**이고,
+설치 방법이 다르다 (크롬 "홈 화면에 추가" 가 아니다).
+
+### 먼저 — 서버 문을 연다
+
+폰 앱은 화면을 서버가 그려주지 않는다. `/api/*` 로 묻는데, 그 문은
+`APP_API_TOKEN` 이 없으면 **전부 503 으로 닫혀 있다** (위 3장). 안 넣으면
+앱을 깔아도 화면마다 오류만 나온다 — 앱이 고장 난 게 아니라 문이 닫힌 것이다.
+
+1. Vercel → Settings → Environment Variables 에 `APP_API_TOKEN` (24자 이상)
+2. **재배포한다** — 저장만 하면 함수에 안 박힌다 (위 "환경변수를 고칠 때")
+3. 같은 값을 `native/.env` 에 적는다 (`native/.env.example` 을 복사)
+
+```
+EXPO_PUBLIC_API_URL=https://<배포주소>.vercel.app
+EXPO_PUBLIC_API_TOKEN=<위와 같은 값>
+```
+
+`.env` 는 커밋하지 마라. **앱 파일에 박히는 것과 저장소에 올라가는 것은
+다른 문제다** — 박힌 값은 앱을 뜯어야 보이지만, 올린 값은 저장소를 여는
+누구나 본다.
+
+### 길 A — Expo Go (빌드 없음, 5분)
+
+**제일 먼저 이걸 한다.** 앱을 만들지 않고 폰에서 그대로 돌려본다.
+쓰는 네이티브 모듈이 전부 Expo 기본 목록 안이라 (`expo-router` ·
+`expo-image-picker` · `expo-image-manipulator` · `safe-area-context` ·
+`screens`) 따로 빌드할 게 없다.
+
+1. 폰에 **Expo Go** 를 깐다 (Play 스토어)
+2. PC 에서:
+
+```bash
+cd native
+npm install
+npx expo start          # 같은 와이파이가 아니면 --tunnel
+```
+
+3. 터미널의 QR 을 Expo Go 로 찍는다
+
+고치면 **바로 반영된다.** 기능을 보완하는 동안은 이 길이 맞다 —
+한 번 고칠 때마다 20분씩 기다리지 않는다.
+
+> **Expo Go 로 못 보는 것**: 앱 아이콘 · 스플래시 · 안드로이드 공유 인텐트
+> 같은 **네이티브 껍데기**다. 화면과 동작은 전부 그대로 보인다.
+
+### 길 B — APK 를 만들어 설치 (EAS Build)
+
+와이프 폰에 주거나, PC 를 안 켜고 쓰려면 진짜 앱 파일이 필요하다.
+
+```bash
+npm i -g eas-cli
+eas login                       # expo.dev 계정 (무료)
+cd native
+eas init                        # 프로젝트를 만들고 app.json 에 id 를 적는다
+eas build --profile preview --platform android
+```
+
+- **`preview` 가 사이드로드용이다** (`eas.json`): `distribution: internal` +
+  `buildType: apk` — 스토어를 안 거치고 링크로 받아 깐다.
+  `production` 은 Play 스토어용 `app-bundle` 이라 폰에 바로 못 깐다
+- 토큰은 `eas.json` 에 적지 마라. **EAS 환경변수로 넣는다**:
+
+```bash
+eas env:create --name EXPO_PUBLIC_API_URL   --value https://<배포주소>.vercel.app
+eas env:create --name EXPO_PUBLIC_API_TOKEN --value <값>
+```
+
+- 끝나면 나오는 링크를 폰 크롬으로 열어 APK 를 받는다.
+  안드로이드가 "출처를 알 수 없는 앱" 을 물어보면 허용한다
+- 첫 빌드 때 EAS 가 **키스토어를 대신 만들어 보관한다.** 그걸 잃으면
+  같은 앱으로 업데이트를 못 한다 — `eas credentials` 로 받아 따로 둔다
+
+`android.package` 는 `com.data2102.recipe` 다 (`app.json`). **한 번 깔고 나면
+바꾸지 마라** — 바꾸면 다른 앱이 되어서 지우고 다시 깔아야 한다.
+
+### 이 저장소의 CI 는 APK 를 안 만든다
+
+`.github/workflows/check.yml` 의 "폰 앱" 은 **타입 검사 + 번들 + 번들에 DB
+문자열이 안 섞였는지**까지만 본다. 빌드는 expo.dev 계정이 필요해서 사람이
+돌린다. 번들이 통과했다고 APK 가 나온다는 뜻은 아니다 — 네이티브 껍데기는
+거기서 처음 만들어진다.
+
+### 안 될 때
+
+| 증상 | 원인 |
+|---|---|
+| 화면마다 "서버 주소가 아직 안 적혀 있어요" | `EXPO_PUBLIC_API_URL` 이 비었다. `.env` 를 고쳤으면 `npx expo start` 를 **다시** 띄운다 |
+| 전부 503 | `APP_API_TOKEN` 이 Vercel 에 없거나, 넣고 **재배포를 안 했다** |
+| 401 | 앱 토큰과 서버 토큰이 다르다 |
+| 사진이 안 뜬다 | `/photo/<id>` 는 토큰 문이 아니다. `EXPO_PUBLIC_API_URL` 이 틀린 것부터 본다 |
+| Expo Go 에서 QR 을 찍어도 안 열린다 | 폰과 PC 가 다른 와이파이다 — `npx expo start --tunnel` |
+
+---
+
 ## 그다음 — 미뤄둔 5번
 
 작업 순서 5번(미분류 확인)은 **실제 레시피를 넣어봐야** 판단이 된다.
