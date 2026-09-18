@@ -238,6 +238,17 @@ AI 가 만든 것 같다."** 재서 원인을 찾았다 — `docs/ui-references.
 - **`APP_API_TOKEN` 이 Vercel 에 없으면 앱은 화면마다 503 이다.** 앱이
   고장 난 게 아니라 문이 닫힌 것이다 (`lib/api/guard.ts` 의 fail closed).
   **넣고 재배포까지** 해야 함수에 박힌다
+- **`npx expo-doctor` 를 돌리면 항상 하나는 실패한다** — Metro 설정
+  (`disableHierarchicalLookup`). **고치지 마라, 일부러 그렇게 둔 것이다**:
+  끄지 않으면 Metro 가 `web/lib/` 에서 위로 올라가 `web/node_modules` 의
+  `pg`·`next` 를 찾아낸다. expo-doctor 는 이 검사만 끄는 설정을 안 준다
+  (설정으로 끄는 건 `reactNativeDirectoryCheck`·`appConfigFieldsNotSyncedCheck`
+  둘뿐). 이유는 `native/metro.config.js` 에 적어뒀다
+- **Expo 꾸러미 버전은 SDK 가 정한 값에 맞춘다.** 패치 하나만 어긋나도
+  Expo Go 가 **"Something went wrong" 한 장**으로 죽는다 — 무엇이 틀렸는지
+  화면이 말해주지 않는다. `npx expo-doctor` 가 기대값을 찍어준다.
+  **`@expo/ui` 는 직접 의존성이 아니다** (`expo-router` 가 데려온다) —
+  다시 `package.json` 에 적지 마라
 - **CI 는 APK 를 안 만든다.** "폰 앱" 잡은 타입 검사 + 번들 + 번들에 DB
   문자열이 안 섞였는지까지다. 번들이 통과했다고 APK 가 나온다는 뜻이
   아니다 — 네이티브 껍데기는 EAS 에서 처음 만들어진다

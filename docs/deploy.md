@@ -357,6 +357,11 @@ eas env:create --name EXPO_PUBLIC_API_TOKEN --value <값>
 | 401 | 앱 토큰과 서버 토큰이 다르다 |
 | 사진이 안 뜬다 | `/photo/<id>` 는 토큰 문이 아니다. `EXPO_PUBLIC_API_URL` 이 틀린 것부터 본다 |
 | Expo Go 에서 QR 을 찍어도 안 열린다 | 폰과 PC 가 다른 와이파이다 — `npx expo start --tunnel` |
+| 폰에 **"Something went wrong"** 한 장만 뜬다 | 꾸러미 버전이 SDK 와 어긋났을 때 이렇게 죽는다. `npx expo-doctor` 로 보고 `npx expo install --check` 로 맞춘다 |
+
+> `npx expo-doctor` 는 **항상 하나를 실패로 찍는다** — Metro 설정
+> (`disableHierarchicalLookup`). **그건 일부러 그렇게 둔 것이다**
+> (`native/metro.config.js` 에 이유가 있다). 나머지가 통과하는지만 본다.
 
 ---
 
