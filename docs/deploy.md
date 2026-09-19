@@ -287,41 +287,29 @@ EXPO_PUBLIC_API_TOKEN=<위와 같은 값>
 다른 문제다** — 박힌 값은 앱을 뜯어야 보이지만, 올린 값은 저장소를 여는
 누구나 본다.
 
-### 길 A — Expo Go (빌드 없음, 5분)
+### Expo Go 는 쓰지 않는다 (2026-09-19)
 
-**제일 먼저 이걸 한다.** 앱을 만들지 않고 폰에서 그대로 돌려본다.
-쓰는 네이티브 모듈이 전부 Expo 기본 목록 안이라 (`expo-router` ·
-`expo-image-picker` · `expo-image-manipulator` · `safe-area-context` ·
-`screens`) 따로 빌드할 게 없다.
+한 번 해봤고 안 됐다. 폰에 **"Something went wrong" 한 장**만 뜨는데
+**원인이 한 글자도 없고**, 좁히려고 잰 것은 전부 정상이었다 — 배포 번들 ·
+개발 번들(6.4MB, HTTP 200) · 매니페스트(`exposdk:57.0.0`) · 꾸러미 버전 ·
+앱을 실제로 실행시킨 결과(런타임 오류 0건). `--tunnel` 은 `@expo/ngrok`
+전역 설치에 실패해 켜자마자 죽었다.
 
-1. 폰에 **Expo Go** 를 깐다 (Play 스토어)
-2. PC 에서:
+**"빌드가 없어서 빠르다" 가 이유였는데, 빌드 한 번보다 훨씬 많은 시간을
+태웠다.** 목표는 폰에 앱을 올리는 것이지 Expo Go 를 돌리는 게 아니다.
 
-```bash
-cd native
-npm install
-npx expo start          # 같은 와이파이가 아니면 --tunnel
-```
-
-3. 터미널의 QR 을 Expo Go 로 찍는다
-
-고치면 **바로 반영된다.** 기능을 보완하는 동안은 이 길이 맞다 —
-한 번 고칠 때마다 20분씩 기다리지 않는다.
-
-> **Expo Go 로 못 보는 것**: 앱 아이콘 · 스플래시 · 안드로이드 공유 인텐트
-> 같은 **네이티브 껍데기**다. 화면과 동작은 전부 그대로 보인다.
-
-### 길 B — APK 를 만들어 설치 (EAS Build)
-
-와이프 폰에 주거나, PC 를 안 켜고 쓰려면 진짜 앱 파일이 필요하다.
+### APK 를 만들어 설치 (EAS Build)
 
 ```bash
 npm i -g eas-cli
-eas login                       # expo.dev 계정 (무료)
+eas login
 cd native
-eas init                        # 프로젝트를 만들고 app.json 에 id 를 적는다
+eas init
 eas build --profile preview --platform android
 ```
+
+`eas init` 은 `app.json` 에 `extra.eas.projectId` 를 적는다 — **그 줄은
+커밋한다** (계정에 매인 값이고, 없으면 다음 빌드가 프로젝트를 새로 만든다).
 
 - **`preview` 가 사이드로드용이다** (`eas.json`): `distribution: internal` +
   `buildType: apk` — 스토어를 안 거치고 링크로 받아 깐다.
