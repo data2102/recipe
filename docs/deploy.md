@@ -287,51 +287,57 @@ EXPO_PUBLIC_API_TOKEN=<위와 같은 값>
 다른 문제다** — 박힌 값은 앱을 뜯어야 보이지만, 올린 값은 저장소를 여는
 누구나 본다.
 
-### 길 A — Expo Go (빌드 없음, 5분)
+### Expo Go 는 쓰지 않는다 (2026-09-19)
 
-**제일 먼저 이걸 한다.** 앱을 만들지 않고 폰에서 그대로 돌려본다.
-쓰는 네이티브 모듈이 전부 Expo 기본 목록 안이라 (`expo-router` ·
-`expo-image-picker` · `expo-image-manipulator` · `safe-area-context` ·
-`screens`) 따로 빌드할 게 없다.
+한 번 해봤고 안 됐다. 폰에 **"Something went wrong" 한 장**만 뜨는데
+**원인이 한 글자도 없고**, 좁히려고 잰 것은 전부 정상이었다 — 배포 번들 ·
+개발 번들(6.4MB, HTTP 200) · 매니페스트(`exposdk:57.0.0`) · 꾸러미 버전 ·
+앱을 실제로 실행시킨 결과(런타임 오류 0건). `--tunnel` 은 `@expo/ngrok`
+전역 설치에 실패해 켜자마자 죽었다.
 
-1. 폰에 **Expo Go** 를 깐다 (Play 스토어)
-2. PC 에서:
+**"빌드가 없어서 빠르다" 가 이유였는데, 빌드 한 번보다 훨씬 많은 시간을
+태웠다.** 목표는 폰에 앱을 올리는 것이지 Expo Go 를 돌리는 게 아니다.
 
-```bash
-cd native
-npm install
-npx expo start          # 같은 와이파이가 아니면 --tunnel
-```
-
-3. 터미널의 QR 을 Expo Go 로 찍는다
-
-고치면 **바로 반영된다.** 기능을 보완하는 동안은 이 길이 맞다 —
-한 번 고칠 때마다 20분씩 기다리지 않는다.
-
-> **Expo Go 로 못 보는 것**: 앱 아이콘 · 스플래시 · 안드로이드 공유 인텐트
-> 같은 **네이티브 껍데기**다. 화면과 동작은 전부 그대로 보인다.
-
-### 길 B — APK 를 만들어 설치 (EAS Build)
-
-와이프 폰에 주거나, PC 를 안 켜고 쓰려면 진짜 앱 파일이 필요하다.
+### APK 를 만들어 설치 (EAS Build)
 
 ```bash
 npm i -g eas-cli
-eas login                       # expo.dev 계정 (무료)
+eas login
 cd native
-eas init                        # 프로젝트를 만들고 app.json 에 id 를 적는다
+eas init
 eas build --profile preview --platform android
 ```
+
+`eas init` 은 `app.json` 에 `extra.eas.projectId` 를 적는다 — **그 줄은
+커밋한다** (계정에 매인 값이고, 없으면 다음 빌드가 프로젝트를 새로 만든다).
 
 - **`preview` 가 사이드로드용이다** (`eas.json`): `distribution: internal` +
   `buildType: apk` — 스토어를 안 거치고 링크로 받아 깐다.
   `production` 은 Play 스토어용 `app-bundle` 이라 폰에 바로 못 깐다
-- 토큰은 `eas.json` 에 적지 마라. **EAS 환경변수로 넣는다**:
+- 토큰은 `eas.json` 에 적지 마라. **EAS 환경변수로 넣는다** (터미널 명령이다):
 
 ```bash
-eas env:create --name EXPO_PUBLIC_API_URL   --value https://<배포주소>.vercel.app
-eas env:create --name EXPO_PUBLIC_API_TOKEN --value <값>
+eas env:set --environment preview --visibility plaintext \
+  --name EXPO_PUBLIC_API_URL --value https://<배포주소>.vercel.app
+eas env:set --environment preview --visibility sensitive \
+  --name EXPO_PUBLIC_API_TOKEN --value <값>
 ```
+
+**`env:create` 가 아니라 `env:set` 이다** — 앞은 deprecated 다.
+expo.dev 대시보드의 Project → Environment Variables 에서 넣어도 같다.
+
+**`--environment` 를 빠뜨리지 마라.** 변수는 환경(development · preview ·
+production)마다 따로 저장되고, **빌드는 자기 프로필의 환경 것만 읽는다.**
+`development` 프로필로도 빌드할 거면 그쪽에도 같은 값을 한 벌 더 넣는다
+(`--environment development`).
+
+`eas.json` 의 세 프로필에 `environment` 를 **명시해뒀다.** 안 적어도
+eas-cli 가 알아서 고르긴 하는데(`store`→production, `developmentClient`
+→development, 나머지→preview), 그건 값이 맞아떨어지는 것이지 규칙이 아니다.
+
+`--visibility` 는 **대시보드에서 값이 보이느냐**를 정할 뿐이다. `sensitive`
+로 넣어도 `EXPO_PUBLIC_` 은 **앱 번들에 그대로 박힌다** — 감추는 게 아니라
+어깨너머로 안 보이게 하는 것이다.
 
 - 끝나면 나오는 링크를 폰 크롬으로 열어 APK 를 받는다.
   안드로이드가 "출처를 알 수 없는 앱" 을 물어보면 허용한다
@@ -357,6 +363,12 @@ eas env:create --name EXPO_PUBLIC_API_TOKEN --value <값>
 | 401 | 앱 토큰과 서버 토큰이 다르다 |
 | 사진이 안 뜬다 | `/photo/<id>` 는 토큰 문이 아니다. `EXPO_PUBLIC_API_URL` 이 틀린 것부터 본다 |
 | Expo Go 에서 QR 을 찍어도 안 열린다 | 폰과 PC 가 다른 와이파이다 — `npx expo start --tunnel` |
+| 폰에 **"Something went wrong"** 한 장만 뜬다 | Expo Go 의 화면이고 **원인이 한 글자도 없다.** ① 앱이 그린 "앱이 멈췄어요" 화면이면 거기 적힌 메시지를 읽는다 (`app/_layout.tsx` 의 `ErrorBoundary`) ② 그래도 파란 화면이면 모듈이 읽히다 터진 것이다 — 맨 아래 **"View error log"**, 또는 맥의 `npx expo start` 창 |
+| `--tunnel` 이 켜자마자 죽는다 | `@expo/ngrok` 전역 설치가 실패한 것이다 (`NgrokResolver`). `npm i -g @expo/ngrok@^4.1.0` 로 먼저 깔거나, 터널 없이 같은 와이파이로 쓴다 |
+
+> `npx expo-doctor` 는 **항상 하나를 실패로 찍는다** — Metro 설정
+> (`disableHierarchicalLookup`). **그건 일부러 그렇게 둔 것이다**
+> (`native/metro.config.js` 에 이유가 있다). 나머지가 통과하는지만 본다.
 
 ---
 
