@@ -26,6 +26,19 @@
     "scheme": "recipe",
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a2016ef3-b28c-4d99-bdab-f678423b5123"
+      }
+    },
+    "owner": "data05",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a2016ef3-b28c-4d99-bdab-f678423b5123"
+    }
   }
 }
