@@ -249,6 +249,12 @@ AI 가 만든 것 같다."** 재서 원인을 찾았다 — `docs/ui-references.
   화면이 말해주지 않는다. `npx expo-doctor` 가 기대값을 찍어준다.
   **`@expo/ui` 는 직접 의존성이 아니다** (`expo-router` 가 데려온다) —
   다시 `package.json` 에 적지 마라
+- **폰에서 터지면 앱이 원인을 적는다** (`app/_layout.tsx` 의 `ErrorBoundary`).
+  expo-router 가 route 파일의 **이름 붙은 export** 를 찾아 쓴다 — `_layout.tsx`
+  에 두면 아래 화면 전부를 받으니 화면마다 따로 두지 마라. **지우지 마라**:
+  없으면 Expo Go 가 자기 파란 화면("Something went wrong")을 내는데 거기엔
+  **원인이 한 글자도 없다** (실제로 그 화면 하나로 하루를 태웠다).
+  **모듈이 읽히다 터지는 것은 못 잡는다** — React 가 그리기 전이라 경계가 없다
 - **CI 는 APK 를 안 만든다.** "폰 앱" 잡은 타입 검사 + 번들 + 번들에 DB
   문자열이 안 섞였는지까지다. 번들이 통과했다고 APK 가 나온다는 뜻이
   아니다 — 네이티브 껍데기는 EAS 에서 처음 만들어진다

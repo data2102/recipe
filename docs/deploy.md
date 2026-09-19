@@ -357,7 +357,8 @@ eas env:create --name EXPO_PUBLIC_API_TOKEN --value <값>
 | 401 | 앱 토큰과 서버 토큰이 다르다 |
 | 사진이 안 뜬다 | `/photo/<id>` 는 토큰 문이 아니다. `EXPO_PUBLIC_API_URL` 이 틀린 것부터 본다 |
 | Expo Go 에서 QR 을 찍어도 안 열린다 | 폰과 PC 가 다른 와이파이다 — `npx expo start --tunnel` |
-| 폰에 **"Something went wrong"** 한 장만 뜬다 | 꾸러미 버전이 SDK 와 어긋났을 때 이렇게 죽는다. `npx expo-doctor` 로 보고 `npx expo install --check` 로 맞춘다 |
+| 폰에 **"Something went wrong"** 한 장만 뜬다 | Expo Go 의 화면이고 **원인이 한 글자도 없다.** ① 앱이 그린 "앱이 멈췄어요" 화면이면 거기 적힌 메시지를 읽는다 (`app/_layout.tsx` 의 `ErrorBoundary`) ② 그래도 파란 화면이면 모듈이 읽히다 터진 것이다 — 맨 아래 **"View error log"**, 또는 맥의 `npx expo start` 창 |
+| `--tunnel` 이 켜자마자 죽는다 | `@expo/ngrok` 전역 설치가 실패한 것이다 (`NgrokResolver`). `npm i -g @expo/ngrok@^4.1.0` 로 먼저 깔거나, 터널 없이 같은 와이파이로 쓴다 |
 
 > `npx expo-doctor` 는 **항상 하나를 실패로 찍는다** — Metro 설정
 > (`disableHierarchicalLookup`). **그건 일부러 그렇게 둔 것이다**

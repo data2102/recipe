@@ -8,11 +8,12 @@
  * 순서도 웹과 같다. 마트에서 여는 장보기가 오른쪽 끝이라 엄지에 가깝다.
  */
 
-import { Tabs } from "expo-router";
+import { Tabs, type ErrorBoundaryProps } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Text } from "react-native";
+import { Platform, ScrollView, Text } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { TOUCH, useColors, type Colors } from "../lib/tokens";
+import Tap from "../components/Tap";
+import { radius, sp, TOUCH, themed, useColors, type Colors } from "../lib/tokens";
 
 /**
  * 아이콘 대신 글자를 쓴다.
@@ -38,6 +39,79 @@ function label(text: string, focused: boolean, c: Colors) {
     </Text>
   );
 }
+
+/**
+ * 앱이 터졌을 때 — **무엇이 터졌는지 화면에 적는다.**
+ *
+ * 이게 없으면 Expo Go 가 자기 파란 화면("Something went wrong")을 내는데,
+ * 거기에는 **원인이 한 글자도 없다.** 실제로 그 화면 하나를 붙들고
+ * 하루를 태웠다: 번들도 정상이고 버전도 맞는데 폰에서만 죽었고, 로그는
+ * "View error log" 를 눌러야 나오는 자리에 숨어 있었다.
+ *
+ * 그래서 **오류 메시지를 우리 화면에 그대로 낸다.** 사용자에게도 이게
+ * 맞다 — "뭔가 잘못됐어요" 보다 "무엇이" 가 있어야 다음 걸음이 생긴다
+ * (원칙 ③). 스택은 접지 않고 그냥 아래에 둔다. 보기 싫은 것보다
+ * 원인을 못 찾는 게 나쁘다.
+ *
+ * expo-router 가 route 파일의 `ErrorBoundary` **이름 붙은 export** 를
+ * 찾아서 쓴다 (`views/Try.tsx`). `_layout.tsx` 에 두면 아래 화면 전부를
+ * 받는다 — 화면마다 따로 두지 마라.
+ *
+ * **모듈이 읽히다 터지는 것까지는 못 잡는다.** 그건 React 가 그리기
+ * 전이라 경계가 없다. 그때는 여전히 Expo Go 의 파란 화면이다.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const { s } = useCrash();
+  return (
+    <ScrollView contentContainerStyle={s.wrap}>
+      <Text style={s.title}>앱이 멈췄어요</Text>
+      <Text style={s.what}>{error?.message || String(error)}</Text>
+      <Tap style={s.button} onPress={() => void retry()}>
+        <Text style={s.buttonText}>다시 해볼게요</Text>
+      </Tap>
+      <Text style={s.label}>어디서 났는지</Text>
+      <Text style={s.stack} selectable>
+        {error?.stack || "(스택이 없어요)"}
+      </Text>
+      <Text style={s.label}>지금 설정</Text>
+      <Text style={s.stack} selectable>
+        {[
+          `서버 주소: ${process.env.EXPO_PUBLIC_API_URL || "(안 적혀 있음)"}`,
+          `토큰: ${process.env.EXPO_PUBLIC_API_TOKEN ? "있음" : "(안 적혀 있음)"}`,
+          `플랫폼: ${Platform.OS} ${String(Platform.Version)}`,
+        ].join("\n")}
+      </Text>
+    </ScrollView>
+  );
+}
+
+const useCrash = themed((c) => ({
+  wrap: { padding: sp[5], paddingTop: sp[12], gap: sp[3] },
+  title: { fontSize: 24, fontWeight: "700" as const, color: c.text },
+  what: { fontSize: 15, color: c.text },
+  label: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+    color: c.textTertiary,
+    marginTop: sp[4],
+  },
+  stack: {
+    fontSize: 11,
+    color: c.textSecondary,
+    backgroundColor: c.surface,
+    borderRadius: radius.md,
+    padding: sp[3],
+  },
+  button: {
+    minHeight: TOUCH,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+    backgroundColor: c.accentStrong,
+    borderRadius: radius.md,
+    marginTop: sp[2],
+  },
+  buttonText: { color: c.onAccent, fontWeight: "600" as const, fontSize: 15 },
+}));
 
 export default function Layout() {
   /*
