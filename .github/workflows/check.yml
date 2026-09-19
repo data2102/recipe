@@ -173,14 +173,20 @@ jobs:
           EXPO_OFFLINE: "1"
         run: npx expo export --platform android --output-dir /tmp/expo-check
 
-      # 서버 코드가 앱 번들에 섞였나. 이게 섞이면 **접속 문자열이
-      # 사용자 기기에 실린다** — 층 경계가 지켜졌는지를 결과물에서 잰다.
+      # 서버 코드나 진짜 비밀이 앱 번들에 섞였나. 이게 섞이면 **접속
+      # 문자열이 사용자 기기에 실린다** — 층 경계가 지켜졌는지를
+      # 결과물에서 잰다.
+      #
+      # `sk-ant-` 는 실제로 날 뻔한 사고다 (2026-09-19): EXPO_PUBLIC_API_TOKEN
+      # 자리에 Anthropic 키를 넣는 명령을 쳤다. EXPO_PUBLIC_ 은 번들에
+      # **그대로 박히므로**, 그대로 빌드됐으면 APK 를 뜯는 누구나 그 키를
+      # 꺼내 쓸 수 있었다. 그 자리에 들어갈 값은 서버의 APP_API_TOKEN 하나다.
       - name: 번들에 DB 가 안 섞였나
         run: |
           bundle=$(ls /tmp/expo-check/_expo/static/js/android/*.hbc \
                       /tmp/expo-check/_expo/static/js/android/*.js 2>/dev/null | head -1)
           test -n "$bundle" || { echo "번들을 못 찾았다"; exit 1; }
-          for bad in 'postgres://' 'postgresql://' 'DATABASE_URL' 'shopping_list_recipe'; do
+          for bad in 'postgres://' 'postgresql://' 'DATABASE_URL' 'shopping_list_recipe' 'sk-ant-' 'SUPABASE_SERVICE_ROLE'; do
             if grep -qF "$bad" "$bundle"; then
               echo "번들에 '$bad' 가 들어 있다 — 서버 층이 앱으로 샜다"
               exit 1
