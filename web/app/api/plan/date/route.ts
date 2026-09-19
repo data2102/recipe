@@ -1,11 +1,13 @@
 /**
- * POST /api/plan/date — 날짜를 정한다 (담기 + 옮기기가 한 가지 일이다)
+ * POST /api/plan/date — 그 날짜에 **더한다**
  *
  * 서버 액션 `planOnDate` 와 **같은 규칙**을 따른다 (app/actions.ts):
  *   - 어느 주인지는 **날짜가 정한다.** 앱이 보낸 주를 안 믿는다 —
  *     앱이 켜져 있는 동안 자정이 지나면 그 값은 틀린다
  *   - 날짜를 비우면 "날짜 미정". 그때만 어느 주인지 물어본다
- *   - 다른 주에서 옮겨오면 저쪽에서 뗀다 (안 떼면 장보기가 두 번 센다)
+ *   - **옮기는 게 아니라 더한다** (2026-09-19). 한 주에 같은 요리를
+ *     여러 날짜에 담을 수 있다. 빼는 건 `/api/plan/remove` 가 날짜를
+ *     받아서 한다
  *
  * 액션을 그대로 부르지 않고 같은 조각을 다시 엮는다 — `revalidatePath` 는
  * 웹 화면의 일이라 여기서는 할 일이 없다.
@@ -14,8 +16,7 @@
 import { NextResponse } from "next/server";
 import { allow, bad, body, oops } from "@/lib/api/guard";
 import { dayIndex } from "@/lib/say";
-import { addRecipe, removeRecipe, whichOf } from "@/lib/shopping";
-import { setDay } from "@/lib/week";
+import { addRecipe, whichOf } from "@/lib/shopping";
 
 export const dynamic = "force-dynamic";
 
@@ -32,15 +33,12 @@ export async function POST(request: Request) {
   if (!Number.isInteger(id) || id <= 0) return bad("레시피를 못 찾겠어요");
 
   const date = typeof input.date === "string" ? input.date.trim() : "";
-  const from =
-    input.from === "this" || input.from === "next" ? input.from : null;
 
   try {
     // 날짜 미정 — 어느 주에 담을지는 앱이 말해줘야 안다
     if (!date) {
       const week = input.week === "next" ? "next" : "this";
-      await addRecipe(id, week);
-      await setDay(id, null, week);
+      await addRecipe(id, week, null);
       return NextResponse.json({ recipeId: id, date: null, week });
     }
 
@@ -48,9 +46,7 @@ export async function POST(request: Request) {
     const week = whichOf(date);
     if (!week) return bad("이번 주와 다음 주 중에서 골라주세요");
 
-    await addRecipe(id, week);
-    await setDay(id, dayIndex(date), week);
-    if (from && from !== week) await removeRecipe(id, from);
+    await addRecipe(id, week, dayIndex(date));
 
     return NextResponse.json({ recipeId: id, date, week });
   } catch (e) {

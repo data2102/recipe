@@ -24,18 +24,34 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError, plan as planApi } from "../lib/api";
-import { dateFull, dateTiny, type PickDay, type Placement, type Which } from "../lib/pure";
+import {
+  dateFull,
+  dateTiny,
+  lastPlaced,
+  type PickDay,
+  type Placement,
+  type Which,
+} from "../lib/pure";
 import Tap from "./Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 const WEEK_NAME: Record<Which, string> = { this: "이번 주", next: "다음 주" };
 
-/** 담긴 자리를 버튼에 적는다. 날짜가 있으면 날짜가, 없으면 그 사실이 */
+/**
+ * 담긴 자리를 버튼에 적는다. **마지막 날짜만** (웹의 `PlanButton` 과 같다).
+ *
+ * 한 주에 여러 날짜에 담을 수 있게 되면서 (2026-09-19) 자리가 여럿일 수
+ * 있는데, 카드 한 줄에 다 적으면 요리 이름보다 길어진다. 대신 여러 날이면
+ * **개수를 같이 적는다** — 안 그러면 나머지가 사라진 것으로 읽힌다.
+ */
 export function placedLabel(placed: Placement[]): string {
   if (placed.length === 0) return "+ 담기";
-  const first = placed[0];
-  if (first.date) return `✓ ${dateTiny(first.date)}`;
-  return `✓ ${WEEK_NAME[first.which]} · 날짜 미정`;
+
+  const last = lastPlaced(placed)!;
+
+  const more = placed.length > 1 ? ` · ${placed.length}번` : "";
+  if (last.date) return `✓ ${dateTiny(last.date)}${more}`;
+  return `✓ ${WEEK_NAME[last.which]} · 날짜 미정${more}`;
 }
 
 export default function PlanSheet({
@@ -65,29 +81,38 @@ export default function PlanSheet({
   const [failed, setFailed] = useState("");
   const insets = useSafeAreaInsets();
 
+  /**
+   * 날짜를 누르면 **더한다. 이미 담긴 날을 누르면 뺀다** (웹과 같다).
+   *
+   * **판을 안 닫는다** — 여러 날을 고르러 연 자리라, 한 번 누를 때마다
+   * 닫으면 두 번째 날짜를 고르려고 다시 열어야 한다.
+   */
   async function pick(date: string | null, which: Which) {
     setFailed("");
     setBusy(true);
+    const on = placed.some((p) => p.date === date && p.which === which);
     try {
-      /*
-        다른 주에 있던 걸 옮겨오는 경우, 저쪽에서 떼라고 알려준다.
-        안 떼면 두 주에 같은 요리가 남아 장보기가 두 번 센다.
-      */
-      await planApi.onDate(recipeId, date, which, placed[0]?.which);
-      setOpen(false);
+      if (on) await planApi.remove(recipeId, which, date);
+      else await planApi.onDate(recipeId, date, which);
       await onDone();
     } catch (e) {
-      setFailed(e instanceof ApiError ? e.message : "담지 못했어요");
+      const why = e instanceof ApiError ? e.message : null;
+      setFailed(why ?? (on ? "빼지 못했어요" : "담지 못했어요"));
     } finally {
       setBusy(false);
     }
   }
 
+  /**
+   * 식단에서 빼기 — 담긴 주에서 통째로. **주 단위로 한 번씩만 부른다**:
+   * `placed` 는 자리마다 한 줄이라 그대로 돌면 같은 주를 여러 번 지운다.
+   */
   async function clear() {
     setFailed("");
     setBusy(true);
     try {
-      for (const p of placed) await planApi.remove(recipeId, p.which);
+      for (const w of new Set(placed.map((p) => p.which)))
+        await planApi.remove(recipeId, w);
       setOpen(false);
       await onDone();
     } catch (e) {
@@ -182,7 +207,11 @@ export default function PlanSheet({
                             {d.iso === today && (
                               <Text style={s.badge}>오늘</Text>
                             )}
-                            {mine && <Text style={s.tick}>담겨 있어요</Text>}
+                            {mine && (
+                              <Text style={s.tick}>
+                                담겨 있어요 · 누르면 빼요
+                              </Text>
+                            )}
                           </View>
                           {/*
                             적어둔 약속이 먼저다. 그날 뭘 담았는지보다

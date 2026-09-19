@@ -15,7 +15,7 @@ import Link from "next/link";
 import { useState, useOptimistic } from "react";
 import { useSearchParams } from "next/navigation";
 import type { RecipeCard } from "@/lib/recipes";
-import type { PickDay, Placement } from "@/lib/plan.types";
+import { lastPlaced, type PickDay, type Placement } from "@/lib/plan.types";
 import PlanButton from "../PlanButton";
 import { sortRecipes, type RecipeOrder } from "@/lib/recipe-sort";
 import { dateTiny } from "@/lib/say";
@@ -64,10 +64,12 @@ function Cover({ recipe }: { recipe: Card }) {
 
 /** 카드 아래 한 줄 — 이 요리가 언제로 잡혀 있는지 */
 function placedSay(placed: Placement[]): string {
-  if (!placed.length) return "";
-  const p = placed[0];
-  if (p.date) return `${dateTiny(p.date)}에 먹기로 했어요`;
-  return `${p.which === "next" ? "다음 주" : "이번 주"}에 담았어요 · 날짜 미정`;
+  const p = lastPlaced(placed);
+  if (!p) return "";
+  // 여러 날이면 **마지막 날짜**다 (lib/plan.types.ts lastPlaced)
+  const more = placed.length > 1 ? ` · ${placed.length}번` : "";
+  if (p.date) return `${dateTiny(p.date)}에 먹기로 했어요${more}`;
+  return `${p.which === "next" ? "다음 주" : "이번 주"}에 담았어요 · 날짜 미정${more}`;
 }
 
 export default function Picker({

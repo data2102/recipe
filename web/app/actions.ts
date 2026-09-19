@@ -20,7 +20,6 @@ import { revalidatePath } from "next/cache";
 import * as notes from "@/lib/notes";
 import * as recipes from "@/lib/recipes";
 import * as shopping from "@/lib/shopping";
-import * as week from "@/lib/week";
 import * as weeks from "@/lib/weeks";
 import { dayIndex } from "@/lib/say";
 
@@ -77,8 +76,26 @@ function which(formData: FormData): "this" | "next" {
   return formData.get("week") === "next" ? "next" : "this";
 }
 
+/**
+ * 식단에서 뺀다.
+ *
+ * `date` 를 주면 **그 날짜 하나만**, 안 주면 그 주에서 통째로.
+ * 담기 판에서 담긴 날을 다시 누르면 앞쪽이고, "식단에서 빼기" 는 뒤쪽이다.
+ */
 export async function removeFromWeek(formData: FormData) {
-  await shopping.removeRecipe(recipeId(formData), which(formData));
+  const id = recipeId(formData);
+  const date = String(formData.get("date") ?? "").trim();
+
+  if (!date) {
+    await shopping.removeRecipe(id, which(formData));
+    revalidatePath("/", "layout");
+    return;
+  }
+
+  if (!ISO_DATE.test(date)) throw new Error("날짜를 못 알아보겠어요");
+  const target = shopping.whichOf(date);
+  if (!target) throw new Error("이번 주와 다음 주 중에서 골라주세요");
+  await shopping.removeRecipe(id, target, dayIndex(date));
   revalidatePath("/", "layout");
 }
 
@@ -114,9 +131,7 @@ export async function planOnDate(formData: FormData) {
   const date = String(formData.get("date") ?? "").trim();
 
   if (!date) {
-    const w = which(formData);
-    await shopping.addRecipe(id, w);
-    await week.setDay(id, null, w);
+    await shopping.addRecipe(id, which(formData), null);
     revalidatePath("/", "layout");
     return;
   }
@@ -125,19 +140,38 @@ export async function planOnDate(formData: FormData) {
   const target = shopping.whichOf(date);
   if (!target) throw new Error("이번 주와 다음 주 중에서 골라주세요");
 
-  await shopping.addRecipe(id, target);
-  await week.setDay(id, dayIndex(date), target);
-
   /*
-    다른 주에 있던 걸 옮겨온 경우. 같은 주 안에서 날짜만 바꾸는 건
-    setDay 가 이미 했고, 주를 건너뛰었을 때만 저쪽에서 뗀다 —
-    안 떼면 두 주에 같은 요리가 남아 장보기가 두 번 센다.
-  */
-  const from = formData.get("from");
-  if ((from === "this" || from === "next") && from !== target) {
-    await shopping.removeRecipe(id, from);
-  }
+    **더한다 — 옮기지 않는다** (2026-09-19).
 
+    예전에는 `addRecipe` 뒤에 `setDay` 로 요일을 덮어썼다. 한 주에 행이
+    하나뿐이었기 때문인데, 그래서 9/17 에 담아둔 걸 9/21 로 바꾸면
+    **9/17 이 사라졌다** — 옮긴 게 아니라 잃은 것으로 읽혔다.
+
+    이제 날짜마다 한 행이다. 날짜를 고르면 그 날짜가 더해지고, 담긴
+    날짜를 빼는 건 `removeFromWeek` 가 날짜를 받아서 한다 (화면에서는
+    담긴 날을 다시 누르는 것이 그 자리다).
+
+    같은 날을 두 번 눌러도 안 늘어난다 — 부분 인덱스가 막는다.
+  */
+  await shopping.addRecipe(id, target, dayIndex(date));
+  revalidatePath("/", "layout");
+}
+
+/**
+ * **안 먹었어요** — 지난 날짜의 "만들었어요?" 에 아니라고 답한 자리.
+ *
+ * 그 날짜에서만 떼고 그 주에는 남긴다 (`shopping.unplan`). 예전에는
+ * 날짜를 비운 `planOnDate` 가 이 일을 했는데, 날짜마다 한 행이 되면서
+ * 그건 **미정 줄을 하나 더 담는 일**이 됐다 — 지난 날짜는 그대로 남고.
+ */
+export async function skipDate(formData: FormData) {
+  const id = recipeId(formData);
+  const date = String(formData.get("date") ?? "").trim();
+  if (!ISO_DATE.test(date)) throw new Error("날짜를 못 알아보겠어요");
+
+  const target = shopping.whichOf(date);
+  if (!target) throw new Error("이번 주와 다음 주 중에서 골라주세요");
+  await shopping.unplan(id, target, dayIndex(date));
   revalidatePath("/", "layout");
 }
 

@@ -18,7 +18,8 @@ import {
   setExclusion,
   finish,
 } from "../web/lib/shopping";
-import { setDay, plan, horizon, pickable } from "../web/lib/week";
+import { plan, horizon, pickable } from "../web/lib/week";
+import { lastPlaced } from "../web/lib/plan.types";
 import { notes, setNote } from "../web/lib/notes";
 import {
   addDays,
@@ -44,7 +45,7 @@ import {
   cooked,
   remove as dropRecipe,
 } from "../web/lib/recipes";
-import { picked, removeRecipe } from "../web/lib/shopping";
+import { picked, removeRecipe, unplan } from "../web/lib/shopping";
 import {
   past as pastWeeks,
   week as weekOf,
@@ -268,7 +269,9 @@ async function main() {
     const nextId = (await openList(false, "next"))!;
     listIds.push(thisId, nextId);
     assert.notEqual(thisId, nextId);
-    await setDay(a, 2, "next");
+    // 날짜는 **더하는** 것이다 (setDay 는 없어졌다). 날짜 미정 줄은 뗀다
+    await addRecipe(a, "next", 2);
+    await removeRecipe(a, "next", null);
     assert.equal(
       (await plan(nextId, weekStart("next"))).find((r) => r.recipe_id === a)
         ?.day,
@@ -276,7 +279,8 @@ async function main() {
     );
     assert.equal((await plan(thisId, weekStart("this")))[0].day, null);
     await finish("next");
-    await setDay(a, 4, "next");
+    await addRecipe(a, "next", 4);
+    await removeRecipe(a, "next", 2);
     assert.equal(
       (await plan(nextId, weekStart("next"))).find((r) => r.recipe_id === a)
         ?.day,
@@ -400,7 +404,8 @@ async function main() {
     );
 
     /* 담기 화면이 날짜를 물어볼 때 쓰는 것 */
-    await setDay(a, dayIndex(addDays(monday, 9)), "next");
+    await addRecipe(a, "next", dayIndex(addDays(monday, 9)));
+    await removeRecipe(a, "next", 4);
     await setNote(addDays(monday, 10), "외식");
     const pick = await pickable();
     assert.equal(pick.days.length, 14);
@@ -421,6 +426,121 @@ async function main() {
     assert.deepEqual(pick.placed[b], [{ date: null, which: "next" }]);
     await setNote(addDays(monday, 10), "");
     console.log("PASS: dates decide the week, day notes, and date-first picking");
+
+    /*
+      **한 주에 같은 요리를 여러 날짜에** (2026-09-19).
+
+      쓰는 사람이 겪은 것: 9/17 에 담아둔 걸 9/21 로 바꾸니 9/17 이
+      사라졌다. 기본키가 (주, 요리)라 행이 하나뿐이었고, 날짜를 바꾸는 건
+      그 행의 day_of_week 를 덮어쓰는 일이었기 때문이다.
+
+      넷을 잰다: 두 날짜가 같이 남나 · 같은 날 두 번은 안 늘어나나 ·
+      한 날짜만 뺄 수 있나 · 장보기 줄은 하나인가(횟수만 센다).
+    */
+    await addRecipe(a, "next", 0);
+    await addRecipe(a, "next", 5);
+    const manyRows = await plan(nextId, weekStart("next"));
+    assert.deepEqual(
+      manyRows.filter((r) => r.recipe_id === a).map((r) => r.day).sort(),
+      [0, 2, 5],
+      "한 주에 여러 날짜에 담긴다 — 앞 날짜가 안 사라진다",
+    );
+
+    // 같은 날을 다시 눌러도 안 늘어난다 (부분 인덱스가 막는다)
+    await addRecipe(a, "next", 5);
+    assert.equal(
+      (await plan(nextId, weekStart("next"))).filter((r) => r.recipe_id === a)
+        .length,
+      3,
+      "같은 날 같은 요리는 한 줄뿐이다",
+    );
+
+    // 장보기는 **줄 하나에 횟수**다 — 재료가 두 벌인 것처럼 보이면 안 된다
+    const manyDays = (await picked(nextId)).find((r) => r.id === a);
+    assert.equal(manyDays?.times, 3, "담은 횟수를 센다");
+    assert.equal(
+      (await picked(nextId)).filter((r) => r.id === a).length,
+      1,
+      "여러 날짜에 담겨도 장보기에는 한 줄이다",
+    );
+    assert.equal(
+      (await groups(nextId)).filter((g) => g.recipe_id === a).length,
+      1,
+      "요리별 보기도 한 줄이다",
+    );
+
+    // 한 날짜만 뺀다 (담긴 날을 다시 누르는 자리)
+    await removeRecipe(a, "next", 5);
+    await removeRecipe(a, "next", 0);
+    assert.deepEqual(
+      (await plan(nextId, weekStart("next")))
+        .filter((r) => r.recipe_id === a)
+        .map((r) => r.day),
+      [2],
+      "그 날짜만 빠지고 나머지는 남는다",
+    );
+
+    /*
+      **"안 먹었어요" 는 그 날짜에서만 뗀다** (lib/shopping.ts unplan).
+
+      날짜마다 한 행이 되기 전에는 날짜를 비운 planOnDate 가 이 일을
+      했다 — 행이 하나뿐이라 컬럼만 비우면 됐다. 이제 그건 **미정 줄을
+      하나 더 담는 일**이라 지난 날짜가 그대로 남는다.
+
+      둘을 잰다: 갈 데가 없으면 미정으로 내려가나 (그 주에서 안 빠진다) ·
+      다른 날에 이미 담겨 있으면 미정 줄을 안 만드나.
+    */
+    await unplan(a, "next", 2);
+    assert.deepEqual(
+      (await plan(nextId, weekStart("next")))
+        .filter((r) => r.recipe_id === a)
+        .map((r) => r.day),
+      [null],
+      "안 먹었어요 — 날짜만 떨어지고 그 주에는 남는다",
+    );
+
+    await addRecipe(a, "next", 3);
+    await addRecipe(a, "next", 6);
+    await removeRecipe(a, "next", null); // 미정 줄을 치우고 날짜 둘만 남긴다
+    await unplan(a, "next", 3);
+    assert.deepEqual(
+      (await plan(nextId, weekStart("next")))
+        .filter((r) => r.recipe_id === a)
+        .map((r) => r.day),
+      [6],
+      "다른 날에 남아 있으면 미정 줄을 새로 만들지 않는다",
+    );
+    await addRecipe(a, "next", 2);
+    await removeRecipe(a, "next", 6);
+
+    /*
+      **화면에 적는 건 마지막 날짜다** (lib/plan.types.ts lastPlaced).
+      `placed[0]` 을 쓰면 화면마다 다른 날짜를 말한다 — 순서는 어느
+      화면이 만들었느냐에 달렸다.
+    */
+    assert.equal(lastPlaced([]), null, "담긴 데가 없으면 적을 것도 없다");
+    assert.deepEqual(
+      lastPlaced([
+        { date: "2026-09-21", which: "next" },
+        { date: "2026-09-16", which: "this" },
+      ]),
+      { date: "2026-09-21", which: "next" },
+      "여럿이면 마지막 날짜",
+    );
+    assert.deepEqual(
+      lastPlaced([
+        { date: null, which: "this" },
+        { date: "2026-09-16", which: "this" },
+      ]),
+      { date: "2026-09-16", which: "this" },
+      "미정은 날짜 있는 자리를 이기지 못한다",
+    );
+    assert.deepEqual(
+      lastPlaced([{ date: null, which: "next" }]),
+      { date: null, which: "next" },
+      "미정뿐이면 미정을 적는다",
+    );
+    console.log("PASS: one dish can sit on several dates in a week");
 
     /*
       같은 표기가 사전에 붙은 행과 못 붙은 행으로 갈리면 장보기에 두 줄이

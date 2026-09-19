@@ -221,8 +221,29 @@ CREATE TABLE shopping_list_recipe (
     -- 목록이 다음 주까지 열려 있을 때 어긋난다.
     day_of_week     SMALLINT CHECK (day_of_week BETWEEN 0 AND 6),
 
-    PRIMARY KEY (list_id, recipe_id)
+    -- **한 주에 같은 요리를 여러 날짜에 담을 수 있다** (2026-09-19).
+    --
+    -- 예전에는 PRIMARY KEY (list_id, recipe_id) 라 행이 하나뿐이었고,
+    -- 날짜를 바꾸면 day_of_week 를 UPDATE 했다. 그래서 9/17 -> 9/21 로
+    -- 바꾸면 **9/17 자리가 사라졌다** — 옮긴 게 아니라 잃은 것으로 읽혔다.
+    --
+    -- 이제 날짜마다 한 행이다. 기본키를 (list_id, recipe_id, day_of_week)
+    -- 로 못 하는 이유는 NULL 이다 — 그게 "날짜 미정" 이라 버릴 수 없다.
+    -- 그래서 대리키를 두고 중복은 아래 두 부분 인덱스가 막는다.
+    id              BIGSERIAL PRIMARY KEY
 );
+
+-- 같은 날 같은 요리를 두 번 담지는 않는다 (담긴 날을 누르면 빠지는 자리라,
+-- 두 번 눌러 두 줄이 되면 안 된다).
+CREATE UNIQUE INDEX idx_slr_day
+    ON shopping_list_recipe (list_id, recipe_id, day_of_week)
+ WHERE day_of_week IS NOT NULL;
+
+-- "날짜 미정" 은 한 주에 한 줄. PostgreSQL 은 UNIQUE 에서 NULL 을 서로
+-- 다른 값으로 보기 때문에 위 인덱스만으로는 미정이 여러 줄 생긴다.
+CREATE UNIQUE INDEX idx_slr_someday
+    ON shopping_list_recipe (list_id, recipe_id)
+ WHERE day_of_week IS NULL;
 
 CREATE TABLE shopping_item (
     id              BIGSERIAL PRIMARY KEY,

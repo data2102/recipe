@@ -22,17 +22,34 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { planOnDate, removeFromWeek } from "./actions";
 import { dateFull, dateTiny } from "@/lib/say";
-import type { PickDay, Placement, Which } from "@/lib/plan.types";
+import {
+  lastPlaced,
+  type PickDay,
+  type Placement,
+  type Which,
+} from "@/lib/plan.types";
 import styles from "./PlanButton.module.css";
 
 const WEEK_NAME: Record<Which, string> = { this: "이번 주", next: "다음 주" };
 
-/** 담긴 자리를 버튼에 적는다. 날짜가 있으면 날짜가, 없으면 그 사실이 */
+/**
+ * 담긴 자리를 버튼에 적는다.
+ *
+ * **마지막 날짜를 적는다** — 한 주에 여러 날짜에 담을 수 있게 되면서
+ * (2026-09-19) 자리가 여럿일 수 있는데, 카드 한 줄에 다 적으면 요리
+ * 이름보다 길어진다. 쓰는 사람이 정한 것이다: "표시는 마지막 날짜만".
+ *
+ * 여러 날이면 개수를 같이 적는다 — 안 그러면 나머지가 사라진 것으로
+ * 읽힌다 (그게 이 변경을 부른 증상이었다).
+ */
 export function placedLabel(placed: Placement[]): string {
   if (placed.length === 0) return "+ 담기";
-  const first = placed[0];
-  if (first.date) return `✓ ${dateTiny(first.date)}`;
-  return `✓ ${WEEK_NAME[first.which]} · 날짜 미정`;
+
+  const last = lastPlaced(placed)!;
+
+  const more = placed.length > 1 ? ` · ${placed.length}번` : "";
+  if (last.date) return `✓ ${dateTiny(last.date)}${more}`;
+  return `✓ ${WEEK_NAME[last.which]} · 날짜 미정${more}`;
 }
 
 export default function PlanButton({
@@ -115,35 +132,62 @@ export default function PlanButton({
     };
   }, [open]);
 
+  /**
+   * 날짜를 누르면 **더한다. 이미 담긴 날을 누르면 뺀다** (2026-09-19).
+   *
+   * 예전에는 누르면 그 요리의 날짜가 그 날로 **옮겨갔다.** 한 주에 행이
+   * 하나뿐이었기 때문인데, 9/17 에 담아둔 걸 9/21 로 바꾸면 9/17 이
+   * 사라져서 "기록이 지워졌다" 로 읽혔다.
+   *
+   * 이제 누르는 것은 그 하루를 켜고 끄는 일이다. 옮기려면 새 날을 켜고
+   * 옛 날을 끈다 — 두 번이지만 **무엇이 일어났는지가 보인다.**
+   *
+   * **판을 안 닫는다.** 여러 날을 고르러 연 자리라, 한 번 누를 때마다
+   * 닫으면 두 번째 날짜를 고르려고 다시 열어야 한다.
+   */
   function pick(date: string | null, which: Which) {
     setError("");
+    const on = placed.some((p) => p.date === date && p.which === which);
+
     start(async () => {
-      onChange?.([{ date, which }]);
+      onChange?.(
+        on
+          ? placed.filter((p) => !(p.date === date && p.which === which))
+          : [...placed, { date, which }],
+      );
       const form = new FormData();
       form.set("id", String(recipeId));
       form.set("date", date ?? "");
       form.set("week", which);
-      // 다른 주에 있던 걸 옮겨오는 경우, 저쪽에서 떼라고 알려준다
-      if (placed[0]) form.set("from", placed[0].which);
       try {
-        await planOnDate(form);
-        setOpen(false);
+        await (on ? removeFromWeek(form) : planOnDate(form));
       } catch {
         onChange?.(placed);
-        setError("담지 못했어요. 다시 골라주세요.");
+        setError(
+          on
+            ? "빼지 못했어요. 다시 눌러주세요."
+            : "담지 못했어요. 다시 골라주세요.",
+        );
       }
     });
   }
 
+  /**
+   * 식단에서 빼기 — 담긴 주에서 **통째로** 뺀다 (날짜를 안 보낸다).
+   *
+   * **주 단위로 한 번씩만 부른다.** 한 주에 여러 날짜에 담길 수 있게
+   * 되면서 `placed` 가 자리마다 한 줄인데, 그대로 돌면 같은 주를 세 번
+   * 지운다 — 뒤의 둘은 이미 없는 것을 지우는 왕복이다.
+   */
   function clear() {
     setError("");
     start(async () => {
       onChange?.([]);
       try {
-        for (const p of placed) {
+        for (const w of new Set(placed.map((p) => p.which))) {
           const form = new FormData();
           form.set("id", String(recipeId));
-          form.set("week", p.which);
+          form.set("week", w);
           await removeFromWeek(form);
         }
         setOpen(false);
@@ -263,7 +307,9 @@ export default function PlanButton({
                                     : "비어 있어요")}
                               </span>
                               {mine && (
-                                <span className={styles.tick}>담겨 있어요</span>
+                                <span className={styles.tick}>
+                                  담겨 있어요 · 누르면 빼요
+                                </span>
                               )}
                             </button>
                           </li>
@@ -282,7 +328,9 @@ export default function PlanButton({
                       >
                         <span className={styles.when}>날짜는 나중에</span>
                         <span className={styles.what}>
-                          {WEEK_NAME[w]} 장보기에는 들어가요
+                          {placed.some((p) => p.date === null && p.which === w)
+                            ? "담겨 있어요 · 누르면 빼요"
+                            : `${WEEK_NAME[w]} 장보기에는 들어가요`}
                         </span>
                       </button>
                     </li>

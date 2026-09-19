@@ -211,7 +211,10 @@ export default function Shopping({
         */}
         {uses.length > 1 && (
           <p className={styles.reason}>
-            다른 요리에도 — {uses.map((g) => g.title).join(" · ")}
+            다른 요리에도 —{" "}
+            {uses
+              .map((g) => (g.times > 1 ? `${g.title} ${g.times}번` : g.title))
+              .join(" · ")}
           </p>
         )}
       </li>
@@ -260,8 +263,15 @@ export default function Shopping({
           const mine = shown.filter((i) => g.labels.includes(i.label));
           return (
             <section key={g.recipe_id} className="ds-card">
+              {/*
+                한 주에 **같은 요리를 여러 날짜에** 담을 수 있다
+                (2026-09-19). 줄은 하나고 횟수를 적는다 — 두 줄로 내면
+                재료가 두 벌 있는 것처럼 읽히는데 실제로는 한 벌이다.
+                몇 그램을 더 살지는 **사람이 보고 정한다** (수량을 임의로
+                환산하지 않는다는 규칙 그대로).
+              */}
               <Fold
-                title={g.title}
+                title={g.times > 1 ? `${g.title} · ${g.times}번` : g.title}
                 hint={
                   g.cooked ? "만들었어요" : `남은 항목 ${remaining(mine)}개`
                 }

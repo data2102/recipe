@@ -152,30 +152,6 @@ export async function plan(
 }
 
 /**
- * 요일을 정한다. null 이면 "아직 안 정함" 으로 되돌린다.
- *
- * 날짜로 해당 주만 지정한다. 장보기 완료 여부는 식사 날짜 변경과 무관하다.
- */
-export async function setDay(
-  recipeId: number,
-  day: number | null,
-  which: "this" | "next" = "this",
-): Promise<void> {
-  if (day !== null && !(Number.isInteger(day) && day >= 0 && day <= 6)) {
-    throw new Error("요일을 못 알아보겠어요");
-  }
-  await query(
-    `UPDATE shopping_list_recipe slr
-        SET day_of_week = $2
-       FROM shopping_list sl
-      WHERE sl.id = slr.list_id
-        AND sl.starts_on = $3::date
-        AND slr.recipe_id = $1`,
-    [recipeId, day, weekStart(which)],
-  );
-}
-
-/**
  * 담기 화면이 날짜를 물어보는 데 필요한 것 (app/PlanButton.tsx).
  *
  * 날짜마다 **이미 담긴 메뉴와 적어둔 약속**을 같이 낸다 — 비어 있는 날을

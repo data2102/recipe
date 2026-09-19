@@ -53,6 +53,7 @@ export type {
 export { NOTE_MAX } from "../../web/lib/notes.types";
 export type { DayNote } from "../../web/lib/notes.types";
 
+export { lastPlaced } from "../../web/lib/plan.types";
 export type { PickDay, Placement, Which } from "../../web/lib/plan.types";
 
 /**

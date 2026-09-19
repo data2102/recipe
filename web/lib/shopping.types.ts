@@ -36,8 +36,10 @@ export const NO_AISLE = "그 밖에";
 export type RecipeGroup = {
   recipe_id: number;
   title: string;
-  /** 0=월 … 6=일. 안 정했으면 null */
+  /** 0=월 … 6=일. 안 정했으면 null. 여러 날짜면 **제일 이른 날** */
   day: number | null;
+  /** 이 주에 몇 날짜에 담았나. 보통 1 */
+  times: number;
   /**
    * 이번 주에 **이미 만들었나.**
    *
@@ -55,6 +57,8 @@ export type PickedRecipe = {
   id: number;
   title: string;
   status: string;
+  /** 이 주에 **몇 날짜에** 담았나. 보통 1, 두 번 먹기로 했으면 2 */
+  times: number;
   /** 이번 주에 만들었나. 만들었으면 재료가 목록에서 빠져 있다 */
   cooked: boolean;
 };

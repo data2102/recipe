@@ -41,6 +41,7 @@ import {
   dateSay,
   dateTiny,
   dayIndex,
+  type Placement,
 } from "../lib/pure";
 import PlanSheet from "../components/PlanSheet";
 import Tap from "../components/Tap";
@@ -128,6 +129,19 @@ export default function Plan() {
 
   const loose = data.dishes.filter((d) => d.date === null);
 
+  /*
+    한 요리가 담긴 자리 **전부** (2026-09-19). 줄 하나가 곧 날짜 하나라
+    그 줄의 날짜만 넘기고 싶어지는데, 그러면 9/16 줄에서 판을 열었을 때
+    9/21 이 비어 있는 것처럼 보인다 — 누르면 지워질 줄 알고 누른 사람이
+    한 번 더 담게 된다. 버튼 글자는 그 줄의 날짜 그대로다 (label).
+  */
+  const placedBy = new Map<number, Placement[]>();
+  for (const d of data.dishes) {
+    const at = placedBy.get(d.recipeId) ?? [];
+    at.push({ date: d.date, which: d.week });
+    placedBy.set(d.recipeId, at);
+  }
+
   function Dish({ p }: { p: PlanDish }) {
     const isOpen = open === `${p.week}-${p.recipeId}`;
     const have = data!.excluded[p.week];
@@ -172,7 +186,9 @@ export default function Plan() {
             title={p.title}
             days={pickDays}
             today={today}
-            placed={[{ date: p.date, which: p.week }]}
+            placed={
+              placedBy.get(p.recipeId) ?? [{ date: p.date, which: p.week }]
+            }
             label={p.date ? dateTiny(p.date) : "날짜 고르기"}
             tone="quiet"
             onDone={load}
@@ -206,8 +222,11 @@ export default function Plan() {
                 <Text style={s.secondaryText}>만들었어요</Text>
               </Tap>
               {/*
-                "안 먹었어요" 는 **요일만 미정으로 되돌린다.** 못 먹었을
-                뿐이지 이번 주에서 빼는 게 아니다 — 장보기에는 남는다.
+                "안 먹었어요" 는 **그 날짜에서만 뗀다.** 못 먹었을 뿐이지
+                이번 주에서 빼는 게 아니다 — 갈 데가 없으면 미정으로
+                내려가고 장보기에는 남는다 (lib/shopping.ts unplan).
+                날짜를 비운 onDate 가 아니다: 날짜마다 한 행이 되면서
+                그건 미정 줄을 하나 더 담는 일이 됐다.
               */}
               <Tap
                 style={s.secondary}
@@ -215,7 +234,7 @@ export default function Plan() {
                 onPress={async () => {
                   setBusy(true);
                   try {
-                    await planApi.onDate(p.recipeId, null, p.week);
+                    await planApi.skip(p.recipeId, p.date!);
                     await load();
                   } finally {
                     setBusy(false);

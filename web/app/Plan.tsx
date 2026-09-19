@@ -18,7 +18,7 @@
 
 import Link from "next/link";
 import { useLayoutEffect, useRef, useState, useTransition } from "react";
-import { markCooked, planOnDate, removeFromWeek, setDayNote } from "./actions";
+import { markCooked, removeFromWeek, setDayNote, skipDate } from "./actions";
 import PlanButton from "./PlanButton";
 import { dateFull, dateSay, dateTiny, dayIndex } from "@/lib/say";
 import { DAYS, type Planned } from "@/lib/week.types";
@@ -101,6 +101,22 @@ export default function Plan({
     titles: d.dishes.map((x) => x.title),
   }));
 
+  /*
+    한 요리가 담긴 자리 **전부** (2026-09-19). 줄 하나가 곧 날짜 하나라
+    그 줄의 날짜만 넘기고 싶어지는데, 그러면 9/16 줄에서 판을 열었을 때
+    9/21 이 비어 있는 것처럼 보인다 — 누르면 지워질 줄 알고 누른 사람이
+    한 번 더 담게 된다. 버튼 글자는 그 줄의 날짜 그대로다 (label).
+  */
+  const placedBy = new Map<number, { date: string | null; which: Which }[]>();
+  const mark = (id: number, date: string | null, w: Which) => {
+    const at = placedBy.get(id) ?? [];
+    at.push({ date, which: w });
+    placedBy.set(id, at);
+  };
+  for (const d of days)
+    for (const x of d.dishes) mark(x.recipe_id, d.iso, d.which);
+  for (const x of loose) mark(x.recipe_id, null, x.which);
+
   function saveNote(date: string, note: string) {
     setError("");
     start(async () => {
@@ -156,7 +172,11 @@ export default function Plan({
             title={p.title}
             days={pickDays}
             today={today}
-            placed={[{ date: p.plannedOn, which: p.which }]}
+            placed={
+              placedBy.get(p.recipe_id) ?? [
+                { date: p.plannedOn, which: p.which },
+              ]
+            }
             label={p.plannedOn ? dateTiny(p.plannedOn) : "날짜 고르기"}
             className={styles.when}
           />
@@ -180,10 +200,14 @@ export default function Plan({
                   만들었어요
                 </button>
               </form>
-              <form action={planOnDate}>
+              {/*
+                **안 먹었어요는 그 날짜에서만 뗀다.** 예전에는 날짜를 비운
+                planOnDate 였는데, 날짜마다 한 행이 되면서 그건 미정 줄을
+                하나 더 담는 일이 됐다 (지난 날짜는 그대로 남고).
+              */}
+              <form action={skipDate}>
                 <input type="hidden" name="id" value={p.recipe_id} />
-                <input type="hidden" name="date" value="" />
-                <input type="hidden" name="week" value={p.which} />
+                <input type="hidden" name="date" value={p.plannedOn} />
                 <button type="submit" className="ds-btn ds-btn-secondary">
                   안 먹었어요
                 </button>

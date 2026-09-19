@@ -33,7 +33,13 @@ import {
   recipes as recipesApi,
   type RecipeDetail,
 } from "../../lib/api";
-import { cookedAgo, dateFull, dateSay, todayInput } from "../../lib/pure";
+import {
+  cookedAgo,
+  dateFull,
+  dateSay,
+  lastPlaced,
+  todayInput,
+} from "../../lib/pure";
 import PlanSheet from "../../components/PlanSheet";
 import Tap from "../../components/Tap";
 import { radius, sp, themed, TOUCH } from "../../lib/tokens";
@@ -93,12 +99,14 @@ export default function Recipe() {
   }
 
   const placed = data.placed;
-  const planLabel =
-    placed.length === 0
-      ? "식단에 담기"
-      : placed[0].date
-        ? `${dateFull(placed[0].date)}에 먹어요 · 날짜 바꾸기`
-        : `${placed[0].which === "next" ? "다음 주" : "이번 주"}에 담았어요 · 날짜 고르기`;
+  // 여러 날에 담겼으면 **마지막 날짜**를 적는다 (lib/plan.types.ts)
+  const at = lastPlaced(placed);
+  const times = placed.length > 1 ? ` · ${placed.length}번` : "";
+  const planLabel = !at
+    ? "식단에 담기"
+    : at.date
+      ? `${dateFull(at.date)}에 먹어요${times} · 날짜 바꾸기`
+      : `${at.which === "next" ? "다음 주" : "이번 주"}에 담았어요${times} · 날짜 고르기`;
 
   // 섹션이 여럿이면 소제목으로 나눈다. 하나뿐이면 굳이 붙이지 않는다.
   const sections = [...new Set(data.items.map((i) => i.section ?? ""))];
