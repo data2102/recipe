@@ -314,12 +314,30 @@ eas build --profile preview --platform android
 - **`preview` 가 사이드로드용이다** (`eas.json`): `distribution: internal` +
   `buildType: apk` — 스토어를 안 거치고 링크로 받아 깐다.
   `production` 은 Play 스토어용 `app-bundle` 이라 폰에 바로 못 깐다
-- 토큰은 `eas.json` 에 적지 마라. **EAS 환경변수로 넣는다**:
+- 토큰은 `eas.json` 에 적지 마라. **EAS 환경변수로 넣는다** (터미널 명령이다):
 
 ```bash
-eas env:create --name EXPO_PUBLIC_API_URL   --value https://<배포주소>.vercel.app
-eas env:create --name EXPO_PUBLIC_API_TOKEN --value <값>
+eas env:set --environment preview --visibility plaintext \
+  --name EXPO_PUBLIC_API_URL --value https://<배포주소>.vercel.app
+eas env:set --environment preview --visibility sensitive \
+  --name EXPO_PUBLIC_API_TOKEN --value <값>
 ```
+
+**`env:create` 가 아니라 `env:set` 이다** — 앞은 deprecated 다.
+expo.dev 대시보드의 Project → Environment Variables 에서 넣어도 같다.
+
+**`--environment` 를 빠뜨리지 마라.** 변수는 환경(development · preview ·
+production)마다 따로 저장되고, **빌드는 자기 프로필의 환경 것만 읽는다.**
+`development` 프로필로도 빌드할 거면 그쪽에도 같은 값을 한 벌 더 넣는다
+(`--environment development`).
+
+`eas.json` 의 세 프로필에 `environment` 를 **명시해뒀다.** 안 적어도
+eas-cli 가 알아서 고르긴 하는데(`store`→production, `developmentClient`
+→development, 나머지→preview), 그건 값이 맞아떨어지는 것이지 규칙이 아니다.
+
+`--visibility` 는 **대시보드에서 값이 보이느냐**를 정할 뿐이다. `sensitive`
+로 넣어도 `EXPO_PUBLIC_` 은 **앱 번들에 그대로 박힌다** — 감추는 게 아니라
+어깨너머로 안 보이게 하는 것이다.
 
 - 끝나면 나오는 링크를 폰 크롬으로 열어 APK 를 받는다.
   안드로이드가 "출처를 알 수 없는 앱" 을 물어보면 허용한다
