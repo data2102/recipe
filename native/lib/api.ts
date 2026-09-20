@@ -179,15 +179,34 @@ export type PlanScreen = {
 export const plan = {
   read: () => call<PlanScreen>("/api/plan"),
 
-  /** 담기와 옮기기는 한 가지 일이다. **어느 주인지는 서버가 정한다** */
-  onDate: (recipeId: number, date: string | null, week: Which, from?: Which) =>
+  /**
+   * 그 날짜에 **더한다.** **어느 주인지는 서버가 정한다.**
+   *
+   * 옮기는 게 아니다 (2026-09-19) — 한 주에 같은 요리를 여러 날짜에
+   * 담을 수 있다. 빼는 건 `remove` 가 날짜를 받아서 한다.
+   */
+  onDate: (recipeId: number, date: string | null, week: Which) =>
     call<{ recipeId: number; date: string | null; week: Which }>(
       "/api/plan/date",
-      { json: { recipeId, date: date ?? "", week, from } },
+      { json: { recipeId, date: date ?? "", week } },
     ),
 
-  remove: (recipeId: number, week: Which) =>
-    call<{ recipeId: number }>("/api/plan/remove", { json: { recipeId, week } }),
+  /** `date` 를 주면 그 날짜 하나만, 안 주면 그 주에서 통째로 */
+  remove: (recipeId: number, week: Which, date?: string | null) =>
+    call<{ recipeId: number }>("/api/plan/remove", {
+      json: { recipeId, week, date: date ?? "" },
+    }),
+
+  /**
+   * **안 먹었어요** — 그 날짜에서만 떼고 그 주에는 남긴다.
+   *
+   * `remove` 와 다르다: 저쪽은 그 주에서 없애는 문이다. 못 먹었을
+   * 뿐이지 이번 주에서 빼는 게 아니라, 장보기에는 계속 들어간다.
+   */
+  skip: (recipeId: number, date: string) =>
+    call<{ recipeId: number; date: string; week: Which }>("/api/plan/skip", {
+      json: { recipeId, date },
+    }),
 
   /** 그날의 메모. 비우면 지운다 */
   note: (date: string, note: string) =>

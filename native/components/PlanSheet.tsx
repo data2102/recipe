@@ -24,18 +24,34 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError, plan as planApi } from "../lib/api";
-import { dateFull, dateTiny, type PickDay, type Placement, type Which } from "../lib/pure";
+import {
+  dateFull,
+  dateTiny,
+  lastPlaced,
+  type PickDay,
+  type Placement,
+  type Which,
+} from "../lib/pure";
 import Tap from "./Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 const WEEK_NAME: Record<Which, string> = { this: "이번 주", next: "다음 주" };
 
-/** 담긴 자리를 버튼에 적는다. 날짜가 있으면 날짜가, 없으면 그 사실이 */
+/**
+ * 담긴 자리를 버튼에 적는다. **마지막 날짜만** (웹의 `PlanButton` 과 같다).
+ *
+ * 한 주에 여러 날짜에 담을 수 있게 되면서 (2026-09-19) 자리가 여럿일 수
+ * 있는데, 카드 한 줄에 다 적으면 요리 이름보다 길어진다. 대신 여러 날이면
+ * **개수를 같이 적는다** — 안 그러면 나머지가 사라진 것으로 읽힌다.
+ */
 export function placedLabel(placed: Placement[]): string {
   if (placed.length === 0) return "+ 담기";
-  const first = placed[0];
-  if (first.date) return `✓ ${dateTiny(first.date)}`;
-  return `✓ ${WEEK_NAME[first.which]} · 날짜 미정`;
+
+  const last = lastPlaced(placed)!;
+
+  const more = placed.length > 1 ? ` · ${placed.length}번` : "";
+  if (last.date) return `✓ ${dateTiny(last.date)}${more}`;
+  return `✓ ${WEEK_NAME[last.which]} · 날짜 미정${more}`;
 }
 
 export default function PlanSheet({
@@ -45,6 +61,7 @@ export default function PlanSheet({
   today,
   placed,
   label,
+  only,
   tone = "secondary",
   onDone,
 }: {
@@ -55,6 +72,14 @@ export default function PlanSheet({
   placed: Placement[];
   /** 버튼 글자를 직접 정할 때 (상세 화면처럼 한 줄짜리 버튼) */
   label?: string;
+  /**
+   * **이 주 하나만 고르게 한다** (메뉴 고르기의 두 칸 — 2026-09-20).
+   *
+   * 안 주면 열나흘이 다 나온다. 주면 그 주의 이레만 나오고 "날짜는
+   * 나중에" 도 그 주 것 하나다. 이때 `placed` 도 그 주 것만 넘겨라 —
+   * 판에 안 보이는 날짜를 "식단에서 빼기" 가 같이 지우면 안 된다.
+   */
+  only?: Which;
   tone?: "primary" | "secondary" | "quiet";
   /** 서버가 받아준 뒤에 부른다 — 화면이 다시 읽게 */
   onDone: () => void | Promise<void>;
@@ -65,29 +90,38 @@ export default function PlanSheet({
   const [failed, setFailed] = useState("");
   const insets = useSafeAreaInsets();
 
+  /**
+   * 날짜를 누르면 **더한다. 이미 담긴 날을 누르면 뺀다** (웹과 같다).
+   *
+   * **판을 안 닫는다** — 여러 날을 고르러 연 자리라, 한 번 누를 때마다
+   * 닫으면 두 번째 날짜를 고르려고 다시 열어야 한다.
+   */
   async function pick(date: string | null, which: Which) {
     setFailed("");
     setBusy(true);
+    const on = placed.some((p) => p.date === date && p.which === which);
     try {
-      /*
-        다른 주에 있던 걸 옮겨오는 경우, 저쪽에서 떼라고 알려준다.
-        안 떼면 두 주에 같은 요리가 남아 장보기가 두 번 센다.
-      */
-      await planApi.onDate(recipeId, date, which, placed[0]?.which);
-      setOpen(false);
+      if (on) await planApi.remove(recipeId, which, date);
+      else await planApi.onDate(recipeId, date, which);
       await onDone();
     } catch (e) {
-      setFailed(e instanceof ApiError ? e.message : "담지 못했어요");
+      const why = e instanceof ApiError ? e.message : null;
+      setFailed(why ?? (on ? "빼지 못했어요" : "담지 못했어요"));
     } finally {
       setBusy(false);
     }
   }
 
+  /**
+   * 식단에서 빼기 — 담긴 주에서 통째로. **주 단위로 한 번씩만 부른다**:
+   * `placed` 는 자리마다 한 줄이라 그대로 돌면 같은 주를 여러 번 지운다.
+   */
   async function clear() {
     setFailed("");
     setBusy(true);
     try {
-      for (const p of placed) await planApi.remove(recipeId, p.which);
+      for (const w of new Set(placed.map((p) => p.which)))
+        await planApi.remove(recipeId, w);
       setOpen(false);
       await onDone();
     } catch (e) {
@@ -113,9 +147,18 @@ export default function PlanSheet({
         disabled={busy}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={`${title} 날짜 고르기`}
+        accessibilityLabel={
+          only
+            ? `${title} ${WEEK_NAME[only]} 날짜 고르기`
+            : `${title} 날짜 고르기`
+        }
       >
-        <Text style={btnText} numberOfLines={1}>
+        {/*
+          **두 줄까지 받는다.** 메뉴 고르기의 두 칸은 "이번주" 를 위에,
+          날짜를 아래에 세운다 (`\n`). 한 줄짜리 버튼들은 그대로 한 줄로
+          그려진다 — 넘칠 일이 없어서 값이 2여도 달라지지 않는다.
+        */}
+        <Text style={btnText} numberOfLines={2}>
           {busy ? "저장 중…" : (label ?? placedLabel(placed))}
         </Text>
       </Tap>
@@ -146,7 +189,17 @@ export default function PlanSheet({
                 <Text style={s.dish} numberOfLines={1}>
                   {title}
                 </Text>
-                <Text style={s.ask}>언제 먹을까요?</Text>
+                {/*
+                  한 주만 고르는 판이면 **어느 주인지 물음에 적는다.**
+                  아래 소제목에도 있지만 그건 목록의 머리고, 여기는 지금
+                  무엇을 정하는지다 — 칸이 둘이라 잘못 누르면 한 주가
+                  통째로 어긋난다.
+                */}
+                <Text style={s.ask}>
+                  {only
+                    ? `${WEEK_NAME[only]}, 언제 먹을까요?`
+                    : "언제 먹을까요?"}
+                </Text>
               </View>
               <Tap style={s.close} onPress={() => setOpen(false)}>
                 <Text style={s.closeText}>닫기</Text>
@@ -160,7 +213,7 @@ export default function PlanSheet({
             )}
 
             <ScrollView style={s.scroll}>
-              {(["this", "next"] as Which[]).map((w) => (
+              {(only ? [only] : (["this", "next"] as Which[])).map((w) => (
                 <View key={w}>
                   <Text style={s.weekName}>{WEEK_NAME[w]}</Text>
                   {days
@@ -182,7 +235,11 @@ export default function PlanSheet({
                             {d.iso === today && (
                               <Text style={s.badge}>오늘</Text>
                             )}
-                            {mine && <Text style={s.tick}>담겨 있어요</Text>}
+                            {mine && (
+                              <Text style={s.tick}>
+                                담겨 있어요 · 누르면 빼요
+                              </Text>
+                            )}
                           </View>
                           {/*
                             적어둔 약속이 먼저다. 그날 뭘 담았는지보다
@@ -237,7 +294,12 @@ const useTheme = themed((c) => ({
     justifyContent: "center",
     paddingHorizontal: sp[4],
   },
-  primaryText: { color: c.onAccent, fontSize: 15, fontWeight: "700" },
+  primaryText: {
+    color: c.onAccent,
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   secondary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
@@ -248,7 +310,12 @@ const useTheme = themed((c) => ({
     justifyContent: "center",
     paddingHorizontal: sp[4],
   },
-  secondaryText: { color: c.textSecondary, fontSize: 15, fontWeight: "600" },
+  secondaryText: {
+    color: c.textSecondary,
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
+  },
   /** 줄 안에 얹는 작은 것 (식단의 날짜 버튼) */
   quiet: {
     minHeight: TOUCH,

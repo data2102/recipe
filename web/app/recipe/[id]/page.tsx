@@ -22,6 +22,7 @@ import { attachTarget, list as listPhotos } from "@/lib/photos";
 import { detail } from "@/lib/recipes";
 import { pickable } from "@/lib/week";
 import { cookedAgo, dateFull, todayInput } from "@/lib/say";
+import { lastPlaced } from "@/lib/plan.types";
 import styles from "./recipe.module.css";
 
 export const dynamic = "force-dynamic";
@@ -50,12 +51,14 @@ export default async function RecipePage({
     여기만 "이번 주에 담기" 로 두면 날짜는 또 식단에서 정해야 한다.
   */
   const placed = dates.placed[r.id] ?? [];
-  const planLabel =
-    placed.length === 0
-      ? "식단에 담기"
-      : placed[0].date
-        ? `${dateFull(placed[0].date)}에 먹어요 · 날짜 바꾸기`
-        : `${placed[0].which === "next" ? "다음 주" : "이번 주"}에 담았어요 · 날짜 고르기`;
+  // 여러 날에 담겼으면 **마지막 날짜**를 적는다 (lib/plan.types.ts)
+  const at = lastPlaced(placed);
+  const times = placed.length > 1 ? ` · ${placed.length}번` : "";
+  const planLabel = !at
+    ? "식단에 담기"
+    : at.date
+      ? `${dateFull(at.date)}에 먹어요${times} · 날짜 바꾸기`
+      : `${at.which === "next" ? "다음 주" : "이번 주"}에 담았어요${times} · 날짜 고르기`;
 
   /*
     사진이 어느 날짜에 붙을지 미리 보여준다. 액션이 같은 규칙으로 다시

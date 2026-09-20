@@ -105,6 +105,10 @@ export async function picked(listId: number | null): Promise<PickedRecipe[]> {
   if (!listId) return [];
   return query<PickedRecipe>(
     `SELECT r.id, r.title, r.status,
+            -- 한 주에 여러 날짜에 담을 수 있다. **줄은 하나**고 몇 번
+            -- 담았는지만 센다 — 같은 요리를 두 줄로 내면 재료가 두 벌
+            -- 있는 것처럼 읽힌다 (실제로는 한 벌이다).
+            COUNT(*)::int AS times,
             EXISTS (
               SELECT 1 FROM cook_log cl
                WHERE cl.recipe_id = r.id
@@ -115,22 +119,39 @@ export async function picked(listId: number | null): Promise<PickedRecipe[]> {
        JOIN shopping_list sl ON sl.id = slr.list_id
        JOIN recipe r ON r.id = slr.recipe_id
       WHERE slr.list_id = $1
+      GROUP BY r.id, r.title, r.status, sl.starts_on
       ORDER BY r.title`,
     [listId],
   );
 }
 
+/**
+ * 담는다. **날짜마다 한 행이다** (2026-09-19).
+ *
+ * `day` 는 요일 0~6, `null` 이면 "날짜 미정". 예전에는 담기와 요일 정하기가
+ * 두 걸음이었는데 (`addRecipe` 뒤에 `setDay`), 행이 여럿이 되면서 그게
+ * 안 맞는다 — `setDay` 는 `WHERE recipe_id` 라 **그 요리의 모든 날짜**를
+ * 한꺼번에 바꿔버린다. 한 번에 넣는다.
+ *
+ * 같은 날 같은 요리를 두 번 누르면 아무 일도 안 일어난다 (부분 인덱스 +
+ * ON CONFLICT DO NOTHING). 빼는 건 `removeRecipe` 다.
+ */
 export async function addRecipe(
   recipeId: number,
   which: Which = "this",
+  day: number | null = null,
 ): Promise<void> {
+  if (day !== null && !(Number.isInteger(day) && day >= 0 && day <= 6)) {
+    throw new Error("요일을 못 알아보겠어요");
+  }
   const listId = await openList(true, which);
   await tx(async (q) => {
     await q(`SELECT id FROM shopping_list WHERE id = $1 FOR UPDATE`, [listId]);
     const added = await q(
-      `INSERT INTO shopping_list_recipe (list_id, recipe_id) VALUES ($1, $2)
-      ON CONFLICT DO NOTHING RETURNING recipe_id`,
-      [listId, recipeId],
+      `INSERT INTO shopping_list_recipe (list_id, recipe_id, day_of_week)
+       VALUES ($1, $2, $3)
+       ON CONFLICT DO NOTHING RETURNING recipe_id`,
+      [listId, recipeId, day],
     );
     if (added.length)
       await q(
@@ -140,16 +161,73 @@ export async function addRecipe(
   });
 }
 
+/**
+ * 뺀다. `day` 를 주면 **그 날짜 하나만**, 안 주면 그 주에서 통째로.
+ *
+ * 둘 다 필요하다: 담기 판에서 담긴 날을 다시 누르면 그 하루만 빠지고,
+ * "식단에서 빼기" 는 그 주의 그 요리를 전부 뺀다.
+ */
 export async function removeRecipe(
   recipeId: number,
   which: Which = "this",
+  day?: number | null,
 ): Promise<void> {
   const listId = await openList(false, which);
   if (!listId) return;
+  if (day === undefined) {
+    await query(
+      `DELETE FROM shopping_list_recipe WHERE list_id = $1 AND recipe_id = $2`,
+      [listId, recipeId],
+    );
+    return;
+  }
   await query(
-    `DELETE FROM shopping_list_recipe WHERE list_id = $1 AND recipe_id = $2`,
-    [listId, recipeId],
+    `DELETE FROM shopping_list_recipe
+      WHERE list_id = $1 AND recipe_id = $2
+        AND day_of_week IS NOT DISTINCT FROM $3`,
+    [listId, recipeId, day],
   );
+}
+
+/**
+ * **안 먹었어요** — 지난 날짜에서 떼되 그 주에서는 안 뺀다.
+ *
+ * 예전에는 `addRecipe` + `setDay(null)` 한 걸음이었다 (행이 하나뿐이라
+ * 컬럼만 비우면 됐다). 날짜마다 한 행이 되면서 그 길이 사라졌다 — 빈
+ * 날짜로 "덮어쓸" 자리가 없다.
+ *
+ * 그래서 **떼고, 갈 데가 없으면 미정으로 옮긴다.** 같은 주의 다른 날에
+ * 이미 담겨 있으면 미정 줄을 새로 만들지 않는다 — 이미 그 주에 있는데
+ * 한 줄을 더하면 장보기에 "2번" 이라고 적힌다.
+ *
+ * 한 트랜잭션 안에서 한다. 갈라지면 그 주에서 통째로 사라진 것처럼 보인다.
+ */
+export async function unplan(
+  recipeId: number,
+  which: Which = "this",
+  day: number | null = null,
+): Promise<void> {
+  const listId = await openList(false, which);
+  if (!listId) return;
+
+  await tx(async (q) => {
+    await q(`SELECT id FROM shopping_list WHERE id = $1 FOR UPDATE`, [listId]);
+    await q(
+      `DELETE FROM shopping_list_recipe
+        WHERE list_id = $1 AND recipe_id = $2
+          AND day_of_week IS NOT DISTINCT FROM $3`,
+      [listId, recipeId, day],
+    );
+    await q(
+      `INSERT INTO shopping_list_recipe (list_id, recipe_id, day_of_week)
+       SELECT $1, $2, NULL
+        WHERE NOT EXISTS (
+          SELECT 1 FROM shopping_list_recipe
+           WHERE list_id = $1 AND recipe_id = $2
+        )`,
+      [listId, recipeId],
+    );
+  });
 }
 
 /**
@@ -426,7 +504,11 @@ export async function groups(listId: number | null): Promise<RecipeGroup[]> {
            FROM need
           GROUP BY ingredient_id, raw_key
      )
-     SELECT slr.recipe_id, r.title, slr.day_of_week AS day,
+     SELECT slr.recipe_id, r.title,
+            -- 여러 날짜에 담겼으면 **제일 이른 날**로 줄을 세운다.
+            -- 줄은 하나다 (재료가 한 벌이라 두 줄이면 두 배로 읽힌다).
+            MIN(slr.day_of_week) AS day,
+            COUNT(DISTINCT slr.id)::int AS times,
             -- 만든 요리는 재료가 합친 목록에서 빠져 있다 (NEED_SQL).
             -- 화면이 빈 줄을 그리지 않고 "만들었어요" 라고 적게 한다.
             EXISTS (
@@ -449,8 +531,8 @@ export async function groups(listId: number | null): Promise<RecipeGroup[]> {
               ON m.ingredient_id IS NOT DISTINCT FROM n.ingredient_id
              AND m.raw_key IS NOT DISTINCT FROM n.raw_key
       WHERE slr.list_id = $1
-      GROUP BY slr.recipe_id, r.title, slr.day_of_week, sl.starts_on, r.id
-      ORDER BY slr.day_of_week NULLS LAST, r.title`,
+      GROUP BY slr.recipe_id, r.title, sl.starts_on, r.id
+      ORDER BY MIN(slr.day_of_week) NULLS LAST, r.title`,
     [listId],
   );
 }

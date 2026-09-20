@@ -35,11 +35,13 @@ import {
 } from "../lib/api";
 import {
   dateTiny,
+  lastPlaced,
+  type Which,
   sortRecipes,
   type Placement,
   type RecipeOrder,
 } from "../lib/pure";
-import PlanSheet, { placedLabel } from "../components/PlanSheet";
+import PlanSheet from "../components/PlanSheet";
 import Tap from "../components/Tap";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
@@ -59,12 +61,30 @@ function coverUri(r: RecipeCard): string | null {
   return m ? `https://i.ytimg.com/vi/${m[1]}/mqdefault.jpg` : null;
 }
 
-/** 카드 아래 한 줄 — 이 요리가 언제로 잡혀 있는지 */
-function placedSay(placed: Placement[]): string {
-  if (!placed.length) return "";
-  const p = placed[0];
-  if (p.date) return `${dateTiny(p.date)}에 먹기로 했어요`;
-  return `${p.which === "next" ? "다음 주" : "이번 주"}에 담았어요 · 날짜 미정`;
+const WEEKS: { which: Which; name: string }[] = [
+  { which: "this", name: "이번주" },
+  { which: "next", name: "다음주" },
+];
+
+/**
+ * 카드의 **두 칸 중 하나** — 웹의 `app/recipes/Picker.tsx` 와 같은 것이다
+ * (2026-09-20).
+ *
+ * 고르는 일은 **두 주를 같이 짜는 일**이다. 칸이 하나면 이미 담긴 요리가
+ * "담긴 것" 으로만 보여서, 이번 주에 먹은 걸 다음 주에 또 담아도 되는지가
+ * 안 보였다. 칸을 둘로 두면 **비어 있는 쪽이 그대로 초대장**이 된다.
+ *
+ * 날짜는 그 주의 **마지막 것**이다 (`lastPlaced`). 한 주에 두 번이면
+ * 뒤에 횟수를 붙인다 — 안 그러면 나머지가 사라진 것으로 읽힌다.
+ */
+function slotWhen(placed: Placement[]): string {
+  const at = lastPlaced(placed);
+  if (!at) return "+ 담기";
+  const more = placed.length > 1 ? ` · ${placed.length}번` : "";
+  // **"날짜 미정" 이 아니라 "미정" 이다.** 위 줄이 이미 어느 주인지
+  // 말하고, 이 칸이 묻는 게 날짜라서 "날짜" 는 세 번째로 하는 말이다.
+  // 320px 폰에서는 그 두 글자 때문에 칸이 세 줄이 됐다 (재서 확인했다).
+  return `${at.date ? dateTiny(at.date) : "미정"}${more}`;
 }
 
 const FILTERS = [
@@ -265,20 +285,35 @@ export default function Recipes() {
                 <Text style={s.cardItems} numberOfLines={2}>
                   {r.ingredients.slice(0, 4).join(" · ") || "재료 추가 필요"}
                 </Text>
-                {here.length > 0 && (
-                  <Text style={s.when}>{placedSay(here)}</Text>
-                )}
               </View>
             </Tap>
-            <PlanSheet
-              recipeId={r.id}
-              title={r.title}
-              days={data.days}
-              today={data.today}
-              placed={here}
-              label={placedLabel(here)}
-              onDone={load}
-            />
+            {/*
+              **칸이 둘이다 — 이번주 · 다음주.** 담긴 날짜를 따로 한 줄로
+              적지 않는다: 칸 글자가 이미 "이번주 9/15" 라서 그 줄은 같은
+              말을 두 번 하는 것이다.
+
+              누르면 **그 주의 이레만** 나오는 판이 뜬다 (`only`).
+              `placed` 도 그 주 것만 넘긴다 — 판에 안 보이는 날짜를
+              "식단에서 빼기" 가 같이 지우면 안 된다.
+            */}
+            <View style={s.slots}>
+              {WEEKS.map(({ which, name }) => (
+                <View key={which} style={s.slot}>
+                  <PlanSheet
+                    recipeId={r.id}
+                    title={r.title}
+                    days={data.days}
+                    today={data.today}
+                    only={which}
+                    placed={here.filter((x) => x.which === which)}
+                    label={`${name}\n${slotWhen(
+                      here.filter((x) => x.which === which),
+                    )}`}
+                    onDone={load}
+                  />
+                </View>
+              ))}
+            </View>
           </View>
         );
       })}
@@ -379,7 +414,9 @@ const useTheme = themed((c) => ({
   cardBody: { flex: 1, justifyContent: "center" },
   cardTitle: { fontSize: 16, fontWeight: "600", color: c.text },
   cardItems: { fontSize: 13, color: c.textTertiary, marginTop: 2 },
-  when: { fontSize: 12, color: c.accentStrong, marginTop: sp[1] },
+  /* 담기 칸 둘 — 폭을 반반으로. 한쪽만 넓으면 그쪽이 기본값처럼 읽힌다 */
+  slots: { flexDirection: "row", gap: sp[2] },
+  slot: { flex: 1, minWidth: 0 },
 
   empty: { alignItems: "center", gap: sp[3], paddingVertical: sp[10] },
   emptyTitle: { fontSize: 16, fontWeight: "600", color: c.text },
