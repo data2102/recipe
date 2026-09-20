@@ -166,6 +166,7 @@ export default function Layout() {
         <Tabs.Screen name="weeks" options={{ href: null }} />
         <Tabs.Screen name="add" options={{ href: null }} />
         <Tabs.Screen name="recipe/[id]" options={{ href: null }} />
+        <Tabs.Screen name="youtube" options={{ href: null }} />
       </Tabs>
     </SafeAreaProvider>
   );

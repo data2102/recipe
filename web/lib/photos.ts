@@ -12,7 +12,7 @@
  * 화면에는 `/photo/<조리기록 id>` 로 내보낸다 — 버킷을 열지 않는다.
  */
 
-import { query } from "./db";
+import { query, tx } from "./db";
 
 export type Photo = {
   /** cook_log.id — 사진 주소가 이걸 쓴다 */
@@ -66,4 +66,73 @@ export async function attachTarget(
     [recipeId, ATTACH_WITHIN_DAYS],
   );
   return rows[0] ?? null;
+}
+
+/**
+ * 사진을 붙인다 — **조리 기록에**.
+ *
+ * 하는 일이 서버 액션 안에 있었다 (`app/recipe/[id]/actions.ts`).
+ * 앱은 서버 액션을 못 쓰고 `app/api/` 를 타는데, 로직이 액션 안에 있으면
+ * 저쪽에 한 벌을 더 쓰게 된다 (CLAUDE.md) — 그러면 "사진을 올리면 만든
+ * 기록이 생긴다" 는 규칙이 두 군데가 되고 한쪽만 고쳐진다.
+ *
+ * 최근에 만든 기록이 있으면 거기 붙이고, 없으면 **오늘 만든 기록을
+ * 만든다.** 사진첩에서 고르는 경우가 많아서 오늘 것만 보면 안 된다 —
+ * 어제 만들고 오늘 올리면 하루에 두 번 만든 것으로 남는다.
+ *
+ * **이건 자동 기록이 아니다.** 지난 요일을 보고 알아서 체크하는 것과
+ * 다르다 — 사람이 사진을 고르는 행동이 앞에 있고, 버튼 글자가 그렇게
+ * 될 거라고 미리 말한다.
+ *
+ * 원본은 부르는 쪽이 먼저 보관하고 그 키를 넘긴다 (원칙 ⑤).
+ */
+export async function attach(recipeId: number, storageKey: string): Promise<void> {
+  await tx(async (q) => {
+    const recent = await q<{ id: number }>(
+      `SELECT id FROM cook_log
+        WHERE recipe_id = $1
+          AND photo_key IS NULL
+          AND cooked_on >= (now() AT TIME ZONE 'Asia/Seoul')::date - $2::int
+        ORDER BY cooked_on DESC, id DESC
+        LIMIT 1`,
+      [recipeId, ATTACH_WITHIN_DAYS],
+    );
+
+    if (recent.length > 0) {
+      await q(`UPDATE cook_log SET photo_key = $2 WHERE id = $1`, [
+        recent[0].id,
+        storageKey,
+      ]);
+      return;
+    }
+
+    await q(
+      `INSERT INTO cook_log (recipe_id, cooked_on, photo_key)
+       VALUES ($1, (now() AT TIME ZONE 'Asia/Seoul')::date, $2)`,
+      [recipeId, storageKey],
+    );
+    // 캐시는 이력에서 다시 센다 (lib/recipes.ts cooked 와 같은 규칙)
+    await q(
+      `UPDATE recipe r
+          SET cook_count     = c.n,
+              last_cooked_on = c.latest,
+              status         = CASE WHEN r.status = 'WISH' THEN 'GOOD'
+                                    ELSE r.status END
+         FROM (SELECT COUNT(*) AS n, MAX(cooked_on) AS latest
+                 FROM cook_log WHERE recipe_id = $1) c
+        WHERE r.id = $1`,
+      [recipeId],
+    );
+  });
+}
+
+/**
+ * 사진만 뗀다. **조리 기록은 지우지 않는다** — 사진이 잘못 나왔다고
+ * 그날 만든 사실이 없어지는 건 아니다.
+ *
+ * 보관함의 파일도 지우지 않는다. 내용 해시로 이름을 지어서 다른 데서
+ * 같은 파일을 가리킬 수 있고, 원본은 안 버리는 게 이 앱의 규칙이다.
+ */
+export async function detach(cookId: number): Promise<void> {
+  await query(`UPDATE cook_log SET photo_key = NULL WHERE id = $1`, [cookId]);
 }

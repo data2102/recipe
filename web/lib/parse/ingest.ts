@@ -54,6 +54,17 @@ export type Draft = {
   usage: { input: number; output: number };
 };
 
+/**
+ * 키가 없을 때 내는 안내.
+ *
+ * 예전에는 "web/.env.local 에 넣어주세요" 였다. **개발할 때 쓰던 문장이
+ * 그대로 폰까지 나갔다** — 앱을 쓰는 사람은 `.env.local` 을 열 수가 없고,
+ * 운영 서버도 그 파일로 안 돈다. 어디에 넣는지는 배포한 사람만 아는
+ * 것이니 **무엇이 없는지만** 말한다 (원칙 ③).
+ */
+const KEY_HINT =
+  "서버에 ANTHROPIC_API_KEY 를 넣고 다시 배포해야 캡처를 읽을 수 있어요.";
+
 export type IngestResult =
   | { ok: true; draft: Draft }
   | {
@@ -125,7 +136,7 @@ export async function ingest(input: {
     return {
       ok: false,
       message: "레시피를 읽을 준비가 아직 안 됐어요.",
-      hint: "web/.env.local 에 ANTHROPIC_API_KEY 를 넣어주세요.",
+      hint: KEY_HINT,
     };
   }
 
@@ -261,7 +272,7 @@ export async function ingestShared(
     return {
       ok: false,
       message: "레시피를 읽을 준비가 아직 안 됐어요.",
-      hint: "web/.env.local 에 ANTHROPIC_API_KEY 를 넣어주세요.",
+      hint: KEY_HINT,
     };
   }
 
@@ -384,7 +395,7 @@ export async function ingestLink(raw: string): Promise<IngestResult> {
     return {
       ok: false,
       message: "레시피를 읽을 준비가 아직 안 됐어요.",
-      hint: "web/.env.local 에 ANTHROPIC_API_KEY 를 넣어주세요.",
+      hint: KEY_HINT,
       ...(read.title
         ? { linkOnly: { title: read.title, url: u.toString() } }
         : {}),

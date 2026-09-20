@@ -266,12 +266,145 @@ export type RecipeDetail = RecipeCard & {
   placed: Placement[];
 };
 
+/** 고칠 때 보내는 재료 한 줄. **ingredient_id 는 안 보낸다** (아래 edit) */
+export type EditItem = {
+  raw_name: string;
+  raw_qty: string | null;
+  section: string | null;
+  origin: string;
+  choice_group: string | null;
+  confirmed: boolean;
+};
+
 export const recipes = {
   read: () => call<RecipesScreen>("/api/recipes"),
   one: (id: number) => call<RecipeDetail>(`/api/recipes/${id}`),
+
+  /**
+   * 고친다. **사전 대조는 서버가 다시 한다** — 그래서 `ingredient_id` 를
+   * 보내지 않는다. 이름을 고치면 붙는 재료가 달라지고 장보기 합산도
+   * 달라져야 하는데, 앱이 들고 있던 id 를 그대로 보내면 어긋난다.
+   *
+   * 재료 행은 통째로 갈아끼운다. 조리 기록·사진·원본은 안 건드린다.
+   */
+  edit: (
+    id: number,
+    input: { title: string; items: EditItem[]; steps: string[] },
+  ) =>
+    call<{ id: number; saved: boolean }>(`/api/recipes/${id}`, {
+      method: "PATCH",
+      json: input,
+    }),
+
   /** **되돌릴 수 없다.** 화면이 한 번 더 물어야 한다 */
   remove: (id: number) =>
     call<{ id: number }>(`/api/recipes/${id}`, { method: "DELETE" }),
+};
+
+/* ---------------------------------------------------------------- */
+/*  만든 사진                                                         */
+/* ---------------------------------------------------------------- */
+
+/**
+ * 사진은 **조리 기록에 붙는다.** 올리면 만든 기록이 생긴다(없을 때) —
+ * 화면의 버튼 글자가 그렇게 될 거라고 미리 말해야 한다.
+ *
+ * 캡처와 같은 이유로 멀티파트다 (base64 는 몸통이 1.33배).
+ */
+export const photos = {
+  add: async (recipeId: number, uri: string) => {
+    if (!BASE) {
+      throw new ApiError(
+        "서버 주소가 아직 안 적혀 있어요 (EXPO_PUBLIC_API_URL)",
+        0,
+      );
+    }
+    const form = new FormData();
+    form.append("recipeId", String(recipeId));
+    form.append("photo", {
+      uri,
+      name: "photo.jpg",
+      type: "image/jpeg",
+    } as unknown as Blob);
+
+    const began = Date.now();
+    try {
+      const response = await fetch(`${BASE}/api/photos`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${TOKEN}` },
+        body: form,
+      });
+      if (!response.ok) {
+        let said = "";
+        try {
+          said = ((await response.json()) as { error?: string }).error ?? "";
+        } catch {
+          /* JSON 이 아닐 수도 있다 */
+        }
+        throw new ApiError(
+          said || `서버가 거절했어요 (${response.status})`,
+          response.status,
+        );
+      }
+      return (await response.json()) as { recipeId: number };
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
+      // 왜 못 닿았는지를 적는다 (ingest 와 같은 이유)
+      const secs = Math.round((Date.now() - began) / 1000);
+      const said = e instanceof Error ? e.message : String(e);
+      throw new ApiError(
+        `사진을 못 보냈어요 · ${secs}초 만에 끊겼어요 (${said})`,
+        0,
+      );
+    }
+  },
+
+  /** 사진만 뗀다. **그날 만든 기록은 남는다** */
+  remove: (cookId: number) =>
+    call<{ cookId: number }>("/api/photos", {
+      method: "DELETE",
+      json: { cookId },
+    }),
+};
+
+/* ---------------------------------------------------------------- */
+/*  유튜브에서 찾기                                                   */
+/* ---------------------------------------------------------------- */
+
+/** 설명란에서 재료를 건진 영상 하나 */
+export type VideoRecipe = {
+  id: string;
+  title: string;
+  channel: string;
+  description: string;
+  /** 왜 레시피라고 봤는지 — **화면이 지어내지 말고 이걸 적는다** */
+  evidence: string[];
+};
+
+/**
+ * 유튜브에서 찾는다. **키는 서버에만 있다** — 앱에 실으면 번들을 뜯는
+ * 누구나 우리 할당량을 쓴다.
+ *
+ * 실패도 값으로 온다 (`{ ok: false, message }`). 한도를 넘었다거나
+ * 설명란에 재료가 없다는 건 **고장이 아니라 답**이라, 화면이 그 말을
+ * 그대로 낸다 (원칙 ③).
+ */
+export const youtube = {
+  /** 영상 하나의 설명란에서 재료를 건진다. `/add` 가 이걸로 시작한다 */
+  one: (id: string) =>
+    call<{ ok: true; video: VideoRecipe } | { ok: false; message: string }>(
+      `/api/youtube?id=${encodeURIComponent(id)}`,
+    ),
+
+  search: (q: string, page = "") =>
+    call<
+      | { ok: true; videos: VideoRecipe[]; next?: string; checked: number }
+      | { ok: false; message: string }
+    >(
+      `/api/youtube?q=${encodeURIComponent(q)}${
+        page ? `&page=${encodeURIComponent(page)}` : ""
+      }`,
+    ),
 };
 
 /* ---------------------------------------------------------------- */
@@ -364,6 +497,7 @@ export type IngestResult =
 async function ingestCall(
   shots: string[],
   text: string,
+  sourceUrl?: string | null,
 ): Promise<IngestResult> {
   if (!BASE) {
     throw new ApiError("서버 주소가 아직 안 적혀 있어요 (EXPO_PUBLIC_API_URL)", 0);
@@ -378,9 +512,16 @@ async function ingestCall(
     } as unknown as Blob);
   });
   if (text.trim()) form.append("text", text);
+  /*
+    **주소는 계속 들고 간다** (지시서 4장 저작권). 유튜브에서 온 경우
+    화면에는 안 보여도 `source_url` 로 저장돼야 한다 — 웹이 그렇게 하고
+    있는데 앱은 이 줄이 없어서 출처가 통째로 빠지고 있었다.
+  */
+  if (sourceUrl) form.append("sourceUrl", sourceUrl);
 
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), 90_000);
+  const began = Date.now();
   try {
     const response = await fetch(`${BASE}/api/ingest`, {
       method: "POST",
@@ -403,10 +544,31 @@ async function ingestCall(
     return (await response.json()) as IngestResult;
   } catch (e) {
     if (e instanceof ApiError) throw e;
+
+    /*
+      **왜 못 닿았는지를 적는다** (원칙 ③).
+
+      예전에는 "서버에 못 닿았어요. 인터넷을 확인해주세요" 한 문장이었다.
+      그런데 캡처 읽기는 30초 넘게 걸리는 유일한 요청이라, 다른 화면이
+      다 멀쩡한데 여기만 이 말이 나온다 — 그러면 인터넷을 봐도 아무
+      단서가 없다. 실제로 그 문장 하나로 원인을 못 좁혔다.
+
+      두 가지를 같이 적는다:
+        · 안드로이드가 한 말 ("Unable to resolve host" 는 주소 문제,
+          "Software caused connection abort" 는 중간에 끊긴 것이다)
+        · **몇 초 만에** 끊겼는지 (3초면 못 닿은 것이고, 40초면 읽다가
+          끊긴 것이다 — 둘은 완전히 다른 고장이다)
+    */
+    const secs = Math.round((Date.now() - began) / 1000);
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new ApiError(
+        `읽는 데 너무 오래 걸려요 (${secs}초). 캡처를 줄여서 다시 해보세요`,
+        0,
+      );
+    }
+    const said = e instanceof Error ? e.message : String(e);
     throw new ApiError(
-      e instanceof Error && e.name === "AbortError"
-        ? "읽는 데 너무 오래 걸려요. 캡처를 줄여서 다시 해보세요"
-        : "서버에 못 닿았어요. 인터넷을 확인해주세요",
+      `서버에 못 닿았어요 · ${secs}초 만에 끊겼어요 (${said})`,
       0,
     );
   } finally {
