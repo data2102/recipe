@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import type React from "react";
 import { planOnDate, removeFromWeek } from "./actions";
 import { dateFull, dateTiny } from "@/lib/say";
 import {
@@ -60,6 +61,7 @@ export default function PlanButton({
   placed,
   className = "ds-btn ds-btn-secondary",
   label,
+  only,
   onChange,
 }: {
   recipeId: number;
@@ -68,8 +70,21 @@ export default function PlanButton({
   today: string;
   placed: Placement[];
   className?: string;
-  /** 버튼 글자를 직접 정할 때 (상세 화면처럼 한 줄짜리 버튼) */
-  label?: string;
+  /**
+   * 버튼 글자를 직접 정할 때 (상세 화면처럼 한 줄짜리 버튼).
+   *
+   * 글자 대신 조각을 받는 이유는 메뉴 고르기의 두 칸이다 — 좁은 칸에서
+   * 주 이름과 날짜를 **두 줄로** 세운다 (app/recipes/Picker.tsx).
+   */
+  label?: React.ReactNode;
+  /**
+   * **이 주 하나만 고르게 한다** (메뉴 고르기의 두 칸 — 2026-09-20).
+   *
+   * 안 주면 열나흘이 다 나온다. 주면 그 주의 이레만 나오고 "날짜는
+   * 나중에" 도 그 주 것 하나다. 이때 `placed` 도 그 주 것만 넘겨라 —
+   * 판에 안 보이는 날짜를 "식단에서 빼기" 가 같이 지우면 안 된다.
+   */
+  only?: Which;
   /** 화면이 낙관적으로 먼저 그릴 때. 서버가 실패하면 되돌아온다 */
   onChange?: (next: Placement[]) => void;
 }) {
@@ -221,7 +236,11 @@ export default function PlanButton({
             className={styles.sheet}
             role="dialog"
             aria-modal="true"
-            aria-label={`${title} 날짜 고르기`}
+            aria-label={
+              only
+                ? `${title} ${WEEK_NAME[only]} 날짜 고르기`
+                : `${title} 날짜 고르기`
+            }
             onClick={(e) => e.stopPropagation()}
             style={drag ? { transform: `translateY(${drag}px)` } : undefined}
           >
@@ -254,7 +273,17 @@ export default function PlanButton({
             <header className={styles.head}>
               <div>
                 <p className={styles.dish}>{title}</p>
-                <h2 className={styles.ask}>언제 먹을까요?</h2>
+                {/*
+                  한 주만 고르는 판이면 **어느 주인지 물음에 적는다.**
+                  아래 소제목에도 "이번 주" 가 있지만 그건 목록의 머리고,
+                  여기는 지금 무엇을 정하는지다 — 칸이 둘이라 잘못 누르면
+                  한 주가 통째로 어긋난다.
+                */}
+                <h2 className={styles.ask}>
+                  {only
+                    ? `${WEEK_NAME[only]}, 언제 먹을까요?`
+                    : "언제 먹을까요?"}
+                </h2>
               </div>
               <button
                 type="button"
@@ -272,7 +301,7 @@ export default function PlanButton({
             )}
 
             <div className={styles.scroll}>
-              {(["this", "next"] as Which[]).map((w) => (
+              {(only ? [only] : (["this", "next"] as Which[])).map((w) => (
                 <section key={w}>
                   <h3 className={styles.weekName}>{WEEK_NAME[w]}</h3>
                   <ul className={styles.days}>

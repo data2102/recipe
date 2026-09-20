@@ -108,8 +108,6 @@
   object-fit: cover;
 }
 
-
-
 .cardBody {
   padding: var(--sp-3);
   display: flex;
@@ -122,10 +120,6 @@
   text-decoration: none;
   overflow-wrap: anywhere;
 }
-/* 언제 먹기로 했는지. 정보라서 액션색을 안 쓴다 (지시서 5장) */
-.when {
-  color: var(--text-secondary);
-}
 .cardBody p {
   font-size: var(--fs-footnote);
   color: var(--text-secondary);
@@ -134,12 +128,56 @@
   text-overflow: ellipsis;
   margin: var(--sp-2) 0 var(--sp-3);
 }
-.cardBody > button {
+/*
+ * 담기 칸 둘 — **이번주 · 다음주** (2026-09-20).
+ *
+ * 두 주를 같이 짜는 화면이라 칸도 둘이다. 폭을 반반으로 나눈다:
+ * 한쪽만 넓으면 그쪽이 기본값처럼 읽힌다.
+ *
+ * **터치 영역(44px)은 안 내려간다.** 좁은 폰에서 글자가 두 줄이 되면
+ * 늘어나되 줄어들지는 않는다.
+ */
+.slots {
   margin-top: auto;
-  width: 100%;
+  display: flex;
+  gap: var(--sp-2);
+}
+.slot {
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 44px;
   font-size: var(--fs-caption);
-  padding: var(--sp-2);
+  /*
+    **좌우 여백을 좁힌다.** 폰에서 카드가 두 칸으로 서면 칸이 70px 인데
+    기본 여백(8px)이 18px 을 먹어서 글자가 쓸 수 있는 폭이 52px 뿐이다 —
+    "날짜 미정"(55.6px)이 거기서 잘렸다. 4px 으로 줄이면 60px 이 된다.
+    **세로 여백은 그대로 둔다** (터치 영역 44px).
+  */
+  padding: var(--sp-2) var(--sp-1);
+  /* 위가 어느 주, 아래가 언제 */
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /*
+    넘칠 때 **낱말 안에서 자르지 않는다.** "· 2번" 이 "· 2" 와 "번" 으로
+    갈라지면 읽다 멈칫한다 (실제로 그렇게 났다).
+  */
+  word-break: keep-all;
+}
+/* 주 이름은 이름표다 — 읽을 값은 아래 줄이라 한 단 내린다 */
+.slotWeek {
+  font-size: var(--fs-footnote);
+  color: var(--text-secondary);
+  font-weight: var(--fw-regular);
+}
+/*
+ * 담긴 쪽. **비어 있는 쪽이 초대장이라** 담긴 쪽을 눈에 띄게 하는 게
+ * 아니라 서로 다르게만 보이면 된다. 파랑은 누를 수 있는 것에만 쓰는데
+ * 이 칸도 눌러서 날짜를 바꾸는 자리라 걸리지 않는다.
+ */
+.slotOn {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 /*
  * 담은 결과 — **탭바 위에 또 하나의 바를 두지 않는다.**
@@ -179,7 +217,6 @@
     bottom: 0;
   }
 }
-
 
 .basket a {
   font-size: var(--fs-footnote);

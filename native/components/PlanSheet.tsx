@@ -61,6 +61,7 @@ export default function PlanSheet({
   today,
   placed,
   label,
+  only,
   tone = "secondary",
   onDone,
 }: {
@@ -71,6 +72,14 @@ export default function PlanSheet({
   placed: Placement[];
   /** 버튼 글자를 직접 정할 때 (상세 화면처럼 한 줄짜리 버튼) */
   label?: string;
+  /**
+   * **이 주 하나만 고르게 한다** (메뉴 고르기의 두 칸 — 2026-09-20).
+   *
+   * 안 주면 열나흘이 다 나온다. 주면 그 주의 이레만 나오고 "날짜는
+   * 나중에" 도 그 주 것 하나다. 이때 `placed` 도 그 주 것만 넘겨라 —
+   * 판에 안 보이는 날짜를 "식단에서 빼기" 가 같이 지우면 안 된다.
+   */
+  only?: Which;
   tone?: "primary" | "secondary" | "quiet";
   /** 서버가 받아준 뒤에 부른다 — 화면이 다시 읽게 */
   onDone: () => void | Promise<void>;
@@ -138,9 +147,18 @@ export default function PlanSheet({
         disabled={busy}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={`${title} 날짜 고르기`}
+        accessibilityLabel={
+          only
+            ? `${title} ${WEEK_NAME[only]} 날짜 고르기`
+            : `${title} 날짜 고르기`
+        }
       >
-        <Text style={btnText} numberOfLines={1}>
+        {/*
+          **두 줄까지 받는다.** 메뉴 고르기의 두 칸은 "이번주" 를 위에,
+          날짜를 아래에 세운다 (`\n`). 한 줄짜리 버튼들은 그대로 한 줄로
+          그려진다 — 넘칠 일이 없어서 값이 2여도 달라지지 않는다.
+        */}
+        <Text style={btnText} numberOfLines={2}>
           {busy ? "저장 중…" : (label ?? placedLabel(placed))}
         </Text>
       </Tap>
@@ -171,7 +189,17 @@ export default function PlanSheet({
                 <Text style={s.dish} numberOfLines={1}>
                   {title}
                 </Text>
-                <Text style={s.ask}>언제 먹을까요?</Text>
+                {/*
+                  한 주만 고르는 판이면 **어느 주인지 물음에 적는다.**
+                  아래 소제목에도 있지만 그건 목록의 머리고, 여기는 지금
+                  무엇을 정하는지다 — 칸이 둘이라 잘못 누르면 한 주가
+                  통째로 어긋난다.
+                */}
+                <Text style={s.ask}>
+                  {only
+                    ? `${WEEK_NAME[only]}, 언제 먹을까요?`
+                    : "언제 먹을까요?"}
+                </Text>
               </View>
               <Tap style={s.close} onPress={() => setOpen(false)}>
                 <Text style={s.closeText}>닫기</Text>
@@ -185,7 +213,7 @@ export default function PlanSheet({
             )}
 
             <ScrollView style={s.scroll}>
-              {(["this", "next"] as Which[]).map((w) => (
+              {(only ? [only] : (["this", "next"] as Which[])).map((w) => (
                 <View key={w}>
                   <Text style={s.weekName}>{WEEK_NAME[w]}</Text>
                   {days
@@ -266,7 +294,12 @@ const useTheme = themed((c) => ({
     justifyContent: "center",
     paddingHorizontal: sp[4],
   },
-  primaryText: { color: c.onAccent, fontSize: 15, fontWeight: "700" },
+  primaryText: {
+    color: c.onAccent,
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   secondary: {
     minHeight: TOUCH,
     borderRadius: radius.md,
@@ -277,7 +310,12 @@ const useTheme = themed((c) => ({
     justifyContent: "center",
     paddingHorizontal: sp[4],
   },
-  secondaryText: { color: c.textSecondary, fontSize: 15, fontWeight: "600" },
+  secondaryText: {
+    color: c.textSecondary,
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
+  },
   /** 줄 안에 얹는 작은 것 (식단의 날짜 버튼) */
   quiet: {
     minHeight: TOUCH,

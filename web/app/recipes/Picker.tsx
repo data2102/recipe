@@ -15,7 +15,12 @@ import Link from "next/link";
 import { useState, useOptimistic } from "react";
 import { useSearchParams } from "next/navigation";
 import type { RecipeCard } from "@/lib/recipes";
-import { lastPlaced, type PickDay, type Placement } from "@/lib/plan.types";
+import {
+  lastPlaced,
+  type PickDay,
+  type Placement,
+  type Which,
+} from "@/lib/plan.types";
 import PlanButton from "../PlanButton";
 import { sortRecipes, type RecipeOrder } from "@/lib/recipe-sort";
 import { dateTiny } from "@/lib/say";
@@ -62,14 +67,40 @@ function Cover({ recipe }: { recipe: Card }) {
   );
 }
 
-/** 카드 아래 한 줄 — 이 요리가 언제로 잡혀 있는지 */
-function placedSay(placed: Placement[]): string {
-  const p = lastPlaced(placed);
-  if (!p) return "";
-  // 여러 날이면 **마지막 날짜**다 (lib/plan.types.ts lastPlaced)
+const WEEKS: { which: Which; name: string }[] = [
+  { which: "this", name: "이번주" },
+  { which: "next", name: "다음주" },
+];
+
+/**
+ * 카드의 **두 칸 중 하나** — 그 주에 담겼는지를 칸 글자로 말한다
+ * (2026-09-20).
+ *
+ * 예전에는 카드마다 "+ 담기" 하나였고, 열나흘이 한 판에 다 나왔다.
+ * 그런데 고르는 일은 **두 주를 같이 짜는 일**이다 — 이번 주에 먹은 걸
+ * 다음 주에 또 먹을 수도 있는데, 칸이 하나면 그 요리가 "이미 담긴 것"
+ * 으로만 보여서 다음 주에 또 담아도 되는지가 안 보였다.
+ *
+ * 칸을 둘로 두면 **비어 있는 쪽이 그대로 초대장**이 된다:
+ * `이번주 / 9/15` 옆에 `다음주 / + 담기` 가 서 있다.
+ *
+ * **한 줄이 아니라 두 줄이다.** 폰에서 카드가 두 칸으로 서면 칸 하나가
+ * 70px 인데 "이번주 + 담기" 가 한 줄로 안 들어가서 "담기" 만 아래로
+ * 떨어졌다 (재서 확인했다). 주 이름을 위에 따로 세우면 같은 두 줄이
+ * 뜻을 갖는다 — 위가 어느 주, 아래가 언제.
+ *
+ * 날짜는 **그 주의 마지막 것**이다 (lib/plan.types.ts `lastPlaced`).
+ * 한 주에 두 번이면 뒤에 횟수를 붙인다 — 안 그러면 나머지가 사라진
+ * 것으로 읽힌다.
+ */
+function slotWhen(placed: Placement[]): string {
+  const at = lastPlaced(placed);
+  if (!at) return "+ 담기";
   const more = placed.length > 1 ? ` · ${placed.length}번` : "";
-  if (p.date) return `${dateTiny(p.date)}에 먹기로 했어요${more}`;
-  return `${p.which === "next" ? "다음 주" : "이번 주"}에 담았어요 · 날짜 미정${more}`;
+  // **"날짜 미정" 이 아니라 "미정" 이다.** 위 줄이 이미 어느 주인지
+  // 말하고, 이 칸이 묻는 게 날짜라서 "날짜" 는 세 번째로 하는 말이다.
+  // 320px 폰에서는 그 두 글자 때문에 칸이 세 줄이 됐다 (재서 확인했다).
+  return `${at.date ? dateTiny(at.date) : "미정"}${more}`;
 }
 
 export default function Picker({
@@ -285,17 +316,46 @@ export default function Picker({
                 {r.title}
               </Link>
               <p>{r.ingredients.slice(0, 4).join(" · ") || "재료 추가 필요"}</p>
-              {chosen(r.id).length > 0 && (
-                <p className={styles.when}>{placedSay(chosen(r.id))}</p>
-              )}
-              <PlanButton
-                recipeId={r.id}
-                title={r.title}
-                days={days}
-                today={today}
-                placed={chosen(r.id)}
-                onChange={(next) => applyPlan({ id: r.id, next })}
-              />
+              {/*
+                **칸이 둘이다 — 이번주 · 다음주** (2026-09-20).
+
+                담긴 날짜를 따로 한 줄로 적지 않는다. 칸 글자가 이미
+                "이번주 9/15" 라서 그 줄은 같은 말을 두 번 하는 것이다.
+
+                누르면 **그 주의 이레만** 나오는 판이 뜬다 (`only`).
+                `placed` 도 그 주 것만 넘긴다 — 판에 안 보이는 날짜를
+                "식단에서 빼기" 가 같이 지우면 안 된다. 돌아온 값은
+                다른 주의 자리와 다시 합쳐서 올린다.
+              */}
+              <div className={styles.slots}>
+                {WEEKS.map(({ which, name }) => {
+                  const here = chosen(r.id).filter((p) => p.which === which);
+                  const other = chosen(r.id).filter((p) => p.which !== which);
+                  return (
+                    <PlanButton
+                      key={which}
+                      recipeId={r.id}
+                      title={r.title}
+                      days={days}
+                      today={today}
+                      only={which}
+                      placed={here}
+                      label={
+                        <>
+                          <span className={styles.slotWeek}>{name}</span>
+                          <span>{slotWhen(here)}</span>
+                        </>
+                      }
+                      className={`ds-btn ds-btn-secondary ${styles.slot} ${
+                        here.length ? styles.slotOn : ""
+                      }`}
+                      onChange={(next) =>
+                        applyPlan({ id: r.id, next: [...other, ...next] })
+                      }
+                    />
+                  );
+                })}
+              </div>
             </div>
           </li>
         ))}
