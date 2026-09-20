@@ -43,6 +43,7 @@ import {
   recipeCatalog,
   detail,
   cooked,
+  edit,
   remove as dropRecipe,
 } from "../web/lib/recipes";
 import { picked, removeRecipe, unplan } from "../web/lib/shopping";
@@ -1132,6 +1133,7 @@ async function main() {
     );
     console.log("PASS: one save writes raw text, dictionary hits, order, and unmapped terms");
 
+
     /*
       **같은 초안을 두 번 저장하지 않는다.**
 
@@ -1211,6 +1213,92 @@ async function main() {
     assert.equal(texts[1].raw_text, "파서가 돌려준 응답", "비어 있던 자리만 채운다");
     assert(texts[0].parsed_at && texts[1].parsed_at, "언제 파싱했는지는 둘 다 적힌다");
     console.log("PASS: the original text is never overwritten by the parser output");
+
+    /*
+      **고칠 때도 사전 대조를 다시 한다** (2026-09-20).
+
+      이 로직은 서버 액션 안에 있었다 — 앱은 서버 액션을 못 쓰니
+      `app/api/` 에 한 벌을 더 쓰게 될 자리였다. `recipes.edit` 으로
+      빼면서 웹 화면과 API 가 같은 함수를 부른다.
+
+      넷을 잰다: 이름을 고치면 **붙는 재료가 따라 바뀌나** · 재료 행이
+      통째로 갈리나 · 만드는 법이 갈리나 · **조리 기록은 그대로인가**.
+    */
+    await cooked(saved, "2026-09-01");
+    const beforeEdit = await query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM cook_log WHERE recipe_id = $1`,
+      [saved],
+    );
+
+    await edit(saved, {
+      title: "UXTEST 고친 이름",
+      items: [
+        // 사전에 붙는 이름으로 바꾼다 — ingredient_id 가 따라 붙어야 한다
+        { raw_name: "대파", raw_qty: "1대", section: null, origin: "USER", choice_group: null, confirmed: true },
+        { raw_name: "", raw_qty: null, section: null, origin: "USER", choice_group: null, confirmed: true },
+        { raw_name: "UXTEST 새로운 듣보", raw_qty: null, section: null, origin: "USER", choice_group: null, confirmed: false },
+      ],
+      steps: ["   ", "한 단계로 줄였다"],
+    });
+
+    const [renamed] = await query<{ title: string }>(
+      `SELECT title FROM recipe WHERE id = $1`,
+      [saved],
+    );
+    assert.equal(renamed.title, "UXTEST 고친 이름", "이름이 바뀐다");
+
+    const edited = await query<{
+      raw_name: string;
+      ingredient_id: number | null;
+      confirmed: boolean;
+    }>(
+      `SELECT raw_name, ingredient_id, confirmed
+         FROM recipe_ingredient WHERE recipe_id = $1 ORDER BY id`,
+      [saved],
+    );
+    assert.deepEqual(
+      edited.map((r) => r.raw_name),
+      ["대파", "UXTEST 새로운 듣보"],
+      "재료는 통째로 갈리고, 이름을 비운 줄은 지운 줄이다",
+    );
+    assert.ok(
+      edited[0].ingredient_id !== null,
+      "고칠 때도 사전 대조를 다시 한다 — 화면이 보낸 id 를 안 믿는다",
+    );
+    assert.equal(edited[1].ingredient_id, null, "사전에 없는 표기는 안 붙는다");
+    assert.equal(edited[1].confirmed, false, "장보기에서 뺀 줄은 뺀 채로 남는다");
+
+    const newSteps = await query<{ body: string }>(
+      `SELECT body FROM recipe_step WHERE recipe_id = $1 ORDER BY seq`,
+      [saved],
+    );
+    assert.deepEqual(
+      newSteps.map((r) => r.body),
+      ["한 단계로 줄였다"],
+      "빈 줄은 단계가 아니다",
+    );
+
+    const afterEdit = await query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM cook_log WHERE recipe_id = $1`,
+      [saved],
+    );
+    assert.equal(
+      afterEdit[0].n,
+      beforeEdit[0].n,
+      "고쳐도 조리 기록은 안 건드린다",
+    );
+
+    await assert.rejects(
+      () =>
+        edit(saved, {
+          title: "빈 레시피",
+          items: [],
+          steps: [],
+        }),
+      /재료가 하나도 없어요/,
+      "재료를 통째로 비우는 건 막는다 — 실수로 다 지운 것과 구별할 수 없다",
+    );
+    console.log("PASS: editing re-runs the dictionary and leaves cook logs alone");
   } finally {
     for (const id of listIds)
       await query(`DELETE FROM purchase WHERE source LIKE $1`, [

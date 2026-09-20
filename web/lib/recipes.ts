@@ -6,6 +6,7 @@
  */
 
 import { query, tx } from "./db";
+import { loadDictionary, normalize } from "./parse/normalize";
 
 export type RecipeRow = {
   id: number;
@@ -334,4 +335,123 @@ export function recipeCatalog() {
      WHERE r.status <> 'BAD'
      ORDER BY r.title, r.id
   `);
+}
+
+/* ---------------------------------------------------------------- */
+/*  레시피 고치기                                                     */
+/* ---------------------------------------------------------------- */
+
+/** 고칠 때 들어오는 재료 한 줄. 화면이 뭐든(폼·JSON) 이 모양으로 바꿔 넘긴다 */
+export type EditItem = {
+  raw_name: string;
+  raw_qty: string | null;
+  section: string | null;
+  origin: "LIST" | "BODY" | "USER";
+  choice_group: string | null;
+  /** 장보기에 넣을 것인가 */
+  confirmed: boolean;
+};
+
+/**
+ * 저장해둔 레시피를 고친다.
+ *
+ * **사전 대조를 여기서 다시 한다** (저장할 때와 같은 규칙). 이름을
+ * 고쳤으면 붙는 재료가 달라지고, 그러면 장보기 합산도 달라져야 한다.
+ * **화면이 보낸 ingredient_id 를 믿지 않는다** — 애초에 받지도 않는다.
+ *
+ * 재료 행은 **통째로 갈아끼운다.** 장보기 항목은 이름(label)으로 물려받고
+ * 식단은 볼 때마다 다시 읽으니, 행 id 를 붙들고 있는 데가 없다.
+ *
+ * 조리 기록·사진·원본은 건드리지 않는다. 고친 건 레시피 내용뿐이다 —
+ * 원본이 남아야 파서를 고친 뒤 재파싱할 수 있다 (원칙 ⑤).
+ *
+ * **왜 여기(lib) 에 있나.** 예전에는 서버 액션 안이었다
+ * (`app/recipe/[id]/actions.ts`). 앱은 서버 액션을 못 쓰고 `app/api/` 를
+ * 타는데, 로직이 액션 안에 있으면 저쪽에 한 벌을 더 쓰게 된다 — 그러면
+ * "고칠 때 사전 대조를 다시 한다" 는 규칙이 두 군데가 되고 한쪽만
+ * 고쳐진다 (CLAUDE.md).
+ */
+export async function edit(
+  id: number,
+  input: { title: string; items: EditItem[]; steps: string[] },
+): Promise<void> {
+  if (!Number.isInteger(id) || id <= 0) throw new Error("레시피를 못 찾았어요");
+
+  const title = input.title.trim() || "제목 없음";
+  const rows = input.items.filter((r) => r.raw_name.trim().length > 0);
+  if (rows.length === 0) throw new Error("재료가 하나도 없어요");
+
+  const steps = input.steps.map((s) => s.trim()).filter(Boolean);
+
+  const table = await loadDictionary();
+  const normalized = normalize(
+    rows.map((r) => ({
+      raw_name: r.raw_name.trim(),
+      raw_qty: r.raw_qty,
+      section: r.section,
+      origin: r.origin,
+      evidence: null,
+    })),
+    // 택1 그룹은 화면에서 못 바꾼다. 원래 값을 행마다 그대로 들고 온다.
+    [],
+    table,
+  );
+
+  await tx(async (q) => {
+    await q(`UPDATE recipe SET title = $2 WHERE id = $1`, [id, title]);
+
+    await q(`DELETE FROM recipe_ingredient WHERE recipe_id = $1`, [id]);
+    await q(
+      `INSERT INTO recipe_ingredient
+         (recipe_id, raw_name, raw_qty, section, ingredient_id,
+          origin, evidence, confirmed, choice_group)
+       SELECT $1, t.raw_name, t.raw_qty, t.section, t.ingredient_id,
+              t.origin, NULL, t.confirmed, t.choice_group
+         FROM unnest($2::text[], $3::text[], $4::text[], $5::bigint[],
+                     $6::text[], $7::boolean[], $8::text[])
+              WITH ORDINALITY
+              AS t(raw_name, raw_qty, section, ingredient_id,
+                   origin, confirmed, choice_group, ord)
+        ORDER BY t.ord`,
+      [
+        id,
+        normalized.map((r) => r.raw_name),
+        normalized.map((r) => r.raw_qty),
+        normalized.map((r) => r.section),
+        normalized.map((r) => r.ingredient_id),
+        normalized.map((r) => r.origin),
+        rows.map((r) => r.confirmed),
+        rows.map((r) => r.choice_group),
+      ],
+    );
+
+    /*
+      사전에 없는 표기는 여기서도 쌓는다. 고치다가 새로 들어온 표기가
+      있으면 그것도 사전을 키우는 재료다 (스펙 7장 미분류 처리).
+    */
+    const unmapped = normalized
+      .filter((r) => r.recordUnmapped)
+      .map((r) => r.raw_name);
+    if (unmapped.length > 0) {
+      await q(
+        `INSERT INTO unmapped_term (raw_name, hit_count)
+         SELECT t.name, COUNT(*)
+           FROM unnest($1::text[]) AS t(name)
+          GROUP BY t.name
+         ON CONFLICT (raw_name)
+         DO UPDATE SET hit_count = unmapped_term.hit_count + EXCLUDED.hit_count`,
+        [unmapped],
+      );
+    }
+
+    await q(`DELETE FROM recipe_step WHERE recipe_id = $1`, [id]);
+    if (steps.length > 0) {
+      await q(
+        `INSERT INTO recipe_step (recipe_id, seq, body)
+         SELECT $1, t.ord, t.body
+           FROM unnest($2::text[]) WITH ORDINALITY AS t(body, ord)`,
+        [id, steps],
+      );
+    }
+  });
 }

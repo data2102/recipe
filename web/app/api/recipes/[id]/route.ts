@@ -1,5 +1,6 @@
 /**
  * GET    /api/recipes/:id — 만드는 법까지 (레시피 상세)
+ * PATCH  /api/recipes/:id — 고친다
  * DELETE /api/recipes/:id — 지운다
  *
  * 캡처로 넣은 레시피는 원본 링크가 없다. 이 화면이 없으면 만드는 법을
@@ -12,8 +13,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { allow, bad, oops } from "@/lib/api/guard";
-import { detail, remove } from "@/lib/recipes";
+import { allow, bad, body, oops } from "@/lib/api/guard";
+import { detail, edit, remove, type EditItem } from "@/lib/recipes";
 import { attachTarget, list as listPhotos } from "@/lib/photos";
 import { pickable } from "@/lib/week";
 
@@ -69,6 +70,65 @@ export async function GET(
     });
   } catch (e) {
     return oops(e, "레시피를 못 읽었어요");
+  }
+}
+
+/**
+ * 고친다. `{ title, items[], steps[] }`
+ *
+ * **사전 대조는 서버가 다시 한다** (`recipes.edit`). 그래서 `ingredient_id`
+ * 는 받지도 않는다 — 앱이 보낸 걸 믿으면 이름을 고쳤을 때 붙는 재료가
+ * 어긋나고 장보기 합산이 틀어진다. 웹 화면도 같은 함수를 부른다.
+ *
+ * 재료 행은 통째로 갈아끼운다. 조리 기록·사진·원본은 안 건드린다.
+ */
+export async function PATCH(
+  request: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const gate = allow(request);
+  if (!gate.ok) return gate.response;
+
+  const id = idOf((await ctx.params).id);
+  if (id === null) return bad("레시피를 못 찾겠어요");
+
+  const input = await body(request);
+  if (!input) return bad("JSON 으로 보내주세요");
+
+  const raw = Array.isArray(input.items) ? input.items : null;
+  if (!raw) return bad("재료를 보내주세요");
+
+  const ORIGINS = ["LIST", "BODY", "USER"];
+  const items: EditItem[] = raw.map((r) => {
+    const it = (r ?? {}) as Record<string, unknown>;
+    const origin = String(it.origin ?? "USER");
+    return {
+      raw_name: String(it.raw_name ?? ""),
+      raw_qty: it.raw_qty ? String(it.raw_qty) : null,
+      section: it.section ? String(it.section) : null,
+      origin: (ORIGINS.includes(origin)
+        ? origin
+        : "USER") as EditItem["origin"],
+      choice_group: it.choice_group ? String(it.choice_group) : null,
+      confirmed: it.confirmed !== false,
+    };
+  });
+
+  try {
+    await edit(id, {
+      title: String(input.title ?? ""),
+      items,
+      steps: Array.isArray(input.steps) ? input.steps.map((x) => String(x)) : [],
+    });
+    return NextResponse.json({ id, saved: true });
+  } catch (e) {
+    /*
+      "재료가 하나도 없어요" 처럼 **요청이 틀린 것**은 400 이다.
+      날것의 DB 오류를 흘리지 않는다 (제약 이름은 스키마만 샌다).
+    */
+    const why = e instanceof Error ? e.message : "";
+    if (/재료가 하나도 없어요|레시피를 못 찾았어요/.test(why)) return bad(why);
+    return oops(e, "고치지 못했어요");
   }
 }
 
