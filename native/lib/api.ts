@@ -62,9 +62,111 @@ export class ApiError extends Error {
 /** 마트에서는 신호가 나쁘다. 영영 기다리게 두지 않는다 */
 const TIMEOUT_MS = 12_000;
 
+/**
+ * **유튜브는 12초로 부족하다.**
+ *
+ * 서버가 구글에 **두 번** 간다 (검색 한 번, 영상 상세 한 번) — 각각
+ * 12초를 쓸 수 있고 (`lib/youtube-search.ts`), 앞에 Vercel 콜드 스타트가
+ * 붙을 수도 있다. 서버 쪽은 30초를 허용해뒀는데(`maxDuration`) 폰이
+ * **12초에 먼저 포기**하고 있었다 — 서버는 아직 일하는 중인데 앱은
+ * 실패라고 적는다. 기다리는 쪽을 서버에 맞춘다.
+ */
+const SLOW_MS = 30_000;
+
+/** 사진 한 장은 몇 백 KB 다. 마트 신호에서도 30초로는 모자랄 때가 있다 */
+const PHOTO_MS = 60_000;
+
+/** 캡처 읽기는 30초 넘게 걸리는 **유일한** 요청이다 */
+const READ_MS = 90_000;
+
+/**
+ * 멀티파트를 보내다 못 닿은 것. `sendForm` 안에서만 산다.
+ *
+ * 몇 초 만인지와 안드로이드가 한 말을 같이 들고 나온다 — 부르는 쪽이
+ * 화면에 맞는 문장으로 바꿔 적는다 (캡처와 사진은 할 말이 다르다).
+ */
+class SentFail extends Error {
+  constructor(
+    readonly secs: number,
+    readonly said: string,
+    readonly timedOut: boolean,
+  ) {
+    super(said);
+    this.name = "SentFail";
+  }
+}
+
+/**
+ * **멀티파트는 `fetch` 로 못 보낸다 — XHR 로 보낸다.**
+ *
+ * Expo 가 `globalThis.fetch` 를 자기 것으로 바꿔놨는데
+ * (`expo/src/winter/fetch`), 그쪽은 몸통을 **JS 에서 직접 조립한다**:
+ * 조각이 문자열이거나 진짜 `Blob` 이어야 하고, 리액트 네이티브의
+ * `{ uri, name, type }` 은 모른다. `convertFormData.ts` 가 거기서
+ * `Unsupported FormDataPart implementation` 을 던진다 — 그래서 캡처를
+ * 붙이면 **0초 만에** 실패했다. 신호 문제가 아니라 **네트워크에 나가지도
+ * 못한 것**이다 (그 0초가 진단이었다).
+ *
+ * XHR 은 RN 의 네이티브 통로라 `{ uri }` 를 그대로 안다
+ * (`Libraries/Network/FormData.js` 의 `getParts`). 파일을 JS 메모리로
+ * 읽지도 않는다 — 안드로이드가 디스크에서 바로 흘려보낸다.
+ *
+ * **`content-type` 을 손으로 붙이지 마라**: 경계 문자열(boundary)은
+ * 네이티브가 만든다.
+ *
+ * **JSON 은 `call()` 그대로 둔다.** 거기는 조각이 전부 문자열이라
+ * Expo 의 fetch 가 멀쩡히 보낸다 — 고장 난 자리만 고친다.
+ */
+function sendForm(
+  path: string,
+  form: FormData,
+  ms: number,
+): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const began = Date.now();
+    const secs = () => Math.round((Date.now() - began) / 1000);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE}${path}`);
+    xhr.timeout = ms;
+    xhr.setRequestHeader("authorization", `Bearer ${TOKEN}`);
+
+    xhr.onload = () =>
+      resolve({ status: xhr.status, text: xhr.responseText ?? "" });
+    /*
+      못 닿았을 때 안드로이드가 한 말이 `responseText` 로 온다
+      ("Unable to resolve host" 는 주소, "Software caused connection
+      abort" 는 가다 끊긴 것) — 지어내지 말고 그대로 싣는다.
+    */
+    xhr.onerror = () =>
+      reject(
+        new SentFail(secs(), xhr.responseText || "연결이 끊겼어요", false),
+      );
+    xhr.ontimeout = () =>
+      reject(new SentFail(secs(), "시간이 다 됐어요", true));
+    xhr.onabort = () => reject(new SentFail(secs(), "중단됐어요", false));
+
+    xhr.send(form);
+  });
+}
+
+/** 멀티파트의 답을 값으로. 거절은 서버가 적어 보낸 말을 그대로 쓴다 */
+function answered<T>(got: { status: number; text: string }): T {
+  if (got.status < 200 || got.status >= 300) {
+    let said = "";
+    try {
+      said = (JSON.parse(got.text) as { error?: string }).error ?? "";
+    } catch {
+      /* 몸통이 JSON 이 아닐 수도 있다 (프록시·게이트웨이) */
+    }
+    throw new ApiError(said || `서버가 거절했어요 (${got.status})`, got.status);
+  }
+  return JSON.parse(got.text) as T;
+}
+
 async function call<T>(
   path: string,
-  init?: { method?: string; json?: unknown },
+  init?: { method?: string; json?: unknown; slow?: boolean },
 ): Promise<T> {
   if (!BASE) {
     throw new ApiError(
@@ -74,7 +176,11 @@ async function call<T>(
   }
 
   const stop = new AbortController();
-  const timer = setTimeout(() => stop.abort(), TIMEOUT_MS);
+  const timer = setTimeout(
+    () => stop.abort(),
+    init?.slow ? SLOW_MS : TIMEOUT_MS,
+  );
+  const began = Date.now();
 
   let response: Response;
   try {
@@ -90,12 +196,30 @@ async function call<T>(
       signal: stop.signal,
     });
   } catch (e) {
-    // 끊긴 것과 느린 것을 가른다. 마트 지하에서는 둘 다 흔하다.
-    const why =
-      e instanceof Error && e.name === "AbortError"
-        ? "서버가 너무 느려요. 신호가 약한 곳인지 봐주세요"
-        : "서버에 못 닿았어요. 인터넷을 확인해주세요";
-    throw new ApiError(why, 0);
+    /*
+      **끊긴 것과 느린 것을 가르고, 몇 초 만인지까지 적는다** (원칙 ③).
+
+      예전에는 "서버에 못 닿았어요. 인터넷을 확인해주세요" 한 문장이
+      전부였다. 그런데 다른 화면은 멀쩡한데 이 화면만 그러면 인터넷을
+      봐도 아무 단서가 없다 — 실제로 그 문장 하나로 원인을 못 좁혔다.
+      캡처(`ingestCall`)에만 넣어뒀던 것을 **모든 경로**에 맞춘다.
+
+      3초면 못 닿은 것이고 25초면 가다가 끊긴 것이다. 안드로이드가 한
+      말("Unable to resolve host" 는 주소, "Software caused connection
+      abort" 는 중간에 끊김)도 그대로 싣는다.
+    */
+    const secs = Math.round((Date.now() - began) / 1000);
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new ApiError(
+        `서버가 너무 느려요 (${secs}초). 신호가 약한 곳인지 봐주세요`,
+        0,
+      );
+    }
+    const said = e instanceof Error ? e.message : String(e);
+    throw new ApiError(
+      `서버에 못 닿았어요 · ${secs}초 만에 끊겼어요 (${said})`,
+      0,
+    );
   } finally {
     clearTimeout(timer);
   }
@@ -111,7 +235,10 @@ async function call<T>(
     } catch {
       /* 몸통이 JSON 이 아닐 수도 있다 (프록시·게이트웨이) */
     }
-    throw new ApiError(said || `서버가 거절했어요 (${response.status})`, response.status);
+    throw new ApiError(
+      said || `서버가 거절했어요 (${response.status})`,
+      response.status,
+    );
   }
 
   return (await response.json()) as T;
@@ -134,8 +261,7 @@ export type ShoppingScreen = {
 };
 
 export const shopping = {
-  read: (week: Which) =>
-    call<ShoppingScreen>(`/api/shopping?week=${week}`),
+  read: (week: Which) => call<ShoppingScreen>(`/api/shopping?week=${week}`),
 
   /** 샀어요 — **구매 기록이 여기서 생긴다** */
   check: (label: string, checked: boolean, week: Which) =>
@@ -157,10 +283,7 @@ export const shopping = {
 };
 
 /** 담긴 요리 한 건 — 어느 주 목록에서 왔는지까지 (옮길 때 저쪽에서 뗀다) */
-export type PlanDish = Pick<
-  Planned,
-  "title" | "past" | "cooked" | "items"
-> & {
+export type PlanDish = Pick<Planned, "title" | "past" | "cooked" | "items"> & {
   recipeId: number;
   week: Which;
   /** 그 요일이 실제로 며칠인가. 요일을 안 정했으면 null */
@@ -327,33 +450,23 @@ export const photos = {
       type: "image/jpeg",
     } as unknown as Blob);
 
-    const began = Date.now();
     try {
-      const response = await fetch(`${BASE}/api/photos`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${TOKEN}` },
-        body: form,
-      });
-      if (!response.ok) {
-        let said = "";
-        try {
-          said = ((await response.json()) as { error?: string }).error ?? "";
-        } catch {
-          /* JSON 이 아닐 수도 있다 */
-        }
-        throw new ApiError(
-          said || `서버가 거절했어요 (${response.status})`,
-          response.status,
-        );
-      }
-      return (await response.json()) as { recipeId: number };
+      return answered<{ recipeId: number }>(
+        await sendForm("/api/photos", form, PHOTO_MS),
+      );
     } catch (e) {
       if (e instanceof ApiError) throw e;
-      // 왜 못 닿았는지를 적는다 (ingest 와 같은 이유)
-      const secs = Math.round((Date.now() - began) / 1000);
-      const said = e instanceof Error ? e.message : String(e);
+      // 왜 못 닿았는지를 적는다 (캡처와 같은 이유)
+      if (e instanceof SentFail) {
+        throw new ApiError(
+          e.timedOut
+            ? `사진을 올리는 데 너무 오래 걸려요 (${e.secs}초)`
+            : `사진을 못 보냈어요 · ${e.secs}초 만에 끊겼어요 (${e.said})`,
+          0,
+        );
+      }
       throw new ApiError(
-        `사진을 못 보냈어요 · ${secs}초 만에 끊겼어요 (${said})`,
+        `사진을 못 보냈어요 (${e instanceof Error ? e.message : String(e)})`,
         0,
       );
     }
@@ -394,6 +507,7 @@ export const youtube = {
   one: (id: string) =>
     call<{ ok: true; video: VideoRecipe } | { ok: false; message: string }>(
       `/api/youtube?id=${encodeURIComponent(id)}`,
+      { slow: true },
     ),
 
   search: (q: string, page = "") =>
@@ -404,6 +518,7 @@ export const youtube = {
       `/api/youtube?q=${encodeURIComponent(q)}${
         page ? `&page=${encodeURIComponent(page)}` : ""
       }`,
+      { slow: true },
     ),
 };
 
@@ -487,10 +602,9 @@ export type IngestResult =
 /**
  * 캡처를 보내 초안을 받는다. **저장하지는 않는다.**
  *
- * `FormData` 에 `{ uri, name, type }` 을 넣는 건 RN 의 방식이다 — 브라우저의
- * `File` 이 없는 대신 런타임이 그 uri 를 읽어 멀티파트로 실어 보낸다.
- * **`content-type` 을 손으로 붙이지 마라**: 경계 문자열(boundary)은
- * 런타임이 만든다.
+ * `FormData` 에 `{ uri, name, type }` 을 넣는 건 RN 의 방식이다. **그걸
+ * 아는 건 XHR 뿐이라** 여기만 `sendForm` 을 탄다 — Expo 의 `fetch` 는
+ * 그 모양을 모르고 0초 만에 던진다 (위 `sendForm` 의 설명).
  *
  * 파싱은 30초쯤 걸린다 — 평소의 12초 시계로는 못 기다린다.
  */
@@ -500,7 +614,10 @@ async function ingestCall(
   sourceUrl?: string | null,
 ): Promise<IngestResult> {
   if (!BASE) {
-    throw new ApiError("서버 주소가 아직 안 적혀 있어요 (EXPO_PUBLIC_API_URL)", 0);
+    throw new ApiError(
+      "서버 주소가 아직 안 적혀 있어요 (EXPO_PUBLIC_API_URL)",
+      0,
+    );
   }
 
   const form = new FormData();
@@ -519,60 +636,35 @@ async function ingestCall(
   */
   if (sourceUrl) form.append("sourceUrl", sourceUrl);
 
-  const stop = new AbortController();
-  const timer = setTimeout(() => stop.abort(), 90_000);
-  const began = Date.now();
   try {
-    const response = await fetch(`${BASE}/api/ingest`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${TOKEN}` },
-      body: form,
-      signal: stop.signal,
-    });
-    if (!response.ok) {
-      let said = "";
-      try {
-        said = ((await response.json()) as { error?: string }).error ?? "";
-      } catch {
-        /* JSON 이 아닐 수도 있다 */
-      }
-      throw new ApiError(
-        said || `서버가 거절했어요 (${response.status})`,
-        response.status,
-      );
-    }
-    return (await response.json()) as IngestResult;
+    return answered<IngestResult>(await sendForm("/api/ingest", form, READ_MS));
   } catch (e) {
     if (e instanceof ApiError) throw e;
 
     /*
       **왜 못 닿았는지를 적는다** (원칙 ③).
 
-      예전에는 "서버에 못 닿았어요. 인터넷을 확인해주세요" 한 문장이었다.
-      그런데 캡처 읽기는 30초 넘게 걸리는 유일한 요청이라, 다른 화면이
-      다 멀쩡한데 여기만 이 말이 나온다 — 그러면 인터넷을 봐도 아무
-      단서가 없다. 실제로 그 문장 하나로 원인을 못 좁혔다.
-
       두 가지를 같이 적는다:
         · 안드로이드가 한 말 ("Unable to resolve host" 는 주소 문제,
           "Software caused connection abort" 는 중간에 끊긴 것이다)
         · **몇 초 만에** 끊겼는지 (3초면 못 닿은 것이고, 40초면 읽다가
           끊긴 것이다 — 둘은 완전히 다른 고장이다)
+
+      이 0초가 이번 버그를 잡았다: 신호가 아니라 **나가지도 못한 것**
+      이라는 뜻이었다.
     */
-    const secs = Math.round((Date.now() - began) / 1000);
-    if (e instanceof Error && e.name === "AbortError") {
+    if (e instanceof SentFail) {
       throw new ApiError(
-        `읽는 데 너무 오래 걸려요 (${secs}초). 캡처를 줄여서 다시 해보세요`,
+        e.timedOut
+          ? `읽는 데 너무 오래 걸려요 (${e.secs}초). 캡처를 줄여서 다시 해보세요`
+          : `서버에 못 닿았어요 · ${e.secs}초 만에 끊겼어요 (${e.said})`,
         0,
       );
     }
-    const said = e instanceof Error ? e.message : String(e);
     throw new ApiError(
-      `서버에 못 닿았어요 · ${secs}초 만에 끊겼어요 (${said})`,
+      `서버에 못 닿았어요 (${e instanceof Error ? e.message : String(e)})`,
       0,
     );
-  } finally {
-    clearTimeout(timer);
   }
 }
 

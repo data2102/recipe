@@ -183,14 +183,27 @@ export default function Plan({
         </div>
 
         {/*
-          지난 날은 **물어보되 자동으로 기록하지 않는다.** 약속이 생겨
-          건너뛴 날이 흔한데 자동으로 체크하면 안 만든 게 만든 것으로
-          남고, last_cooked_on 하나가 추천과 정렬을 통째로 틀어놓는다.
+          **오늘 것도 여기서 기록한다** (2026-09-21).
+
+          예전에는 지난 날만 물어봤다. 그런데 만들고 나서 기록하는 자리가
+          레시피 상세 안에만 있어서, 오늘 저녁을 만든 사람이 식단에서
+          그 줄을 보면서도 **눌러둘 데가 없었다** — 요리를 열고 들어가야
+          했다. 식단은 "뭘 먹기로 했더라" 를 보는 자리고, 그 답이 곧
+          "만들었다" 이다.
+
+          **앞날은 없다.** 아직 안 만든 날을 만들었다고 적을 수는 없다
+          (지난 날 고르기가 오늘까지만 내는 것과 같은 규칙이다).
+
+          **자동으로 기록하지 않는 규칙은 그대로다.** 약속이 생겨 건너뛴
+          날이 흔한데 자동으로 체크하면 안 만든 게 만든 것으로 남고,
+          last_cooked_on 하나가 추천과 정렬을 통째로 틀어놓는다.
         */}
-        {p.past && !p.cooked && p.plannedOn && (
+        {!p.cooked && p.plannedOn && p.plannedOn <= today && (
           <div className={styles.ask}>
             <p className={styles.askText}>
-              {dateFull(p.plannedOn)}이 지났어요. 만들었어요?
+              {p.past
+                ? `${dateFull(p.plannedOn)}이 지났어요. 만들었어요?`
+                : "오늘 만들기로 한 메뉴예요"}
             </p>
             <div className={styles.askRow}>
               <form action={markCooked}>
@@ -201,17 +214,23 @@ export default function Plan({
                 </button>
               </form>
               {/*
-                **안 먹었어요는 그 날짜에서만 뗀다.** 예전에는 날짜를 비운
+                **안 먹었어요는 지난 날에만 낸다.** 오늘은 아직 저녁이
+                안 끝났다 — 그때 "안 먹었어요" 를 내면 아직 일어나지도
+                않은 일을 묻는 것이고, 누르면 오늘 자리에서 떨어진다.
+
+                지난 날이면 **그 날짜에서만** 뗀다. 예전에는 날짜를 비운
                 planOnDate 였는데, 날짜마다 한 행이 되면서 그건 미정 줄을
                 하나 더 담는 일이 됐다 (지난 날짜는 그대로 남고).
               */}
-              <form action={skipDate}>
-                <input type="hidden" name="id" value={p.recipe_id} />
-                <input type="hidden" name="date" value={p.plannedOn} />
-                <button type="submit" className="ds-btn ds-btn-secondary">
-                  안 먹었어요
-                </button>
-              </form>
+              {p.past && (
+                <form action={skipDate}>
+                  <input type="hidden" name="id" value={p.recipe_id} />
+                  <input type="hidden" name="date" value={p.plannedOn} />
+                  <button type="submit" className="ds-btn ds-btn-secondary">
+                    안 먹었어요
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         )}
