@@ -4,7 +4,9 @@ export type VideoRecipe = { id: string; title: string; channel: string; descript
 type Video = { id: string; snippet: { title: string; channelTitle: string; description: string } };
 async function api(path: string, params: Record<string, string>) {
   const key = process.env.YOUTUBE_API_KEY;
-  if (!key) throw new Error("유튜브 검색을 준비 중이에요. 캡처나 글로 레시피를 추가할 수 있어요.");
+  // **무엇이 없는지 말한다** (원칙 ③). "준비 중이에요" 는 곧 될 것처럼
+  // 읽히는데, 실제로는 키를 넣기 전까지 영영 안 된다.
+  if (!key) throw new Error("서버에 YOUTUBE_API_KEY 를 넣고 다시 배포해야 찾을 수 있어요. 캡처나 글로는 지금도 넣을 수 있어요.");
   const url = new URL(`https://www.googleapis.com/youtube/v3/${path}`);
   Object.entries({ ...params, key }).forEach(([k, v]) => url.searchParams.set(k, v));
   const response = await fetch(url, { next: { revalidate: 900 }, signal: AbortSignal.timeout(12000) });

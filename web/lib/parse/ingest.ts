@@ -18,7 +18,13 @@
  * 고쳐진다. 화면은 폼이든 멀티파트든 값으로 바꿔서 여기로 넘긴다.
  */
 
-import { currentAsk, hasKey, MEDIA_TYPES, type Source } from "./claude";
+import {
+  currentAsk,
+  hasKey,
+  MEDIA_TYPES,
+  SetupError,
+  type Source,
+} from "./claude";
 import { loadDictionary, normalize, type NormalizedItem } from "./normalize";
 import { MAX_BYTES, MAX_IMAGES, keepOriginal, readOriginal } from "./originals";
 import { kindOf, normalizeUrl, readLink } from "./link";
@@ -64,6 +70,9 @@ export type Draft = {
  */
 const KEY_HINT =
   "서버에 ANTHROPIC_API_KEY 를 넣고 다시 배포해야 캡처를 읽을 수 있어요.";
+
+/** 설정이 막혔을 때 — **올린 건 남아 있다는 것만** 말한다 */
+const KEY_HINT_KEEP = "올린 건 그대로 보관했어요.";
 
 export type IngestResult =
   | { ok: true; draft: Draft }
@@ -246,6 +255,17 @@ async function readAndDraft(
   } catch (e) {
     const raw = e instanceof ParseError ? e.rawText : null;
     await recordParsed(assetIds, raw).catch(() => {});
+    /*
+      **캡처를 다시 찍으라고 아무 때나 말하지 마라.**
+
+      키가 막혔거나 한도를 넘은 것은 캡처와 아무 상관이 없다. 그때
+      "재료가 잘 보이는 캡처로 다시 해보세요" 를 내면 쓰는 사람은
+      캡처를 바꿔가며 계속 시도한다 — 아무리 해도 안 되는 일이다.
+      무엇이 막혔는지 말하고, 그때는 다시 해보라는 말을 안 한다.
+    */
+    if (e instanceof SetupError) {
+      return { ok: false, message: e.message, hint: KEY_HINT_KEEP };
+    }
     return {
       ok: false,
       message:
