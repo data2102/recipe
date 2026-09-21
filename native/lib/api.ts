@@ -62,9 +62,20 @@ export class ApiError extends Error {
 /** 마트에서는 신호가 나쁘다. 영영 기다리게 두지 않는다 */
 const TIMEOUT_MS = 12_000;
 
+/**
+ * **유튜브는 12초로 부족하다.**
+ *
+ * 서버가 구글에 **두 번** 간다 (검색 한 번, 영상 상세 한 번) — 각각
+ * 12초를 쓸 수 있고 (`lib/youtube-search.ts`), 앞에 Vercel 콜드 스타트가
+ * 붙을 수도 있다. 서버 쪽은 30초를 허용해뒀는데(`maxDuration`) 폰이
+ * **12초에 먼저 포기**하고 있었다 — 서버는 아직 일하는 중인데 앱은
+ * 실패라고 적는다. 기다리는 쪽을 서버에 맞춘다.
+ */
+const SLOW_MS = 30_000;
+
 async function call<T>(
   path: string,
-  init?: { method?: string; json?: unknown },
+  init?: { method?: string; json?: unknown; slow?: boolean },
 ): Promise<T> {
   if (!BASE) {
     throw new ApiError(
@@ -74,7 +85,11 @@ async function call<T>(
   }
 
   const stop = new AbortController();
-  const timer = setTimeout(() => stop.abort(), TIMEOUT_MS);
+  const timer = setTimeout(
+    () => stop.abort(),
+    init?.slow ? SLOW_MS : TIMEOUT_MS,
+  );
+  const began = Date.now();
 
   let response: Response;
   try {
@@ -90,12 +105,30 @@ async function call<T>(
       signal: stop.signal,
     });
   } catch (e) {
-    // 끊긴 것과 느린 것을 가른다. 마트 지하에서는 둘 다 흔하다.
-    const why =
-      e instanceof Error && e.name === "AbortError"
-        ? "서버가 너무 느려요. 신호가 약한 곳인지 봐주세요"
-        : "서버에 못 닿았어요. 인터넷을 확인해주세요";
-    throw new ApiError(why, 0);
+    /*
+      **끊긴 것과 느린 것을 가르고, 몇 초 만인지까지 적는다** (원칙 ③).
+
+      예전에는 "서버에 못 닿았어요. 인터넷을 확인해주세요" 한 문장이
+      전부였다. 그런데 다른 화면은 멀쩡한데 이 화면만 그러면 인터넷을
+      봐도 아무 단서가 없다 — 실제로 그 문장 하나로 원인을 못 좁혔다.
+      캡처(`ingestCall`)에만 넣어뒀던 것을 **모든 경로**에 맞춘다.
+
+      3초면 못 닿은 것이고 25초면 가다가 끊긴 것이다. 안드로이드가 한
+      말("Unable to resolve host" 는 주소, "Software caused connection
+      abort" 는 중간에 끊김)도 그대로 싣는다.
+    */
+    const secs = Math.round((Date.now() - began) / 1000);
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new ApiError(
+        `서버가 너무 느려요 (${secs}초). 신호가 약한 곳인지 봐주세요`,
+        0,
+      );
+    }
+    const said = e instanceof Error ? e.message : String(e);
+    throw new ApiError(
+      `서버에 못 닿았어요 · ${secs}초 만에 끊겼어요 (${said})`,
+      0,
+    );
   } finally {
     clearTimeout(timer);
   }
@@ -394,6 +427,7 @@ export const youtube = {
   one: (id: string) =>
     call<{ ok: true; video: VideoRecipe } | { ok: false; message: string }>(
       `/api/youtube?id=${encodeURIComponent(id)}`,
+      { slow: true },
     ),
 
   search: (q: string, page = "") =>
@@ -404,6 +438,7 @@ export const youtube = {
       `/api/youtube?q=${encodeURIComponent(q)}${
         page ? `&page=${encodeURIComponent(page)}` : ""
       }`,
+      { slow: true },
     ),
 };
 
