@@ -28,7 +28,10 @@ try {
   globalThis.fetch = async () => new Response('{}',{status:403});
   await assert.rejects(()=>searchYoutube('두부'),/한도/);
   delete process.env.YOUTUBE_API_KEY;
-  await assert.rejects(()=>searchYoutube('두부'),/준비 중/);
+  // **무엇이 없는지 말해야 한다** (원칙 ③). "준비 중이에요" 는 곧 될
+  // 것처럼 읽히는데, 키를 넣기 전까지 영영 안 된다 — 그래서 이 검사는
+  // 문구가 아니라 **키 이름이 들어 있는지**를 본다.
+  await assert.rejects(()=>searchYoutube('두부'),/YOUTUBE_API_KEY/);
   console.log('PASS YouTube API: batch filtering, pagination, selection validation, quota and missing key');
 } finally { globalThis.fetch = originalFetch; if(originalKey === undefined) delete process.env.YOUTUBE_API_KEY; else process.env.YOUTUBE_API_KEY=originalKey; }
 

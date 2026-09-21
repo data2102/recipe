@@ -29,6 +29,45 @@ export const MEDIA_TYPES: Record<string, ImageMediaType> = {
 export type Usage = { input: number; output: number };
 
 /**
+ * **서버 설정이 문제일 때.** 캡처가 나쁜 게 아니다.
+ *
+ * 예전에는 키가 죽었을 때도 "레시피를 읽다가 막혔어요 · 재료가 잘
+ * 보이는 캡처로 다시 해보세요" 가 나갔다. 그러면 쓰는 사람은 **캡처를
+ * 바꿔가며 계속 시도한다** — 아무리 해도 안 되는 일을 시킨 것이다.
+ *
+ * 무엇이 없는지 말한다 (원칙 ③). 배포한 사람이 곧 쓰는 사람이라
+ * 그 말이 그대로 다음 걸음이 된다.
+ */
+export class SetupError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SetupError";
+  }
+}
+
+/**
+ * Anthropic 이 던진 것을 사람 말로 바꾼다.
+ *
+ * 설정·한도 문제(401·403·402·429)만 가른다. 나머지는 그대로 올려보낸다 —
+ * 지어내면 진짜 고장이 설정 문제로 둔갑한다.
+ */
+function asSetupError(e: unknown): unknown {
+  const status = (e as { status?: number })?.status;
+  if (status === 401 || status === 403) {
+    return new SetupError(
+      "서버의 ANTHROPIC_API_KEY 가 막혔어요. 키를 새로 넣고 다시 배포해주세요.",
+    );
+  }
+  if (status === 402) {
+    return new SetupError("Anthropic 크레딧이 떨어졌어요.");
+  }
+  if (status === 429) {
+    return new SetupError("잠깐 한도를 넘었어요. 조금 뒤에 다시 해주세요.");
+  }
+  return e;
+}
+
+/**
  * 프롬프트 하나를 보내고 글자를 받는다.
  * `sources` 가 비면 이미지를 붙이지 않는다 — 2차 패스가 그 경우다.
  */
@@ -88,11 +127,16 @@ export function anthropicAsk(model = process.env.PARSER_MODEL || "claude-sonnet-
     }
     content.push({ type: "text", text: prompt });
 
-    const r = await client.messages.create({
-      model,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content }],
-    });
+    let r;
+    try {
+      r = await client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content }],
+      });
+    } catch (e) {
+      throw asSetupError(e);
+    }
 
     const text = r.content
       .filter((b) => b.type === "text")
