@@ -17,6 +17,7 @@
  * 앱을 다시 올린다. 진짜 비밀(DB 접속 문자열·API 키)은 절대 안 싣는다.
  */
 
+import { runningTail } from "./build";
 import type {
   Bucket,
   Have,
@@ -217,7 +218,7 @@ async function call<T>(
     }
     const said = e instanceof Error ? e.message : String(e);
     throw new ApiError(
-      `서버에 못 닿았어요 · ${secs}초 만에 끊겼어요 (${said})`,
+      `서버에 못 닿았어요 · ${secs}초 만에 끊겼어요 (${said}${runningTail()})`,
       0,
     );
   } finally {
@@ -461,7 +462,7 @@ export const photos = {
         throw new ApiError(
           e.timedOut
             ? `사진을 올리는 데 너무 오래 걸려요 (${e.secs}초)`
-            : `사진을 못 보냈어요 · ${e.secs}초 만에 끊겼어요 (${e.said})`,
+            : `사진을 못 보냈어요 · ${e.secs}초 만에 끊겼어요 (${e.said}${runningTail()})`,
           0,
         );
       }
@@ -657,7 +658,7 @@ async function ingestCall(
       throw new ApiError(
         e.timedOut
           ? `읽는 데 너무 오래 걸려요 (${e.secs}초). 캡처를 줄여서 다시 해보세요`
-          : `서버에 못 닿았어요 · ${e.secs}초 만에 끊겼어요 (${e.said})`,
+          : `서버에 못 닿았어요 · ${e.secs}초 만에 끊겼어요 (${e.said}${runningTail()})`,
         0,
       );
     }
