@@ -21,6 +21,12 @@ import * as Updates from "expo-updates";
 
 export function runningSay(): string {
   try {
+    /*
+      **개발 중에는 둘 다 아니다.** `isEmbeddedLaunch` 는 개발 번들에서도
+      false 라, 이 줄이 없으면 맥에서 띄워 보는 동안 "내려받은 묶음" 이라고
+      적힌다 — 진단이 거짓말을 하면 그걸 쫓느라 하루를 태운다.
+    */
+    if (__DEV__) return "개발 중";
     if (Updates.isEmbeddedLaunch) return "앱 그대로";
     const when = Updates.createdAt;
     return when

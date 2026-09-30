@@ -49,6 +49,7 @@ import {
 import PlanSheet from "../../components/PlanSheet";
 import { shrink } from "../../lib/shrink";
 import Tap from "../../components/Tap";
+import Scroll from "../../components/Scroll";
 import { radius, sp, themed, TOUCH } from "../../lib/tokens";
 
 export default function Recipe() {
@@ -288,10 +289,9 @@ export default function Recipe() {
       );
 
     return (
-      <ScrollView
+      <Scroll
         style={[s.screen, { paddingTop: insets.top }]}
         contentContainerStyle={s.body}
-        keyboardShouldPersistTaps="handled"
       >
         <Text style={s.title}>레시피 고치기</Text>
         {/*
@@ -402,7 +402,7 @@ export default function Recipe() {
         <Tap style={s.quiet} disabled={busy} onPress={() => setEdit(null)}>
           <Text style={s.quietText}>그만두기</Text>
         </Tap>
-      </ScrollView>
+      </Scroll>
     );
   }
 

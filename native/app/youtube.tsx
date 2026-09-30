@@ -19,7 +19,6 @@ import {
   ActivityIndicator,
   Image,
   Linking,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -27,6 +26,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError, youtube as youtubeApi, type VideoRecipe } from "../lib/api";
 import Tap from "../components/Tap";
+import Scroll from "../components/Scroll";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 export default function Youtube() {
@@ -74,10 +74,9 @@ export default function Youtube() {
   }
 
   return (
-    <ScrollView
+    <Scroll
       style={[s.screen, { paddingTop: insets.top }]}
       contentContainerStyle={s.body}
-      keyboardShouldPersistTaps="handled"
     >
       <Tap style={s.back} onPress={() => router.back()}>
         <Text style={s.backText}>← 돌아가기</Text>
@@ -175,7 +174,7 @@ export default function Youtube() {
           )}
         </>
       )}
-    </ScrollView>
+    </Scroll>
   );
 }
 
