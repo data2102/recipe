@@ -368,7 +368,14 @@ export default function Plan() {
                 </Text>
                 {isToday && <Text style={s.badge}>오늘</Text>}
                 <View style={s.spacer} />
-                {!day.note && editing !== day.date && day.date >= today && (
+                {/*
+                  **아무 날에나 적는다 — 지난 날도** (2026-09-30).
+                  메모는 앞으로의 약속이 아니라 **그날의 기록**이다.
+                  회식이라 건너뛴 날도, 만들고 보니 짰던 날도 여기 적는다.
+                  웹도 같은 규칙이다 (`web/app/Plan.tsx` 의 `canNote`) —
+                  누르는 모양만 다르다: 저쪽은 날짜 줄을 누른다.
+                */}
+                {!day.note && editing !== day.date && (
                   <Tap
                     style={s.addNote}
                     onPress={() => {
@@ -394,7 +401,7 @@ export default function Plan() {
                     onChangeText={setDraft}
                     maxLength={NOTE_MAX}
                     autoFocus
-                    placeholder="저녁 약속, 외식, 야근…"
+                    placeholder="저녁 약속, 외식, 그날 있었던 일…"
                     placeholderTextColor={c.textDisabled}
                     onSubmitEditing={() => void saveNote(day.date, draft)}
                   />
