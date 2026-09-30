@@ -86,7 +86,7 @@ export default async function Home() {
           아홉 번 반복됐다. 어떻게 하는지는 여기서 한 줄로 알려준다.
         */}
           <p className={styles.hint}>
-            약속이 있는 날은 날짜를 눌러 적어두세요.
+            약속도 그날 있었던 일도, 날짜를 눌러 적어두세요.
           </p>
         </header>
 

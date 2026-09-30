@@ -304,7 +304,7 @@ export default function Plan({
             defaultValue={day.note}
             maxLength={NOTE_MAX}
             autoFocus
-            placeholder="저녁 약속, 외식, 야근…"
+            placeholder="저녁 약속, 외식, 그날 있었던 일…"
             aria-label={`${dateFull(day.iso)} 메모`}
           />
           <button type="submit" className="ds-btn ds-btn-secondary">
@@ -350,28 +350,34 @@ export default function Plan({
 
       {days.map((day, i) => {
         /*
-          적을 게 없는 **앞으로의** 날 — 여기를 누르면 메모를 적는다.
-          지난 날은 안 누른다: 지나간 날에 약속을 적을 일은 없다.
+          **날짜 줄을 누르면 그날 메모를 적는다 — 아무 날이나** (2026-09-30).
+
+          예전에는 앞날의 **빈** 날만 열려 있었다. 메모를 "앞으로의 약속"
+          으로만 봤기 때문인데, 쓰는 사람이 지나간 날에도 적고 싶다고
+          했다 — 메모는 **그날의 기록**이다. 회식이라 건너뛴 날도, 만들고
+          보니 짰던 날도 거기 적는다.
+
+          그래서 문턱 둘을 다 뗐다: 지난 날도, 메뉴가 담긴 날도 열린다.
+          남은 조건은 "아직 메모가 없다" 와 "지금 고치는 중이 아니다"
+          뿐이다 — 메모가 있으면 그 줄의 **고치기**가 그 자리다.
         */
-        const empty =
-          !day.note &&
-          editing !== day.iso &&
-          day.iso >= today &&
-          day.dishes.length === 0;
+        const canNote = !day.note && editing !== day.iso;
         return (
           <div key={day.iso} ref={day.iso === today ? todayRef : undefined}>
             {i === 7 && <h2 className={styles.weekMark}>다음 주</h2>}
             <section
               className={`${styles.day} ${day.iso === today ? styles.todayDay : ""} ${
                 day.iso < today ? styles.pastDay : ""
-              } ${empty ? styles.tappable : ""}`}
+              }`}
             >
               {/*
               빈 날은 한 줄이다. 열나흘마다 "아직 안 정했어요" 를 적으면
               화면의 절반이 그 말이 된다 — 안 정한 건 비어 있는 것으로 보인다.
               메모 버튼도 날짜 줄 오른쪽에 붙여서 줄을 안 늘린다.
             */}
-              <div className={styles.dayHead}>
+              <div
+                className={`${styles.dayHead} ${canNote ? styles.tappable : ""}`}
+              >
                 {/*
                 **날짜를 누르면 메모를 적는다.**
 
@@ -384,7 +390,8 @@ export default function Plan({
                 터치하면" 이라고 말한 방식이고, 담기 판도 같은 식이다.
                 어떻게 하는지는 화면 맨 위 부제가 **한 번** 말한다.
 
-                지난 날은 못 누른다. 지나간 날에 약속을 적을 일은 없다.
+                **지난 날도 누른다** (2026-09-30). 메모는 앞으로의 약속이
+                아니라 그날의 기록이라, 지나간 날에도 적을 자리가 있어야 한다.
               */}
                 <h3 className={styles.dayName}>
                   <span className={styles.date}>{dateSay(day.iso)}</span>
@@ -404,8 +411,13 @@ export default function Plan({
                 줄을 덮는 버튼을 깔면 높이는 그대로고 누를 데는 훨씬
                 넓어진다. 글자 위가 아니라 **아래**에 깔아서(z-index 없이
                 먼저 그린다) 날짜 글자를 고르거나 복사하는 걸 막지 않는다.
+
+                **덮는 건 날짜 줄까지다 — 카드가 아니다.** 기준점이
+                `.day` 에 있으면 `inset: 0` 이 요리 줄 위까지 덮어서
+                메뉴를 못 누르게 된다. 메뉴가 담긴 날에도 메모를 열게
+                되면서 실제로 걸리는 자리다 (2026-09-30).
               */}
-                {empty && (
+                {canNote && (
                   <button
                     type="button"
                     className={styles.dayTap}

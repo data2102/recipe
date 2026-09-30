@@ -398,6 +398,20 @@ async function main() {
     assert.equal((await notes(noteDay, noteDay))[noteDay], "회식");
     await setNote(noteDay, "   ");
     assert.deepEqual(await notes(noteDay, noteDay), {}, "빈 메모는 행을 남기지 않는다");
+
+    /*
+      **지난 날에도 적힌다** (2026-09-30). 메모는 앞으로의 약속이 아니라
+      그날의 기록이다 — 회식이라 건너뛴 날도 거기 적는다. 서버는 원래
+      날짜를 안 가렸고 잠금은 화면에만 있었는데, 그 전제를 여기서 못박는다.
+    */
+    const gone = addDays(monday, -3);
+    await setNote(gone, "회식이라 못 만들었어요");
+    assert.equal(
+      (await notes(gone, gone))[gone],
+      "회식이라 못 만들었어요",
+      "지난 날에도 메모가 적힌다",
+    );
+    await setNote(gone, "");
     assert.deepEqual(
       await notes(addDays(monday, -30), addDays(monday, -20)),
       {},
