@@ -527,6 +527,40 @@ implementation)`**. **0초가 답이었다** — 신호가 아니라 나가지�
 - **세 자리 전부에 붙인다** (`call` · `sendForm` 두 부름). 한 군데만
   고쳐서 같은 버그를 두 번 겪은 적이 있다 (2026-09-21)
 
+### 2026-09-30 글 적는 화면은 `components/Scroll` 을 쓴다
+
+쓰는 사람이 적어둔 것: **"레시피추가시 텍스트에서 스크롤이안됨."**
+붙여넣기 칸은 `/add` 맨 아래에 있는데 (캡처 고르기 · 유튜브 찾기 ·
+썸네일 다음), 키보드가 그 위를 덮고 화면은 안 밀려 올라갔다.
+
+- **앱에 키보드를 다루는 코드가 한 줄도 없었다** — `KeyboardAvoidingView`
+  · `automaticallyAdjustKeyboardInsets` · `softwareKeyboardLayoutMode`
+  셋 다 `app/` · `components/` · `app.json` 어디에도 없었다. 웹은
+  `<textarea>` 라 브라우저가 알아서 해줘서 **앱에만** 있던 문제다
+- **Expo SDK 54 부터 edge-to-edge 가 강제다** (끄는 설정 필드가 없어졌다).
+  Expo 자기 설정 문서가 이 조합을 두고 "may cause unexpected keyboard
+  behavior on Android … you will have to use `KeyboardAvoidingView`"
+  라고 적어놨다 — 짐작이 아니라 문서에 적힌 원인이다
+- **`behavior` 는 `padding` 이다 — 안드로이드에서도.** 흔히 안드로이드는
+  `height` 라고들 하는데, `padding` 은 RN 이 **자기 자리를 재서** 정한다
+  (`Math.max(frame.y + frame.height - keyboardY, 0)`). 창이 이미 줄어든
+  기기에서는 0 이 되어 **두 번 밀지 않는다** — 안드로이드 버전이 달라도
+  한 벌로 돈다. 설치된 RN 소스를 읽고 고른 값이다
+- **텍스트 칸에 `maxHeight` 를 걸지 마라.** 걸고 싶어지지만 그러면 칸
+  안에 스크롤이 생기고 그 드래그를 바깥 ScrollView 가 가로챈다 — 고친
+  증상을 다른 모양으로 되돌리는 셈이다. 칸은 자라게 두고 **페이지가
+  스크롤한다**
+- **민 만큼 키보드가 내려간다** (`keyboardDismissMode="on-drag"`).
+  가려진 것을 보려고 미는 동작이 곧 치우는 동작이다
+- 건 자리 다섯: 식단 · 메뉴 고르기 · 유튜브 · 레시피 넣기(둘) ·
+  레시피 고치기. **입력칸이 있는 ScrollView 는 전부다** — 한 군데만
+  고치면 다음에 거기서 또 겪는다
+- 레시피 상세의 **읽는** 화면은 그대로 `ScrollView` 다. 입력칸이 없다
+- **개발 중에는 `runningSay()` 가 "개발 중" 이라고 말한다.**
+  `isEmbeddedLaunch` 는 개발 번들에서도 false 라, 안 가르면 맥에서 띄워
+  보는 동안 "내려받은 묶음" 이라고 적힌다 — 진단이 거짓말을 하면 그걸
+  쫓느라 하루를 태운다 (웹으로 띄워 보다가 실제로 발견했다)
+
 ---
 
 ## 자주 쓰는 명령

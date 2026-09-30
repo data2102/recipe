@@ -20,7 +20,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -45,6 +44,7 @@ import {
 } from "../lib/pure";
 import PlanSheet from "../components/PlanSheet";
 import Tap from "../components/Tap";
+import Scroll from "../components/Scroll";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 export default function Plan() {
@@ -317,7 +317,7 @@ export default function Plan() {
   }
 
   return (
-    <ScrollView
+    <Scroll
       style={[s.screen, { paddingTop: insets.top }]}
       contentContainerStyle={s.body}
       refreshControl={
@@ -453,7 +453,7 @@ export default function Plan() {
       <Tap style={s.secondaryBlock} onPress={() => router.push("/weeks")}>
         <Text style={s.secondaryText}>지난 주 보기</Text>
       </Tap>
-    </ScrollView>
+    </Scroll>
   );
 }
 

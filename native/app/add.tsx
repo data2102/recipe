@@ -36,6 +36,7 @@ import {
 } from "../lib/api";
 import { shrink } from "../lib/shrink";
 import Tap from "../components/Tap";
+import Scroll from "../components/Scroll";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 type Stage = "pick" | "reading" | "confirm";
@@ -219,10 +220,9 @@ export default function Add() {
     const settled = draft.items.filter((it) => it.answered && it.confirmed);
 
     return (
-      <ScrollView
+      <Scroll
         style={[s.screen, { paddingTop: insets.top }]}
         contentContainerStyle={s.body}
-        keyboardShouldPersistTaps="handled"
       >
         <Text style={s.title}>이대로 저장할까요</Text>
         <Text style={s.sub}>
@@ -338,16 +338,15 @@ export default function Add() {
         <Tap style={s.quiet} onPress={() => router.back()}>
           <Text style={s.quietText}>그만두기</Text>
         </Tap>
-      </ScrollView>
+      </Scroll>
     );
   }
 
   /* ---------------- 고르기 ---------------- */
   return (
-    <ScrollView
+    <Scroll
       style={[s.screen, { paddingTop: insets.top }]}
       contentContainerStyle={s.body}
-      keyboardShouldPersistTaps="handled"
     >
       <Tap style={s.back} onPress={() => router.back()}>
         <Text style={s.backText}>← 돌아가기</Text>
@@ -413,7 +412,7 @@ export default function Add() {
       <Text style={s.hint}>
         영상에서 장면 뽑기는 아직 웹에서만 돼요.
       </Text>
-    </ScrollView>
+    </Scroll>
   );
 }
 

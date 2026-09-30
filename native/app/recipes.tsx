@@ -20,7 +20,6 @@ import {
   ActivityIndicator,
   Image,
   RefreshControl,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -43,6 +42,7 @@ import {
 } from "../lib/pure";
 import PlanSheet from "../components/PlanSheet";
 import Tap from "../components/Tap";
+import Scroll from "../components/Scroll";
 import { radius, sp, themed, TOUCH } from "../lib/tokens";
 
 /**
@@ -166,10 +166,9 @@ export default function Recipes() {
   );
 
   return (
-    <ScrollView
+    <Scroll
       style={[s.screen, { paddingTop: insets.top }]}
       contentContainerStyle={s.body}
-      keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={() => void load()} />
       }
@@ -346,7 +345,7 @@ export default function Recipes() {
           )}
         </View>
       )}
-    </ScrollView>
+    </Scroll>
   );
 }
 
