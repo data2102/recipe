@@ -1,0 +1,28 @@
+{
+  "draft": {
+    "title": "고추장 삼겹살",
+    "items": [
+      {"raw_name":"삼겹살","raw_qty":"5줄","section":"재료","origin":"BODY","evidence":"제목의 '[삼겹살 5줄 기준]' — 재료 목록이 아니라 분량 기준으로만 적혀 있어요","choice_group":null,"bucket":"CHECK","label":"삼겹살","confirmed":true,"answered":true},
+      {"raw_name":"고추장","raw_qty":"2큰술","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"고추장","confirmed":true,"answered":true},
+      {"raw_name":"고춧가루","raw_qty":"2큰술","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"고춧가루","confirmed":true,"answered":true},
+      {"raw_name":"간장","raw_qty":"1큰술","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"CHECK","label":"간장","confirmed":true,"answered":true},
+      {"raw_name":"맛술","raw_qty":"2큰술","section":"양념","origin":"LIST","evidence":null,"choice_group":"c1","bucket":"CHECK","label":"맛술","confirmed":true,"answered":true},
+      {"raw_name":"소주","raw_qty":"2큰술","section":"양념","origin":"LIST","evidence":null,"choice_group":"c1","bucket":"CHECK","label":"소주","confirmed":false,"answered":true},
+      {"raw_name":"알룰로스","raw_qty":"2큰술","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"알룰로스","confirmed":true,"answered":true},
+      {"raw_name":"매실액","raw_qty":"2큰술","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"UNMAPPED","label":"매실액","confirmed":true,"answered":true},
+      {"raw_name":"다진마늘","raw_qty":"1큰술","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"다진마늘","confirmed":true,"answered":true},
+      {"raw_name":"후추","raw_qty":"톡톡","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"후추","confirmed":true,"answered":true}
+    ],
+    "steps": [
+      "양념장 재료를 잘 섞어서 영상의 순서대로 만들어보세요.",
+      "💡 만드는 법은 원문 영상에 있어요 — 글에는 양념장 비율만 적혀 있습니다.",
+      "💡 맛술 대신 소주를 써도 된다고 적혀 있어요 (둘 중 하나만).",
+      "💡 원문: 인스타그램 @with_bini_ (캡처로 받아서 링크는 없어요)"
+    ],
+    "choiceGroups": [["맛술","소주"]],
+    "assetIds": [],
+    "sourceUrl": null,
+    "sourceKind": "MANUAL",
+    "usage": {"input": 0, "output": 0}
+  }
+}
