@@ -1,0 +1,32 @@
+{
+  "draft": {
+    "title": "참치무조림",
+    "items": [
+      {"raw_name":"무","raw_qty":"700g","section":"재료","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"무","confirmed":true,"answered":true},
+      {"raw_name":"참치캔","raw_qty":"2개 (작은사이즈)","section":"재료","origin":"LIST","evidence":null,"choice_group":null,"bucket":"UNMAPPED","label":"참치캔","confirmed":true,"answered":true},
+      {"raw_name":"대파","raw_qty":"약간","section":"재료","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"대파","confirmed":true,"answered":true},
+      {"raw_name":"물","raw_qty":"600ml","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"물","confirmed":true,"answered":true},
+      {"raw_name":"간장","raw_qty":"2스푼","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"CHECK","label":"간장","confirmed":true,"answered":true},
+      {"raw_name":"미림","raw_qty":"1스푼","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"UNMAPPED","label":"미림","confirmed":true,"answered":true},
+      {"raw_name":"참치액","raw_qty":"2스푼","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"참치액","confirmed":true,"answered":true},
+      {"raw_name":"고춧가루","raw_qty":"2스푼","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"고춧가루","confirmed":true,"answered":true},
+      {"raw_name":"설탕","raw_qty":"2스푼","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"설탕","confirmed":true,"answered":true},
+      {"raw_name":"다진마늘","raw_qty":"1스푼","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"다진마늘","confirmed":true,"answered":true},
+      {"raw_name":"된장","raw_qty":"1스푼","section":"양념","origin":"LIST","evidence":null,"choice_group":null,"bucket":"MAPPED","label":"된장","confirmed":true,"answered":true}
+    ],
+    "steps": [
+      "무 700g을 먹기 좋은 크기로 썰어 냄비에 넣고, 물 600ml를 잠기도록 부어주고, 간장 2스푼, 미림 1스푼, 참치액 2스푼, 고춧가루 2스푼, 설탕 2스푼, 다진마늘 1스푼, 된장 1스푼을 풀어 넣어주세요.",
+      "뚜껑 닫고 30분 정도 끓여주세요.",
+      "물이 반쯤 줄면 대파 한줌, 참치캔 2개 넣고 10분 정도 더 조리면 완성이에요.",
+      "💡 된장 1스푼이 생선 없이도 깊은 맛을 내줘요.",
+      "💡 무는 크게 썰수록 오래 걸리니 편한 크기로 썰어주세요.",
+      "💡 넉넉한 2인분이에요. 정호영 셰프님 레시피를 참고했다고 적혀 있어요.",
+      "💡 원문: 인스타그램 @_akkikki_ (캡처로 받아서 링크는 없어요)"
+    ],
+    "choiceGroups": [],
+    "assetIds": [],
+    "sourceUrl": null,
+    "sourceKind": "MANUAL",
+    "usage": {"input": 0, "output": 0}
+  }
+}

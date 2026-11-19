@@ -561,6 +561,32 @@ implementation)`**. **0초가 답이었다** — 신호가 아니라 나가지�
   보는 동안 "내려받은 묶음" 이라고 적힌다 — 진단이 거짓말을 하면 그걸
   쫓느라 하루를 태운다 (웹으로 띄워 보다가 실제로 발견했다)
 
+### 2026-11-19 키가 막힌 동안 레시피를 넣는 우회로 — **임시다**
+
+쓰는 사람이 말한 것: **"지금 api키가 막혀서 레시피추가가안되는데 당분간
+사진주면 너가 업로드해놔."**
+
+- **막힌 건 파싱뿐이다.** `/api/ingest` 는 `ANTHROPIC_API_KEY` 를 쓰지만
+  저장 경로(`/api/ingest/commit` → `commit()`)는 키를 안 쓴다. 그래서
+  **사람이 캡처를 읽어 초안을 적고 저장만 서버에 맡기면** 된다
+- **`tools/add_recipe.py` + `tools/queue/`** 가 그 자리다. 초안 JSON 을
+  `/api/ingest/commit` 에 넘길 뿐 **저장 로직을 다시 쓰지 않는다** —
+  사전 대조도 장보기 합산도 서버의 `commit()` 이 한다. 그래서 초안의
+  `bucket`·`label` 은 대충 적어도 서버가 제 값으로 덮는다
+- **같은 제목이 있으면 멈춘다.** 원본(`source_asset`)이 없는 초안은
+  서버의 중복 방지가 안 걸려서 두 번 보내면 레시피가 두 개 생긴다 —
+  실제로 재봤다. 그래서 도구가 `/api/recipes` 를 먼저 읽어 제목으로 막고,
+  일부러 또 넣을 때만 `--force`
+- **키가 돌아오면 둘 다 지운다.** 캡처를 앱에서 바로 넣는 게 본래
+  길이다. **원본 캡처가 안 남는 유일한 경로**라 오래 두면 안 된다
+  (원칙 ⑤ 가 안 지켜지는 자리다)
+- **`source_url` 을 나중에 못 채운다.** `recipes.edit` 는 제목·재료·
+  단계만 받는다. 캡처만 받고 링크를 모르면 출처가 영영 빈다 — 넣기 전에
+  링크를 물어라 (지시서 4장 저작권)
+- **미림이 실제로 나왔다** (참치무조림, 2026-11-19). "문서에 있는 별칭을
+  사전에 채우지 않는다" 로 일부러 비워둔 다섯 중 하나인데, 이제
+  `unmapped_term` 에 **실측으로** 쌓였다 — CSV 에 넣어도 되는 건 이때부터다
+
 ### 2026-10-28 미분류율을 재는 도구 · 재매핑 배치가 없다
 
 쓰는 사람이 물었다: **"유튜브에서 일괄로 등록하고 서로 공유하는
@@ -635,6 +661,7 @@ python tools/build_migrations.py                 # db/*.sql -> supabase/migratio
 python tools/build_migrations.py --check         # 어긋났는지만 확인
 python tools/verify_migration.py                 # 마이그레이션을 진짜 PostgreSQL 에
 DATABASE_URL=... python tools/unmapped_rate.py   # 미분류율 (지시서 8장 5번)
+APP_API_TOKEN=... python tools/add_recipe.py tools/queue/*.json   # 임시: 키 막혔을 때
 
 cd web && npm run dev                            # 앱 (http://localhost:3000)
 cd web && PARSER_FAKE=1 npm run dev              # LLM 없이 /add 화면만 돌려보기
